@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<style>
+
+body{
+font-family:Arial,sans-serif;
+margin:35px;
+font-size:13px;
+color:#222;
+}
+
+.header{
+text-align:center;
+border-bottom:2px solid #000;
+padding-bottom:15px;
+margin-bottom:20px;
+}
+
+.section{
+margin-top:20px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:8px;
+text-align:left;
+}
+
+th{
+background:#f2f2f2;
+}
+
+.instructions li{
+margin-bottom:8px;
+}
+
+.footer{
+margin-top:60px;
+display:flex;
+justify-content:space-between;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+
+<h1>Transit Fleets</h1>
+
+<h2>Driver Duty Sheet</h2>
+
+</div>
+
+<div class="section">
+
+<h3>Event Details</h3>
+
+<table>
+
+<tr>
+<td>Event</td>
+<td>{{event.eventName}}</td>
+</tr>
+
+<tr>
+<td>Client</td>
+<td>{{client.companyName}}</td>
+</tr>
+
+<tr>
+<td>Venue</td>
+<td>{{event.venue.name}}</td>
+</tr>
+
+<tr>
+<td>Reporting Time</td>
+<td>{{duty.reportingTime}}</td>
+</tr>
+
+<tr>
+<td>Start Date</td>
+<td>{{event.startDate}}</td>
+</tr>
+
+<tr>
+<td>End Date</td>
+<td>{{event.endDate}}</td>
+</tr>
+
+</table>
+
+</div>
+
+<div class="section">
+
+<h3>Vehicle & Driver</h3>
+
+<table>
+
+<tr>
+<td>Vehicle</td>
+<td>{{vehicle.vehicleNumber}}</td>
+</tr>
+
+<tr>
+<td>Vehicle Type</td>
+<td>{{vehicle.vehicleType}}</td>
+</tr>
+
+<tr>
+<td>Vendor</td>
+<td>{{vendor.vendorName}}</td>
+</tr>
+
+<tr>
+<td>Driver</td>
+<td>{{driver.name}}</td>
+</tr>
+
+<tr>
+<td>Driver Mobile</td>
+<td>{{driver.phone}}</td>
+</tr>
+
+</table>
+
+</div>
+
+<div class="section">
+
+<h3>Assigned Guests</h3>
+
+<table>
+
+<tr>
+
+<th>Sr.</th>
+
+<th>Guest</th>
+
+<th>Mobile</th>
+
+<th>Pickup</th>
+
+<th>Drop</th>
+
+</tr>
+
+{{#each guests}}
+
+<tr>
+
+<td>{{inc @index}}</td>
+
+<td>{{this.name}}</td>
+
+<td>{{this.phone}}</td>
+
+<td>{{this.pickupAddress}}</td>
+
+<td>{{this.dropAddress}}</td>
+
+</tr>
+
+{{/each}}
+
+</table>
+
+</div>
+
+<div class="section">
+
+<h3>Instructions</h3>
+
+<ul class="instructions">
+
+<li>Report at least 30 minutes before reporting time.</li>
+
+<li>Record starting odometer before first pickup.</li>
+
+<li>Share live location during guest pickup.</li>
+
+<li>Record ending odometer after the final guest drop.</li>
+
+<li>Contact Operations immediately for any emergency.</li>
+
+</ul>
+
+</div>
+
+<div class="section">
+
+<h3>Emergency Contacts</h3>
+
+<p>Operations: {{contacts.operations}}</p>
+
+<p>Client SPOC: {{contacts.clientSpoc}}</p>
+
+<p>Emergency: {{contacts.emergency}}</p>
+
+</div>
+
+<div class="footer">
+
+<div>
+
+Driver Signature
+
+_________________
+
+</div>
+
+<div>
+
+Operations Signature
+
+_________________
+
+</div>
+
+</div>
+
+</body>
+
+</html>
