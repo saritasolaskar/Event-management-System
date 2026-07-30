@@ -7,187 +7,279 @@ const AppError = require("../utils/appError");
 /**
  * Create Vehicle
  */
-const createVehicle = async (vehicleData, userId) => {
-  // Check Vendor Exists
-  const vendor = await vendorRepository.findById(vehicleData.vendor);
+const createVehicle = async (
+    vehicleData,
+    userId
+) => {
 
-  if (!vendor) {
-    throw new AppError("Vendor not found.", 404);
-  }
+    const vendor =
+        await vendorRepository.findById(
+            vehicleData.vendor
+        );
 
-  // Check Vehicle Number
-  const existingVehicle = await vehicleRepository.findByVehicleNumber(
-    vehicleData.vehicleNumber
-  );
+    if (!vendor) {
+        throw new AppError(
+            "Vendor not found.",
+            404
+        );
+    }
 
-  if (existingVehicle) {
-    throw new AppError("Vehicle number already exists.", 409);
-  }
+    const existingVehicle =
+        await vehicleRepository.findByVehicleNumber(
+            vehicleData.vehicleNumber
+        );
 
-  // Validate Driver (if assigned)
-  if (vehicleData.currentDriver) {
-    const driver = await driverRepository.findById(
-      vehicleData.currentDriver
+    if (existingVehicle) {
+        throw new AppError(
+            "Vehicle number already exists.",
+            409
+        );
+    }
+
+    if (vehicleData.currentDriver) {
+
+        const driver =
+            await driverRepository.findById(
+                vehicleData.currentDriver
+            );
+
+        if (!driver) {
+            throw new AppError(
+                "Driver not found.",
+                404
+            );
+        }
+
+        // Optional Business Rule
+        if (
+            driver.vendor.toString() !==
+            vehicleData.vendor.toString()
+        ) {
+            throw new AppError(
+                "Driver must belong to the selected vendor.",
+                400
+            );
+        }
+
+        const assignedVehicle =
+            await vehicleRepository.findByCurrentDriver(
+                vehicleData.currentDriver
+            );
+
+        if (assignedVehicle) {
+            throw new AppError(
+                "Driver is already assigned to another vehicle.",
+                409
+            );
+        }
+    }
+
+    vehicleData.createdBy = userId;
+    vehicleData.updatedBy = userId;
+
+    return await vehicleRepository.create(
+        vehicleData
     );
-
-    if (!driver) {
-      throw new AppError("Driver not found.", 404);
-    }
-
-    // Driver already assigned?
-    const assignedVehicle =
-      await vehicleRepository.findByCurrentDriver(
-        vehicleData.currentDriver
-      );
-
-    if (assignedVehicle) {
-      throw new AppError(
-        "Driver is already assigned to another vehicle.",
-        409
-      );
-    }
-  }
-
-  vehicleData.createdBy = userId;
-  vehicleData.updatedBy = userId;
-
-  return await vehicleRepository.create(vehicleData);
 };
 
 /**
  * Get All Vehicles
  */
 const getAllVehicles = async () => {
-  return await vehicleRepository.findAll();
+
+    return await vehicleRepository.findAll();
+
 };
 
 /**
  * Get Vehicle By ID
  */
-const getVehicleById = async (vehicleId) => {
-  const vehicle = await vehicleRepository.findById(vehicleId);
+const getVehicleById = async (
+    vehicleId
+) => {
 
-  if (!vehicle) {
-    throw new AppError("Vehicle not found.", 404);
-  }
+    const vehicle =
+        await vehicleRepository.findById(
+            vehicleId
+        );
 
-  return vehicle;
+    if (!vehicle) {
+        throw new AppError(
+            "Vehicle not found.",
+            404
+        );
+    }
+
+    return vehicle;
 };
 
 /**
  * Update Vehicle
  */
 const updateVehicle = async (
-  vehicleId,
-  updateData,
-  userId
+    vehicleId,
+    updateData,
+    userId
 ) => {
-  const vehicle = await vehicleRepository.findById(vehicleId);
 
-  if (!vehicle) {
-    throw new AppError("Vehicle not found.", 404);
-  }
+    const vehicle =
+        await vehicleRepository.findById(
+            vehicleId
+        );
 
-  // Validate Vendor
-  if (updateData.vendor) {
-    const vendor = await vendorRepository.findById(
-      updateData.vendor
-    );
-
-    if (!vendor) {
-      throw new AppError("Vendor not found.", 404);
-    }
-  }
-
-  // Validate Vehicle Number
-  if (
-    updateData.vehicleNumber &&
-    updateData.vehicleNumber !== vehicle.vehicleNumber
-  ) {
-    const existingVehicle =
-      await vehicleRepository.findByVehicleNumber(
-        updateData.vehicleNumber
-      );
-
-    if (existingVehicle) {
-      throw new AppError(
-        "Vehicle number already exists.",
-        409
-      );
-    }
-  }
-
-  // Validate Driver
-  if (updateData.currentDriver) {
-    const driver = await driverRepository.findById(
-      updateData.currentDriver
-    );
-
-    if (!driver) {
-      throw new AppError("Driver not found.", 404);
+    if (!vehicle) {
+        throw new AppError(
+            "Vehicle not found.",
+            404
+        );
     }
 
-    const assignedVehicle =
-      await vehicleRepository.findByCurrentDriver(
-        updateData.currentDriver
-      );
+    if (updateData.vendor) {
+
+        const vendor =
+            await vendorRepository.findById(
+                updateData.vendor
+            );
+
+        if (!vendor) {
+            throw new AppError(
+                "Vendor not found.",
+                404
+            );
+        }
+    }
 
     if (
-      assignedVehicle &&
-      assignedVehicle._id.toString() !== vehicleId
+        updateData.vehicleNumber &&
+        updateData.vehicleNumber !==
+            vehicle.vehicleNumber
     ) {
-      throw new AppError(
-        "Driver is already assigned to another vehicle.",
-        409
-      );
+
+        const existingVehicle =
+            await vehicleRepository.findByVehicleNumber(
+                updateData.vehicleNumber
+            );
+
+        if (existingVehicle) {
+            throw new AppError(
+                "Vehicle number already exists.",
+                409
+            );
+        }
     }
-  }
 
-  updateData.updatedBy = userId;
+    if (updateData.currentDriver) {
 
-  return await vehicleRepository.updateById(
-    vehicleId,
-    updateData
-  );
+        const driver =
+            await driverRepository.findById(
+                updateData.currentDriver
+            );
+
+        if (!driver) {
+            throw new AppError(
+                "Driver not found.",
+                404
+            );
+        }
+
+        const vendorId =
+            updateData.vendor || vehicle.vendor;
+
+        if (
+            driver.vendor.toString() !==
+            vendorId.toString()
+        ) {
+            throw new AppError(
+                "Driver must belong to the selected vendor.",
+                400
+            );
+        }
+
+        const assignedVehicle =
+            await vehicleRepository.findByCurrentDriver(
+                updateData.currentDriver
+            );
+
+        if (
+            assignedVehicle &&
+            assignedVehicle._id.toString() !==
+                vehicleId
+        ) {
+            throw new AppError(
+                "Driver is already assigned to another vehicle.",
+                409
+            );
+        }
+    }
+
+    updateData.updatedBy = userId;
+
+    return await vehicleRepository.updateById(
+        vehicleId,
+        updateData
+    );
 };
 
 /**
  * Delete Vehicle
  */
-const deleteVehicle = async (vehicleId) => {
-  const vehicle = await vehicleRepository.findById(vehicleId);
+const deleteVehicle = async (
+    vehicleId
+) => {
 
-  if (!vehicle) {
-    throw new AppError("Vehicle not found.", 404);
-  }
+    const vehicle =
+        await vehicleRepository.findById(
+            vehicleId
+        );
 
-  await vehicleRepository.softDelete(vehicleId);
+    if (!vehicle) {
+        throw new AppError(
+            "Vehicle not found.",
+            404
+        );
+    }
+
+    await vehicleRepository.softDelete(
+        vehicleId
+    );
+
+    return {
+        message:
+            "Vehicle deleted successfully."
+    };
 };
 
 /**
  * Update Vehicle Status
  */
 const updateVehicleStatus = async (
-  vehicleId,
-  status
-) => {
-  const vehicle = await vehicleRepository.findById(vehicleId);
-
-  if (!vehicle) {
-    throw new AppError("Vehicle not found.", 404);
-  }
-
-  return await vehicleRepository.updateStatus(
     vehicleId,
     status
-  );
+) => {
+
+    const vehicle =
+        await vehicleRepository.findById(
+            vehicleId
+        );
+
+    if (!vehicle) {
+        throw new AppError(
+            "Vehicle not found.",
+            404
+        );
+    }
+
+    return await vehicleRepository.updateStatus(
+        vehicleId,
+        status
+    );
 };
 
 module.exports = {
-  createVehicle,
-  getAllVehicles,
-  getVehicleById,
-  updateVehicle,
-  deleteVehicle,
-  updateVehicleStatus,
+    createVehicle,
+    getAllVehicles,
+    getVehicleById,
+    updateVehicle,
+    deleteVehicle,
+    updateVehicleStatus,
 };

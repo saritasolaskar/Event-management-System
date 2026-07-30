@@ -2,7 +2,6 @@ const { body, param } = require("express-validator");
 
 const createTrackingValidator = [
 
-   
     body("latitude")
         .isFloat()
         .withMessage("Invalid Latitude."),
@@ -13,15 +12,18 @@ const createTrackingValidator = [
 
     body("accuracy")
         .optional()
-        .isFloat(),
+        .isFloat()
+        .withMessage("Invalid Accuracy."),
 
     body("speed")
         .optional()
-        .isFloat(),
+        .isFloat()
+        .withMessage("Invalid Speed."),
 
     body("heading")
         .optional()
-        .isFloat(),
+        .isFloat()
+        .withMessage("Invalid Heading."),
 
     body("stage")
         .notEmpty()

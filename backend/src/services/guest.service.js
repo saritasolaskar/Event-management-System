@@ -8,114 +8,233 @@ const AppError = require("../utils/appError");
  * Create Guest
  */
 const createGuest = async (guestData, userId) => {
-  const event = await eventRepository.findById(guestData.event);
 
-  if (!event) {
-    throw new AppError("Event not found.", 404);
-  }
+    const event =
+        await eventRepository.findById(
+            guestData.event
+        );
 
-  const pickupLocation = await locationRepository.findById(
-    guestData.pickupLocation
-  );
+    if (!event) {
+        throw new AppError(
+            "Event not found.",
+            404
+        );
+    }
 
-  if (!pickupLocation) {
-    throw new AppError("Pickup location not found.", 404);
-  }
+    const pickupLocation =
+        await locationRepository.findById(
+            guestData.pickupLocation
+        );
 
-  const dropLocation = await locationRepository.findById(
-    guestData.dropLocation
-  );
+    if (!pickupLocation) {
+        throw new AppError(
+            "Pickup location not found.",
+            404
+        );
+    }
 
-  if (!dropLocation) {
-    throw new AppError("Drop location not found.", 404);
-  }
+    const dropLocation =
+        await locationRepository.findById(
+            guestData.dropLocation
+        );
 
-  guestData.createdBy = userId;
-  guestData.updatedBy = userId;
+    if (!dropLocation) {
+        throw new AppError(
+            "Drop location not found.",
+            404
+        );
+    }
 
-  return await guestRepository.create(guestData);
+    guestData.createdBy = userId;
+    guestData.updatedBy = userId;
+
+    return guestRepository.create(guestData);
+
 };
 
 /**
  * Get All Guests
  */
 const getAllGuests = async () => {
-  return await guestRepository.findAll();
+
+    return guestRepository.findAll();
+
 };
 
 /**
  * Get Guests By Event
  */
 const getGuestsByEvent = async (eventId) => {
-  return await guestRepository.findByEvent(eventId);
+
+    const event =
+        await eventRepository.findById(eventId);
+
+    if (!event) {
+        throw new AppError(
+            "Event not found.",
+            404
+        );
+    }
+
+    return guestRepository.findByEvent(eventId);
+
 };
 
 /**
  * Get Guest By ID
  */
 const getGuestById = async (guestId) => {
-  const guest = await guestRepository.findById(guestId);
 
-  if (!guest) {
-    throw new AppError("Guest not found.", 404);
-  }
+    const guest =
+        await guestRepository.findById(
+            guestId
+        );
 
-  return guest;
+    if (!guest) {
+        throw new AppError(
+            "Guest not found.",
+            404
+        );
+    }
+
+    return guest;
+
 };
 
 /**
  * Update Guest
  */
-const updateGuest = async (guestId, updateData, userId) => {
-  const guest = await guestRepository.findById(guestId);
-
-  if (!guest) {
-    throw new AppError("Guest not found.", 404);
-  }
-
-  updateData.updatedBy = userId;
-
-  return await guestRepository.updateById(
+const updateGuest = async (
     guestId,
-    updateData
-  );
+    updateData,
+    userId
+) => {
+
+    const guest =
+        await guestRepository.findById(
+            guestId
+        );
+
+    if (!guest) {
+        throw new AppError(
+            "Guest not found.",
+            404
+        );
+    }
+
+    if (updateData.event) {
+
+        const event =
+            await eventRepository.findById(
+                updateData.event
+            );
+
+        if (!event) {
+            throw new AppError(
+                "Event not found.",
+                404
+            );
+        }
+
+    }
+
+    if (updateData.pickupLocation) {
+
+        const pickupLocation =
+            await locationRepository.findById(
+                updateData.pickupLocation
+            );
+
+        if (!pickupLocation) {
+            throw new AppError(
+                "Pickup location not found.",
+                404
+            );
+        }
+
+    }
+
+    if (updateData.dropLocation) {
+
+        const dropLocation =
+            await locationRepository.findById(
+                updateData.dropLocation
+            );
+
+        if (!dropLocation) {
+            throw new AppError(
+                "Drop location not found.",
+                404
+            );
+        }
+
+    }
+
+    updateData.updatedBy = userId;
+
+    return guestRepository.updateById(
+        guestId,
+        updateData
+    );
+
 };
 
 /**
  * Delete Guest
  */
 const deleteGuest = async (guestId) => {
-  const guest = await guestRepository.findById(guestId);
 
-  if (!guest) {
-    throw new AppError("Guest not found.", 404);
-  }
+    const guest =
+        await guestRepository.findById(
+            guestId
+        );
 
-  await guestRepository.softDelete(guestId);
+    if (!guest) {
+        throw new AppError(
+            "Guest not found.",
+            404
+        );
+    }
+
+    await guestRepository.softDelete(
+        guestId
+    );
+
 };
 
 /**
  * Update Guest Status
  */
-const updateGuestStatus = async (guestId, status) => {
-  const guest = await guestRepository.findById(guestId);
-
-  if (!guest) {
-    throw new AppError("Guest not found.", 404);
-  }
-
-  return await guestRepository.updateStatus(
+const updateGuestStatus = async (
     guestId,
     status
-  );
+) => {
+
+    const guest =
+        await guestRepository.findById(
+            guestId
+        );
+
+    if (!guest) {
+        throw new AppError(
+            "Guest not found.",
+            404
+        );
+    }
+
+    return guestRepository.updateStatus(
+        guestId,
+        status
+    );
+
 };
 
 module.exports = {
-  createGuest,
-  getAllGuests,
-  getGuestsByEvent,
-  getGuestById,
-  updateGuest,
-  deleteGuest,
-  updateGuestStatus,
+    createGuest,
+    getAllGuests,
+    getGuestsByEvent,
+    getGuestById,
+    updateGuest,
+    deleteGuest,
+    updateGuestStatus,
 };

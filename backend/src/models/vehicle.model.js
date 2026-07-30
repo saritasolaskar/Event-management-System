@@ -99,7 +99,6 @@ const vehicleSchema = new mongoose.Schema(
       enum: Object.values(VEHICLE_STATUS),
       default: VEHICLE_STATUS.AVAILABLE,
     },
-
     isDeleted: {
       type: Boolean,
       default: false,

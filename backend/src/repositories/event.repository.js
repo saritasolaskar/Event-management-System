@@ -94,9 +94,9 @@ const findByClient = async (clientId) => {
     isDeleted: false,
   })
     .populate(
-      "client",
-      "clientCode companyName contactPerson phone email"
-    ).populate(
+    "client",
+    "companyName phone email"
+).populate(
       "venue",
       "locationCode name city state"
     )

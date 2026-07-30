@@ -4,16 +4,15 @@ const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.r
 const clientInvoiceRepository = require("../repositories/clientInvoice.repository");
 const guestAssignmentRepository = require("../repositories/guestAssignment.repository");
 const driverTrackingRepository = require("../repositories/driverTracking.repository");
+
 const AppError = require("../utils/appError");
 
 const {
     BILL_STATUS,
     EVENT_STATUS,
-} = require("../constants/status");
-
-const {
     GUEST_ASSIGNMENT_STATUS,
 } = require("../constants/status");
+
 /**
  * Dashboard
  */
@@ -33,20 +32,21 @@ const getDashboard = async (clientId) => {
 
         pendingInvoices:
             invoices.filter(
-                i => i.status !== BILL_STATUS.PAID
+                invoice => invoice.status !== BILL_STATUS.PAID
             ).length,
 
-       completedEvents:
-        events.filter(
-            event =>
-                event.status === EVENT_STATUS.COMPLETED
-        ).length,
+        completedEvents:
+            events.filter(
+                event =>
+                    event.status === EVENT_STATUS.COMPLETED
+            ).length,
+
     };
 
 };
 
 /**
- * Events
+ * Get Events
  */
 const getEvents = async (clientId) => {
 
@@ -55,7 +55,7 @@ const getEvents = async (clientId) => {
 };
 
 /**
- * Event Details
+ * Get Event Details
  */
 const getEventDetails = async (
     eventId,
@@ -65,11 +65,12 @@ const getEventDetails = async (
     const event =
         await eventRepository.findById(eventId);
 
-    if (!event)
+    if (!event) {
         throw new AppError(
             "Event not found.",
             404
         );
+    }
 
     if (
         event.client._id.toString() !==
@@ -83,33 +84,49 @@ const getEventDetails = async (
 
     return event;
 
-}
+};
 
 /**
- * Guest List
+ * Get Guests
  */
 const getGuests = async (
     eventId
 ) => {
 
-    return guestRepository.findByEventWithAssignment(eventId);
+    return guestRepository.findByEventWithAssignment(
+        eventId
+    );
 
-}
+};
 
 /**
- * Vehicle Assignments
+ * Get Vehicles
  */
 const getVehicles = async (
     eventId
 ) => {
 
-    return vehicleAssignmentRepository
-        .findByEvent(eventId);
+    return vehicleAssignmentRepository.findByEvent(
+        eventId
+    );
 
-}
+};
 
 /**
- * Invoices
+ * Get All Client Invoices
+ */
+const getInvoices = async (
+    clientId
+) => {
+
+    return clientInvoiceRepository.findByClient(
+        clientId
+    );
+
+};
+
+/**
+ * Get Single Invoice
  */
 const getInvoice = async (
     invoiceId,
@@ -146,6 +163,9 @@ const getInvoice = async (
 
 };
 
+/**
+ * Event Overview
+ */
 const getEventOverview = async (
     eventId,
     clientId
@@ -192,7 +212,7 @@ const getEventOverview = async (
         ).length;
 
     const pendingGuests =
-        totalGuests - pickedUpGuests;
+        totalGuests - assignedGuests;
 
     return {
 
@@ -222,10 +242,9 @@ const getEventOverview = async (
 
 };
 
-
-
-
-
+/**
+ * Live Tracking
+ */
 const getLiveTracking = async (
     eventId
 ) => {
@@ -240,10 +259,9 @@ const getLiveTracking = async (
     for (const assignment of assignments) {
 
         const latest =
-            await driverTrackingRepository
-                .findLatestByDuty(
-                    assignment.duty
-                );
+            await driverTrackingRepository.findLatestByDuty(
+                assignment.duty
+            );
 
         if (latest) {
 
@@ -255,7 +273,8 @@ const getLiveTracking = async (
                 vehicle:
                     assignment.vehicle,
 
-                location: latest,
+                location:
+                    latest,
 
             });
 
@@ -267,9 +286,9 @@ const getLiveTracking = async (
 
 };
 
-
-
-
+/**
+ * Get Drivers
+ */
 const getDrivers = async (
     eventId
 ) => {
@@ -303,8 +322,8 @@ module.exports = {
     getGuests,
     getVehicles,
     getInvoices,
+    getInvoice,
     getEventOverview,
     getDrivers,
     getLiveTracking,
-    getInvoice,
 };

@@ -20,6 +20,7 @@ const getDriverDashboard = asyncHandler(async (req, res) => {
         "Dashboard fetched successfully.",
         dashboard
     );
+
 });
 
 /**
@@ -38,6 +39,7 @@ const getAssignedGuests = asyncHandler(async (req, res) => {
         "Guest list fetched successfully.",
         guests
     );
+
 });
 
 /**
@@ -47,7 +49,8 @@ const markDriverEnRoute = asyncHandler(async (req, res) => {
 
     const assignment =
         await driverApiService.markDriverEnRoute(
-            req.params.id
+            req.params.id,
+            req.user.driver
         );
 
     return successResponse(
@@ -56,6 +59,7 @@ const markDriverEnRoute = asyncHandler(async (req, res) => {
         "Driver marked en route.",
         assignment
     );
+
 });
 
 /**
@@ -65,7 +69,8 @@ const markGuestPicked = asyncHandler(async (req, res) => {
 
     const assignment =
         await driverApiService.markGuestPicked(
-            req.params.id
+            req.params.id,
+            req.user.driver
         );
 
     return successResponse(
@@ -74,6 +79,7 @@ const markGuestPicked = asyncHandler(async (req, res) => {
         "Guest picked successfully.",
         assignment
     );
+
 });
 
 /**
@@ -83,7 +89,8 @@ const markVenueReached = asyncHandler(async (req, res) => {
 
     const assignment =
         await driverApiService.markVenueReached(
-            req.params.id
+            req.params.id,
+            req.user.driver
         );
 
     return successResponse(
@@ -92,6 +99,7 @@ const markVenueReached = asyncHandler(async (req, res) => {
         "Guest reached venue.",
         assignment
     );
+
 });
 
 /**
@@ -101,7 +109,8 @@ const markReturnPickup = asyncHandler(async (req, res) => {
 
     const assignment =
         await driverApiService.markReturnPickup(
-            req.params.id
+            req.params.id,
+            req.user.driver
         );
 
     return successResponse(
@@ -110,6 +119,7 @@ const markReturnPickup = asyncHandler(async (req, res) => {
         "Return pickup started.",
         assignment
     );
+
 });
 
 /**
@@ -119,7 +129,8 @@ const markGuestDropped = asyncHandler(async (req, res) => {
 
     const assignment =
         await driverApiService.markGuestDropped(
-            req.params.id
+            req.params.id,
+            req.user.driver
         );
 
     return successResponse(
@@ -128,6 +139,7 @@ const markGuestDropped = asyncHandler(async (req, res) => {
         "Guest dropped successfully.",
         assignment
     );
+
 });
 
 module.exports = {

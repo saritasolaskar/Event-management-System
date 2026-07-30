@@ -3,116 +3,116 @@ const mongoose = require("mongoose");
 const { GUEST_STATUS } = require("../constants/status");
 
 const guestSchema = new mongoose.Schema(
-  {
-    guestCode: {
-      type: String,
-      required: true,
-      trim: true,
-      uppercase: true,
-      unique: true,
-    },
+    {
+        guestCode: {
+            type: String,
+            required: true,
+            trim: true,
+            uppercase: true,
+            unique: true,
+        },
 
-    event: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Event",
-      required: true,
-    },
+        event: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Event",
+            required: true,
+        },
 
-    firstName: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 50,
-    },
+        firstName: {
+            type: String,
+            required: true,
+            trim: true,
+            maxlength: 50,
+        },
 
-    lastName: {
-      type: String,
-      trim: true,
-      maxlength: 50,
-    },
+        lastName: {
+            type: String,
+            trim: true,
+            maxlength: 50,
+        },
 
-    email: {
-      type: String,
-      trim: true,
-      lowercase: true,
-    },
+        email: {
+            type: String,
+            trim: true,
+            lowercase: true,
+        },
 
-    phone: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+        phone: {
+            type: String,
+            required: true,
+            trim: true,
+        },
 
-    gender: {
-      type: String,
-      enum: ["MALE", "FEMALE", "OTHER"],
-    },
+        gender: {
+            type: String,
+            enum: ["MALE", "FEMALE", "OTHER"],
+        },
 
-    pickupLocation: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Location",
-      required: true,
-    },
+        pickupLocation: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Location",
+            required: true,
+        },
 
-    dropLocation: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Location",
-      required: true,
-    },
+        dropLocation: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Location",
+            required: true,
+        },
 
-    hotelName: {
-      type: String,
-      trim: true,
-    },
+        hotelName: {
+            type: String,
+            trim: true,
+        },
 
-    roomNumber: {
-      type: String,
-      trim: true,
-    },
+        roomNumber: {
+            type: String,
+            trim: true,
+        },
 
-    flightNumber: {
-      type: String,
-      trim: true,
-    },
+        flightNumber: {
+            type: String,
+            trim: true,
+        },
 
-    arrivalTime: {
-      type: Date,
-    },
+        arrivalTime: {
+            type: Date,
+        },
 
-    departureTime: {
-      type: Date,
-    },
+        departureTime: {
+            type: Date,
+        },
 
-    remarks: {
-      type: String,
-      trim: true,
-      maxlength: 500,
-    },
+        remarks: {
+            type: String,
+            trim: true,
+            maxlength: 500,
+        },
 
-    status: {
-      type: String,
-      enum: Object.values(GUEST_STATUS),
-      default: GUEST_STATUS.PENDING,
-    },
+        status: {
+            type: String,
+            enum: Object.values(GUEST_STATUS),
+            default: GUEST_STATUS.PENDING,
+        },
 
-    isDeleted: {
-      type: Boolean,
-      default: false,
-    },
+        isDeleted: {
+            type: Boolean,
+            default: false,
+        },
 
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
+        createdBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
 
-    updatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+        updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
     },
-  },
-  {
-    timestamps: true,
-  }
+    {
+        timestamps: true,
+    }
 );
 
 // Indexes

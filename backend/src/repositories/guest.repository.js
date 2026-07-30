@@ -41,9 +41,10 @@ const findByEvent = async (eventId) => {
     })
     .populate("pickupLocation")
     .populate("dropLocation")
-    .sort({
-        name: 1,
-    });
+   .sort({
+    firstName: 1,
+    lastName: 1,
+});
 
 };
 
@@ -107,7 +108,6 @@ const updateStatus = async (id, status) => {
 };
 
 
-
 module.exports = {
   create,
   findById,
@@ -117,5 +117,4 @@ module.exports = {
   updateById,
   softDelete,
   updateStatus,
-  findByEvent,
 };

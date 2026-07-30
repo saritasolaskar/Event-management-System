@@ -1,114 +1,95 @@
-const mongoose = require("mongoose");
+const Duty = require("../models/duty.model");
+const VehicleAssignment = require("../models/vehicleAssignment.model");
 
-const { DUTY_STATUS } = require("../constants/status");
+const {
+    VEHICLE_ASSIGNMENT_STATUS,
+} = require("../constants/status");
 
-const dutySchema = new mongoose.Schema(
-    {
-        vehicleAssignment: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "VehicleAssignment",
-            required: true,
-            unique: true,
-        },
+/**
+ * Create Duty
+ */
+const create = async (data) => {
+    return Duty.create(data);
+};
 
-        startKm: {
-            type: Number,
-            required: true,
-            min: 0,
-        },
+/**
+ * Get Duty By ID
+ */
+const findById = async (id) => {
+    return Duty.findOne({
+        _id: id,
+        isDeleted: false,
+    }).populate({
+        path: "vehicleAssignment",
+        populate: [
+            {
+                path: "event",
+                populate: [
+                    {
+                        path: "client",
+                    },
+                    {
+                        path: "venue",
+                    },
+                ],
+            },
+            {
+                path: "driver",
+            },
+            {
+                path: "vehicle",
+            },
+            {
+                path: "vendor",
+            },
+        ],
+    });
+};
 
-        endKm: {
-            type: Number,
-            min: 0,
-        },
+/**
+ * Find Duty By Vehicle Assignment
+ */
+const findByVehicleAssignment = async (assignmentId) => {
+    return Duty.findOne({
+        vehicleAssignment: assignmentId,
+        isDeleted: false,
+    });
+};
 
-        startOdometerPhoto: {
-            type: String,
-            trim: true,
-        },
+/**
+ * Update Duty
+ */
+const updateById = async (id, data) => {
+    return Duty.findByIdAndUpdate(id, data, {
+        new: true,
+        runValidators: true,
+    });
+};
 
-        endOdometerPhoto: {
-            type: String,
-            trim: true,
-        },
+/**
+ * Find Active Duty By Driver
+ */
+const findActiveDutyByDriver = async (driverId) => {
+    const assignment = await VehicleAssignment.findOne({
+        driver: driverId,
+        status: VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
+        isDeleted: false,
+    });
 
-        dutyStartTime: {
-            type: Date,
-            default: Date.now,
-        },
-
-        dutyEndTime: {
-            type: Date,
-        },
-
-        parkingCharges: {
-            type: Number,
-            default: 0,
-            min: 0,
-        },
-
-        tollCharges: {
-            type: Number,
-            default: 0,
-            min: 0,
-        },
-
-        entryCharges: {
-            type: Number,
-            default: 0,
-            min: 0,
-        },
-
-        daCharges: {
-            type: Number,
-            default: 0,
-            min: 0,
-        },
-
-        remarks: {
-            type: String,
-            trim: true,
-        },
-
-        status: {
-            type: String,
-            enum: Object.values(DUTY_STATUS),
-            default: DUTY_STATUS.STARTED,
-        },
-
-        createdBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-        },
-
-        updatedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-        },
-
-        isDeleted: {
-            type: Boolean,
-            default: false,
-        },
-    },
-    {
-        timestamps: true,
+    if (!assignment) {
+        return null;
     }
-);
 
-dutySchema.virtual("totalKm").get(function () {
+    return Duty.findOne({
+        vehicleAssignment: assignment._id,
+        isDeleted: false,
+    });
+};
 
-    if (!this.endKm) return 0;
-
-    return this.endKm - this.startKm;
-
-});
-
-dutySchema.set("toJSON", {
-    virtuals: true,
-});
-
-module.exports = mongoose.model(
-    "Duty",
-    dutySchema
-);
+module.exports = {
+    create,
+    findById,
+    findByVehicleAssignment,
+    updateById,
+    findActiveDutyByDriver,
+};

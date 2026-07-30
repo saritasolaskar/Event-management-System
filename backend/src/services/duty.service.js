@@ -1,6 +1,9 @@
 const dutyRepository = require("../repositories/duty.repository");
 const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.repository");
 
+const notificationService = require("./notification.service");
+const auditLogService = require("./auditLog.service");
+
 const AppError = require("../utils/appError");
 
 const { DUTY_STATUS } = require("../constants/status");
@@ -27,17 +30,73 @@ const startDuty = async (data, userId) => {
             data.vehicleAssignment
         );
 
-    if (existingDuty) {
+    if (
+        existingDuty &&
+        existingDuty.status !== DUTY_STATUS.COMPLETED
+    ) {
         throw new AppError(
             "Duty already started for this assignment.",
             400
         );
     }
 
+    if (
+        data.startKm === undefined ||
+        data.startKm < 0
+    ) {
+        throw new AppError(
+            "Invalid Start KM.",
+            400
+        );
+    }
+
+    data.status = DUTY_STATUS.STARTED;
+    data.dutyStartTime = new Date();
     data.createdBy = userId;
     data.updatedBy = userId;
 
-    return await dutyRepository.create(data);
+    const duty =
+        await dutyRepository.create(data);
+
+    await vehicleAssignmentRepository.updateById(
+        assignment._id,
+        {
+            status: DUTY_STATUS.STARTED,
+        }
+    );
+
+    await notificationService.createNotification({
+
+        recipientUser: userId,
+
+        title: "Duty Started",
+
+        message: "Duty has been started successfully.",
+
+        type: "DUTY_STARTED",
+
+        referenceType: "DUTY",
+
+        referenceId: duty._id,
+
+    });
+
+    await auditLogService.createLog({
+
+        user: userId,
+
+        action: "CREATE",
+
+        module: "DUTY",
+
+        referenceId: duty._id,
+
+        description: "Duty started.",
+
+    });
+
+    return duty;
+
 };
 
 /**
@@ -45,7 +104,8 @@ const startDuty = async (data, userId) => {
  */
 const getDuty = async (id) => {
 
-    const duty = await dutyRepository.findById(id);
+    const duty =
+        await dutyRepository.findById(id);
 
     if (!duty) {
         throw new AppError(
@@ -55,6 +115,7 @@ const getDuty = async (id) => {
     }
 
     return duty;
+
 };
 
 /**
@@ -66,12 +127,22 @@ const completeDuty = async (
     userId
 ) => {
 
-    const duty = await dutyRepository.findById(id);
+    const duty =
+        await dutyRepository.findById(id);
 
     if (!duty) {
         throw new AppError(
             "Duty not found.",
             404
+        );
+    }
+
+    if (
+        duty.status === DUTY_STATUS.COMPLETED
+    ) {
+        throw new AppError(
+            "Duty has already been completed.",
+            400
         );
     }
 
@@ -82,21 +153,55 @@ const completeDuty = async (
         );
     }
 
-    if (duty.status === DUTY_STATUS.COMPLETED) {
-    throw new AppError(
-        "Duty has already been completed.",
-        400
-    );
-}
-
     data.status = DUTY_STATUS.COMPLETED;
     data.dutyEndTime = new Date();
     data.updatedBy = userId;
 
-    return await dutyRepository.updateById(
-        id,
-        data
+    const completedDuty =
+        await dutyRepository.updateById(
+            id,
+            data
+        );
+
+    await vehicleAssignmentRepository.updateById(
+        duty.vehicleAssignment,
+        {
+            status: DUTY_STATUS.COMPLETED,
+        }
     );
+
+    await notificationService.createNotification({
+
+        recipientUser: userId,
+
+        title: "Duty Completed",
+
+        message: "Duty completed successfully.",
+
+        type: "DUTY_COMPLETED",
+
+        referenceType: "DUTY",
+
+        referenceId: completedDuty._id,
+
+    });
+
+    await auditLogService.createLog({
+
+        user: userId,
+
+        action: "UPDATE",
+
+        module: "DUTY",
+
+        referenceId: completedDuty._id,
+
+        description: "Duty completed.",
+
+    });
+
+    return completedDuty;
+
 };
 
 /**
@@ -108,7 +213,8 @@ const updateExpenses = async (
     userId
 ) => {
 
-    const duty = await dutyRepository.findById(id);
+    const duty =
+        await dutyRepository.findById(id);
 
     if (!duty) {
         throw new AppError(
@@ -119,10 +225,28 @@ const updateExpenses = async (
 
     expenses.updatedBy = userId;
 
-    return await dutyRepository.updateById(
-        id,
-        expenses
-    );
+    const updatedDuty =
+        await dutyRepository.updateById(
+            id,
+            expenses
+        );
+
+    await auditLogService.createLog({
+
+        user: userId,
+
+        action: "UPDATE",
+
+        module: "DUTY",
+
+        referenceId: updatedDuty._id,
+
+        description: "Duty expenses updated.",
+
+    });
+
+    return updatedDuty;
+
 };
 
 module.exports = {

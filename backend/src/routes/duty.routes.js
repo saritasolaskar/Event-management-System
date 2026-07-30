@@ -13,6 +13,7 @@ const { ROLES } = require("../constants/roles");
 const {
     startDutyValidator,
     completeDutyValidator,
+    dutyIdValidator,
 } = require("../validators/duty.validator");
 
 /**
@@ -33,6 +34,8 @@ router.post(
 router.get(
     "/:id",
     protect,
+    dutyIdValidator,
+    validate,
     dutyController.getDuty
 );
 
@@ -43,6 +46,7 @@ router.patch(
     "/:id/complete",
     protect,
     authorize(ROLES.DRIVER),
+    dutyIdValidator,
     completeDutyValidator,
     validate,
     dutyController.completeDuty
@@ -55,6 +59,8 @@ router.patch(
     "/:id/expenses",
     protect,
     authorize(ROLES.DRIVER),
+    dutyIdValidator,
+    validate,
     dutyController.updateExpenses
 );
 

@@ -65,6 +65,7 @@ router.put(
   "/:id",
   protect,
   authorize(ROLES.ADMIN, ROLES.OPERATIONS_MANAGER),
+  driverIdValidator,
   updateDriverValidator,
   validate,
   driverController.updateDriver

@@ -57,6 +57,7 @@ router.put(
   "/:id",
   protect,
   authorize(ROLES.ADMIN),
+  clientIdValidator,
   updateClientValidator,
   validate,
   clientController.updateClient

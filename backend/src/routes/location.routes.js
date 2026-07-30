@@ -20,7 +20,7 @@ const router = express.Router();
  * Create Location
  */
 router.post(
-  "/",
+  "/", 
   protect,
   authorize(
     ROLES.ADMIN,

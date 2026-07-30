@@ -28,12 +28,14 @@ margin-top:20px;
 table{
 width:100%;
 border-collapse:collapse;
+margin-top:10px;
 }
 
 th,td{
 border:1px solid #ccc;
 padding:8px;
 font-size:12px;
+text-align:left;
 }
 
 th{
@@ -60,7 +62,13 @@ color:#666;
 
 <div class="header">
 
-<h1>Transit Fleets</h1>
+<h1>{{company.name}}</h1>
+
+<p>{{company.address}}</p>
+
+<p>{{company.phone}}</p>
+
+<p>{{company.email}}</p>
 
 <h2>Guest Manifest</h2>
 
@@ -71,43 +79,28 @@ color:#666;
 <table>
 
 <tr>
-
 <td>Event</td>
-
 <td>{{event.eventName}}</td>
-
 </tr>
 
 <tr>
-
 <td>Client</td>
-
 <td>{{client.companyName}}</td>
-
 </tr>
 
 <tr>
-
 <td>Venue</td>
-
 <td>{{event.venue.name}}</td>
-
 </tr>
 
 <tr>
-
 <td>Start Date</td>
-
-<td>{{event.startDate}}</td>
-
+<td>{{event.startDateFormatted}}</td>
 </tr>
 
 <tr>
-
 <td>End Date</td>
-
-<td>{{event.endDate}}</td>
-
+<td>{{event.endDateFormatted}}</td>
 </tr>
 
 </table>
@@ -123,24 +116,18 @@ color:#666;
 <tr>
 
 <th>Sr.</th>
-
 <th>Guest</th>
-
 <th>Company</th>
-
 <th>Mobile</th>
-
 <th>Vehicle</th>
-
 <th>Driver</th>
-
 <th>Pickup</th>
-
 <th>Drop</th>
-
 <th>Status</th>
 
 </tr>
+
+{{#if guests.length}}
 
 {{#each guests}}
 
@@ -154,19 +141,31 @@ color:#666;
 
 <td>{{this.phone}}</td>
 
-<td>{{this.vehicleNumber}}</td>
+<td>{{this.vehicleAssignment.vehicle.vehicleNumber}}</td>
 
-<td>{{this.driverName}}</td>
+<td>{{this.vehicleAssignment.driver.name}}</td>
 
-<td>{{this.pickupAddress}}</td>
+<td>{{this.pickupLocation.name}}</td>
 
-<td>{{this.dropAddress}}</td>
+<td>{{this.dropLocation.name}}</td>
 
 <td>{{this.status}}</td>
 
 </tr>
 
 {{/each}}
+
+{{else}}
+
+<tr>
+
+<td colspan="9" style="text-align:center;">
+No Guests Found
+</td>
+
+</tr>
+
+{{/if}}
 
 </table>
 
@@ -179,43 +178,28 @@ color:#666;
 <table class="summary">
 
 <tr>
-
 <td>Total Guests</td>
-
 <td>{{summary.totalGuests}}</td>
-
 </tr>
 
 <tr>
-
 <td>Assigned</td>
-
 <td>{{summary.assigned}}</td>
-
 </tr>
 
 <tr>
-
 <td>Pending</td>
-
 <td>{{summary.pending}}</td>
-
 </tr>
 
 <tr>
-
 <td>Picked Up</td>
-
 <td>{{summary.pickedUp}}</td>
-
 </tr>
 
 <tr>
-
 <td>Dropped</td>
-
 <td>{{summary.dropped}}</td>
-
 </tr>
 
 </table>

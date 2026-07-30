@@ -1,4 +1,3 @@
-
 const driverTrackingRepository = require("../repositories/driverTracking.repository");
 const dutyRepository = require("../repositories/duty.repository");
 
@@ -25,21 +24,13 @@ const createTrackingPoint = async (
     }
 
     return driverTrackingRepository.create({
-
         duty: duty._id,
-
         latitude: trackingData.latitude,
-
         longitude: trackingData.longitude,
-
         accuracy: trackingData.accuracy,
-
         speed: trackingData.speed,
-
         heading: trackingData.heading,
-
         stage: trackingData.stage,
-
     });
 
 };
@@ -78,23 +69,22 @@ const getTrackingHistory = async (dutyId) => {
 
 /**
  * Delete Tracking History
+ * Intentionally not implemented.
+ *
+ * Tracking history should be preserved for:
+ * - Analytics
+ * - Route history
+ * - Driver performance
+ * - Audit logs
+ * - Reporting
  */
+
 // const deleteTrackingHistory = async (dutyId) => {
-
-//     return driverTrackingRepository.deleteByDuty(
-//         dutyId
-//     );
-
-// };cause in future we may need to keep the tracking history for analytics and reporting purposes, so we will not delete it for now
+//     return driverTrackingRepository.deleteByDuty(dutyId);
+// };
 
 module.exports = {
-
     createTrackingPoint,
-
     getLatestLocation,
-
     getTrackingHistory,
-
-   
-
 };

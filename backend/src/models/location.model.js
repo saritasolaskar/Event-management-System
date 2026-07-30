@@ -1,89 +1,89 @@
 const mongoose = require("mongoose");
 
-const { LOCATION_STATUS } = require("../constants/status");
+const { STATUS } = require("../constants/status");
 
 const locationSchema = new mongoose.Schema(
-  {
-    locationCode: {
-      type: String,
-      required: true,
-      trim: true,
-      uppercase: true,
-      unique: true,
-    },
+    {
+        locationCode: {
+            type: String,
+            required: true,
+            trim: true,
+            uppercase: true,
+            unique: true,
+        },
 
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+        name: {
+            type: String,
+            required: true,
+            trim: true,
+        },
 
-    address: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+        address: {
+            type: String,
+            required: true,
+            trim: true,
+        },
 
-    city: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+        city: {
+            type: String,
+            required: true,
+            trim: true,
+        },
 
-    state: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+        state: {
+            type: String,
+            required: true,
+            trim: true,
+        },
 
-    country: {
-      type: String,
-      default: "India",
-      trim: true,
-    },
+        country: {
+            type: String,
+            default: "India",
+            trim: true,
+        },
 
-    pincode: {
-      type: String,
-      trim: true,
-    },
+        pincode: {
+            type: String,
+            trim: true,
+        },
 
-    latitude: {
-      type: Number,
-    },
+        latitude: {
+            type: Number,
+        },
 
-    longitude: {
-      type: Number,
-    },
+        longitude: {
+            type: Number,
+        },
 
-    landmark: {
-      type: String,
-      trim: true,
-    },
+        landmark: {
+            type: String,
+            trim: true,
+        },
 
-    status: {
-      type: String,
-      enum: Object.values(LOCATION_STATUS),
-      default: LOCATION_STATUS.ACTIVE,
-    },
+        status: {
+            type: String,
+            enum: Object.values(STATUS),
+            default: STATUS.ACTIVE,
+        },
 
-    isDeleted: {
-      type: Boolean,
-      default: false,
-    },
+        isDeleted: {
+            type: Boolean,
+            default: false,
+        },
 
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
+        createdBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
 
-    updatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+        updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
     },
-  },
-  {
-    timestamps: true,
-  }
+    {
+        timestamps: true,
+    }
 );
 
 // Indexes

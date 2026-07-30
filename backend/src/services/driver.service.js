@@ -163,9 +163,7 @@ const updateDriver = async (
  * Delete Driver
  */
 const deleteDriver = async (driverId) => {
-  const driver = await driverRepository.findById(
-    driverId
-  );
+  const driver = await driverRepository.findById(driverId);
 
   if (!driver) {
     throw new AppError("Driver not found.", 404);
@@ -181,9 +179,7 @@ const updateDriverStatus = async (
   driverId,
   status
 ) => {
-  const driver = await driverRepository.findById(
-    driverId
-  );
+  const driver = await driverRepository.findById(driverId);
 
   if (!driver) {
     throw new AppError("Driver not found.", 404);

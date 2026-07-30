@@ -1,63 +1,50 @@
-const express=require("express");
+const express = require("express");
 
-const router=express.Router();
+const router = express.Router();
 
-const controller=
-require("../controllers/vendorBill.controller");
+const controller = require("../controllers/vendorBill.controller");
 
-const protect=
-require("../middleware/auth.middleware");
+const protect = require("../middleware/auth.middleware");
+const authorize = require("../middleware/authorize.middleware");
+const validate = require("../middleware/validate");
 
-const authorize=
-require("../middleware/authorize.middleware");
-
-const {ROLES}=
-require("../constants/roles");
-
-router.post(
-
-"/:dutyId",
-
-protect,
-
-authorize(
-ROLES.ADMIN,
-ROLES.ACCOUNTS
-),
-
-createVendorBillValidator,
-
-validate,
-
-controller.createVendorBill
-
-);
-
-router.get(
-
-    "/:id/pdf",
-
-    protect,
-
-    authorize(
-
-        ROLES.ADMIN,
-
-        ROLES.ACCOUNTS
-
-    ),
-
-    controller.downloadVendorBillPdf
-
-);
-
-
-const validate =
-require("../middleware/validate");
+const { ROLES } = require("../constants/roles");
 
 const {
-createVendorBillValidator
-} =
-require("../validators/vendorBill.validator");
+    createVendorBillValidator,
+    vendorBillIdValidator,
+    dutyIdValidator,
+} = require("../validators/vendorBill.validator");
 
-module.exports=router;
+/**
+ * Create Vendor Bill
+ */
+router.post(
+    "/:dutyId",
+    protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.ACCOUNTS
+    ),
+    dutyIdValidator,
+    createVendorBillValidator,
+    validate,
+    controller.createVendorBill
+);
+
+/**
+ * Download Vendor Bill PDF
+ */
+router.get(
+    "/:id/pdf",
+    protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.ACCOUNTS
+    ),
+    vendorBillIdValidator,
+    validate,
+    controller.downloadVendorBillPdf
+);
+
+module.exports = router;

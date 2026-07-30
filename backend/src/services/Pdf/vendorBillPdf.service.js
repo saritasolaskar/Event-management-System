@@ -1,52 +1,52 @@
 const vendorBillRepository = require("../../repositories/vendorBill.repository");
-const generatePdf = require("../../utils/pdfGenerator");
+const pdfGenerator = require("./pdfGenerator");
 
 const AppError = require("../../utils/appError");
 
+const COMPANY = {
+    name: "Transit Fleets",
+    address: process.env.COMPANY_ADDRESS || "Your Company Address",
+    phone: process.env.COMPANY_PHONE || "Your Phone",
+    email: process.env.COMPANY_EMAIL || "info@transitfleets.com",
+};
+
 const generateVendorBillPdf = async (billId) => {
 
-    const bill =
-        await vendorBillRepository.findById(billId);
+    const bill = await vendorBillRepository.findById(billId);
 
     if (!bill) {
-
-        throw new AppError(
-            "Vendor Bill not found.",
-            404
-        );
-
+        throw new AppError("Vendor Bill not found.", 404);
     }
 
     const data = {
 
-        billNumber: bill.billNumber,
+        company: COMPANY,
+
+        bill,
 
         vendor: bill.vendor,
 
-        event: bill.event,
+        duty: bill.duty,
 
-        amount: bill.totalAmount,
+        event: bill.duty?.event,
 
-        package: bill.package,
+        vehicleAssignment: bill.vehicleAssignment,
 
-        duties: bill.duties,
+        package: {
+            name: bill.packageName,
+            km: bill.packageKm,
+            hours: bill.packageHours,
+        },
 
-        generatedDate: new Date(),
-
+        generatedAt: new Date(),
     };
 
-    return generatePdf(
-
+    return pdfGenerator.generatePdf(
         "vendorBill",
-
         data
-
     );
-
 };
 
 module.exports = {
-
     generateVendorBillPdf,
-
 };

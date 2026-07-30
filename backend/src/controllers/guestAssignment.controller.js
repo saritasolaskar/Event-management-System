@@ -92,7 +92,8 @@ const updateGuestAssignment = asyncHandler(
 const deleteGuestAssignment = asyncHandler(
     async (req, res) => {
         await guestAssignmentService.deleteGuestAssignment(
-            req.params.id
+            req.params.id,
+             req.user._id
         );
 
         return successResponse(

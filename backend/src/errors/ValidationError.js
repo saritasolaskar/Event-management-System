@@ -1,10 +1,10 @@
-const AppError = require("./AppError");
+const AppError = require("./appError");
 
 class ValidationError extends AppError {
-  constructor(errors) {
-    super("Validation failed", 422);
-    this.errors = errors;
-  }
+    constructor(errors) {
+        super("Validation failed", 422);
+        this.errors = errors;
+    }
 }
 
 module.exports = ValidationError;

@@ -1,28 +1,61 @@
-const VendorBill =
-    require("../models/vendorBill.model");
+const VendorBill = require("../models/vendorBill.model");
 
-const create = (data) =>
-    VendorBill.create(data);
+/**
+ * Create Vendor Bill
+ */
+const create = async (data) => {
+    return VendorBill.create(data);
+};
 
-const findById = (id) =>
-    VendorBill.findById(id)
+/**
+ * Get Vendor Bill By ID
+ */
+const findById = async (id) => {
+    return VendorBill.findById(id)
         .populate("vendor")
-        .populate("vehicleAssignment")
-        .populate("duty");
+        .populate({
+            path: "vehicleAssignment",
+            populate: [
+                {
+                    path: "driver",
+                },
+                {
+                    path: "vehicle",
+                },
+            ],
+        })
+        .populate({
+            path: "duty",
+            populate: {
+                path: "event",
+                populate: {
+                    path: "venue",
+                },
+            },
+        })
+        .populate("approvedBy");
+};
 
-const findAll = () =>
-    VendorBill.find({
-        isDeleted: false
+/**
+ * Get All Vendor Bills
+ */
+const findAll = async () => {
+    return VendorBill.find({
+        isDeleted: false,
     })
         .populate("vendor")
         .populate("vehicleAssignment")
         .populate("duty")
         .sort({
-            createdAt: -1
+            createdAt: -1,
         });
+};
 
-const updateById = (id, data) =>
-    VendorBill.findByIdAndUpdate(
+/**
+ * Update Vendor Bill
+ */
+const updateById = async (id, data) => {
+    return VendorBill.findByIdAndUpdate(
         id,
         data,
         {
@@ -30,9 +63,12 @@ const updateById = (id, data) =>
             runValidators: true,
         }
     );
+};
 
+/**
+ * Get Vendor Bills By Vendor
+ */
 const findByVendor = async (vendorId) => {
-
     return VendorBill.find({
         vendor: vendorId,
         isDeleted: false,
@@ -41,7 +77,6 @@ const findByVendor = async (vendorId) => {
         .sort({
             createdAt: -1,
         });
-
 };
 
 module.exports = {

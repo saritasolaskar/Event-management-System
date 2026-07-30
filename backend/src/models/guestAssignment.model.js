@@ -1,10 +1,5 @@
 const mongoose = require("mongoose");
 
-const {
-    PICKUP_STATUS,
-    RETURN_STATUS,
-} = require("../constants/status");
-
 const guestAssignmentSchema = new mongoose.Schema(
     {
         vehicleAssignment: {
@@ -33,14 +28,23 @@ const guestAssignmentSchema = new mongoose.Schema(
 
         pickupStatus: {
             type: String,
-            enum: Object.values(PICKUP_STATUS),
-            default: PICKUP_STATUS.ASSIGNED,
+            enum: [
+                "ASSIGNED",
+                "EN_ROUTE",
+                "PICKED_UP",
+                "VENUE_REACHED",
+            ],
+            default: "ASSIGNED",
         },
 
         returnStatus: {
             type: String,
-            enum: Object.values(RETURN_STATUS),
-            default: RETURN_STATUS.EVENT_IN_PROGRESS,
+            enum: [
+                "EVENT_IN_PROGRESS",
+                "RETURN_PICKUP",
+                "DROPPED",
+            ],
+            default: "EVENT_IN_PROGRESS",
         },
 
         pickupTime: {
@@ -85,21 +89,10 @@ const guestAssignmentSchema = new mongoose.Schema(
     }
 );
 
-guestAssignmentSchema.index({
-    vehicleAssignment: 1,
-});
-
-guestAssignmentSchema.index({
-    guest: 1,
-});
-
-guestAssignmentSchema.index({
-    pickupStatus: 1,
-});
-
-guestAssignmentSchema.index({
-    returnStatus: 1,
-});
+guestAssignmentSchema.index({ vehicleAssignment: 1 });
+guestAssignmentSchema.index({ guest: 1 });
+guestAssignmentSchema.index({ pickupStatus: 1 });
+guestAssignmentSchema.index({ returnStatus: 1 });
 
 module.exports = mongoose.model(
     "GuestAssignment",

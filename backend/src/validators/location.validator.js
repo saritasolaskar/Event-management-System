@@ -35,25 +35,31 @@ const createLocationValidator = [
 
   body("country")
     .optional()
-    .trim(),
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage("Country cannot exceed 100 characters."),
 
   body("pincode")
     .optional()
-    .trim(),
+    .trim()
+    .isPostalCode("any")
+    .withMessage("Invalid pincode."),
 
   body("latitude")
-    .optional()
+    .optional({ nullable: true })
     .isFloat({ min: -90, max: 90 })
-    .withMessage("Invalid latitude."),
+    .withMessage("Latitude must be between -90 and 90."),
 
   body("longitude")
-    .optional()
+    .optional({ nullable: true })
     .isFloat({ min: -180, max: 180 })
-    .withMessage("Invalid longitude."),
+    .withMessage("Longitude must be between -180 and 180."),
 
   body("landmark")
     .optional()
-    .trim(),
+    .trim()
+    .isLength({ max: 255 })
+    .withMessage("Landmark cannot exceed 255 characters."),
 
   body("status")
     .optional()

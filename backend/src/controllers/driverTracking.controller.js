@@ -9,7 +9,11 @@ const { successResponse } = require("../utils/response.utils");
  */
 const createTrackingPoint = asyncHandler(async (req, res) => {
 
-    const tracking = await driverTrackingService.createTrackingPoint(req.body);
+    const tracking =
+        await driverTrackingService.createTrackingPoint(
+            req.user.driver,
+            req.body
+        );
 
     return successResponse(
         res,
@@ -59,11 +63,7 @@ const getTrackingHistory = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-
     createTrackingPoint,
-
     getLatestLocation,
-
     getTrackingHistory,
-
 };

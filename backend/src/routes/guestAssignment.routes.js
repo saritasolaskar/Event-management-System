@@ -45,42 +45,61 @@ router.post(
 );
 
 /**
- * Get All
+ * Get All Assignments
  */
 router.get(
     "/",
     protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.OPERATIONS_MANAGER,
+        ROLES.DISPATCHER
+    ),
     guestAssignmentController.getAllGuestAssignments
 );
 
 /**
- * Get By ID
+ * Get Assignment By ID
  */
 router.get(
     "/:id",
     protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.OPERATIONS_MANAGER,
+        ROLES.DISPATCHER
+    ),
     guestAssignmentIdValidator,
     validate,
     guestAssignmentController.getGuestAssignmentById
 );
 
 /**
- * Update
+ * Update Assignment
  */
 router.put(
     "/:id",
     protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.OPERATIONS_MANAGER
+    ),
+    guestAssignmentIdValidator,
     updateGuestAssignmentValidator,
     validate,
     guestAssignmentController.updateGuestAssignment
 );
 
 /**
- * Delete
+ * Delete Assignment
  */
 router.delete(
     "/:id",
     protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.OPERATIONS_MANAGER
+    ),
     guestAssignmentIdValidator,
     validate,
     guestAssignmentController.deleteGuestAssignment

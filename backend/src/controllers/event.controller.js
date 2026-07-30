@@ -72,7 +72,10 @@ const updateEvent = asyncHandler(async (req, res) => {
  * Delete Event
  */
 const deleteEvent = asyncHandler(async (req, res) => {
-  await eventService.deleteEvent(req.params.id);
+  await eventService.deleteEvent(
+    req.params.id,
+   req.user._id
+  );
 
   return successResponse(
     res,
@@ -87,7 +90,8 @@ const deleteEvent = asyncHandler(async (req, res) => {
 const updateEventStatus = asyncHandler(async (req, res) => {
   const event = await eventService.updateEventStatus(
     req.params.id,
-    req.body.status
+    req.body.status,
+    req.user._id
   );
 
   return successResponse(

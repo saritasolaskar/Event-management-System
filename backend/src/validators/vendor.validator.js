@@ -31,19 +31,21 @@ const createVendorValidator = [
   body("phone")
     .trim()
     .notEmpty()
-    .withMessage("Phone number is required."),
+    .withMessage("Phone number is required.")
+    .isMobilePhone("any")
+    .withMessage("Invalid phone number."),
 
   body("gstNumber")
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 15, max: 15 })
-    .withMessage("GST Number must be 15 characters."),
+    .withMessage("GST Number must be exactly 15 characters."),
 
   body("panNumber")
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isLength({ min: 10, max: 10 })
-    .withMessage("PAN Number must be 10 characters."),
+    .withMessage("PAN Number must be exactly 10 characters."),
 
   body("paymentCycle")
     .optional()

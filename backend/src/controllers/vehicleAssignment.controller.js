@@ -94,7 +94,8 @@ const deleteVehicleAssignment = asyncHandler(
     async (req, res) => {
 
         await vehicleAssignmentService.deleteVehicleAssignment(
-            req.params.id
+            req.params.id,
+              req.user._id
         );
 
         return successResponse(
@@ -114,7 +115,8 @@ const updateVehicleAssignmentStatus = asyncHandler(
         const assignment =
             await vehicleAssignmentService.updateVehicleAssignmentStatus(
                 req.params.id,
-                req.body.status
+                req.body.status,
+                req.user._id
             );
 
         return successResponse(
