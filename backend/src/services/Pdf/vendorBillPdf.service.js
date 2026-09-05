@@ -1,5 +1,5 @@
 const vendorBillRepository = require("../../repositories/vendorBill.repository");
-const pdfGenerator = require("./pdfGenerator");
+const pdfGenerator = require("../pdfGenerator");
 
 const AppError = require("../../utils/appError");
 

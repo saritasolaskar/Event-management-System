@@ -1,8 +1,7 @@
 const clientInvoiceRepository =
 require("../../repositories/clientInvoice.repository");
 
-const pdfGenerator =
-require("./pdfGenerator");
+const pdfGenerator = require("../pdfGenerator");
 
 const config =
 require("../../config/env");
