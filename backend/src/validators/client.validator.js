@@ -1,6 +1,6 @@
 const { body, param } = require("express-validator");
 
-const { CLIENT_STATUS } = require("../constants/status");
+const { STATUS } = require("../constants/status");
 
 /**
  * Create Client Validation
@@ -53,7 +53,7 @@ const createClientValidator = [
 
     body("status")
         .optional()
-        .isIn(Object.values(CLIENT_STATUS))
+        .isIn(Object.values(STATUS))
         .withMessage("Invalid client status."),
 
 ];
@@ -110,7 +110,7 @@ const updateClientValidator = [
 
     body("status")
         .optional()
-        .isIn(Object.values(CLIENT_STATUS))
+        .isIn(Object.values(STATUS))
         .withMessage("Invalid client status."),
 
 ];
