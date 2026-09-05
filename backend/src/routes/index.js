@@ -24,7 +24,7 @@ const userRoutes = require("./user.routes");
 const router = express.Router();
 
 router.use("/auth", authRoutes);
-router.use("/users", userRoutes);
+router.use("/users", userRoutes); 
 router.use("/clients", clientRoutes);
 router.use("/events", eventRoutes);
 router.use("/guests", guestRoutes);

@@ -126,12 +126,24 @@ const clientIdValidator = [
 
 ];
 
+const updateClientStatusValidator = [
+  param("id")
+    .isMongoId()
+    .withMessage("Invalid client ID."),
+
+  body("status")
+    .notEmpty()
+    .withMessage("Client status is required.")
+    .isIn(Object.values(STATUS))
+    .withMessage("Invalid client status."),
+];
+
 module.exports = {
 
     createClientValidator,
 
     updateClientValidator,
-
+    updateClientStatusValidator,
     clientIdValidator,
 
 };
