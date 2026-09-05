@@ -1,6 +1,6 @@
 const { body, param } = require("express-validator");
 
-const { LOCATION_STATUS } = require("../constants/status");
+const { STATUS } = require("../constants/status");
 
 /**
  * Create Location Validation
@@ -63,7 +63,7 @@ const createLocationValidator = [
 
   body("status")
     .optional()
-    .isIn(Object.values(LOCATION_STATUS))
+    .isIn(Object.values(STATUS))
     .withMessage("Invalid location status."),
 ];
 

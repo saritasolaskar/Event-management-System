@@ -61,8 +61,15 @@ const updateExpensesValidator = [
         .withMessage("DA charges cannot be negative."),
 ];
 
+const dutyIdValidator = [
+    param("id")
+        .isMongoId()
+        .withMessage("Invalid duty ID."),
+];
+
 module.exports = {
     startDutyValidator,
     completeDutyValidator,
     updateExpensesValidator,
+    dutyIdValidator,
 };

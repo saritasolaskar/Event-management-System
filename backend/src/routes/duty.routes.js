@@ -14,6 +14,7 @@ const {
     startDutyValidator,
     completeDutyValidator,
     dutyIdValidator,
+    updateExpensesValidator,
 } = require("../validators/duty.validator");
 
 /**
@@ -60,6 +61,7 @@ router.patch(
     protect,
     authorize(ROLES.DRIVER),
     dutyIdValidator,
+    updateExpensesValidator,
     validate,
     dutyController.updateExpenses
 );

@@ -1,6 +1,6 @@
 const { body, param } = require("express-validator");
 
-const { VENDOR_STATUS } = require("../constants/status");
+const { STATUS } = require("../constants/status");
 
 /**
  * Create Vendor Validation
@@ -64,7 +64,7 @@ const createVendorValidator = [
 
   body("status")
     .optional()
-    .isIn(Object.values(VENDOR_STATUS))
+    .isIn(Object.values(STATUS))
     .withMessage("Invalid vendor status."),
 ];
 

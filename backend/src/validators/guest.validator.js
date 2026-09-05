@@ -78,8 +78,15 @@ const guestIdValidator = [
         .withMessage("Invalid guest ID."),
 ];
 
+const eventIdValidator = [
+    param("eventId")
+        .isMongoId()
+        .withMessage("Invalid event ID."),
+];
+// hello 
 module.exports = {
     createGuestValidator,
     updateGuestValidator,
     guestIdValidator,
+    eventIdValidator,
 };
