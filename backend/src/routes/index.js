@@ -20,11 +20,11 @@ const clientPortalRoutes = require("./clientPortal.routes");
 const driverApiRoutes = require("./driverApi.routes");
 const dutyPdfRoutes = require("./dutyPdf.routes");
 const guestManifestPdfRoutes = require("./guestManifestPdf.routes");
-
+const userRoutes = require("./user.routes");
 const router = express.Router();
 
 router.use("/auth", authRoutes);
-
+router.use("/users", userRoutes);
 router.use("/clients", clientRoutes);
 router.use("/events", eventRoutes);
 router.use("/guests", guestRoutes);

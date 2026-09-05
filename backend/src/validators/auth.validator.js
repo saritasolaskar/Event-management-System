@@ -1,6 +1,6 @@
 const { body } = require("express-validator");
 
-const ROLES = require("../constants/roles");
+const { ROLES } = require("../constants/roles");
 
 const registerValidator = [
 

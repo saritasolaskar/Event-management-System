@@ -48,8 +48,22 @@ const logout = asyncHandler(async (req, res) => {
   );
 });
 
+const refreshToken = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.body;
+
+  const result = await authService.refreshToken(refreshToken);
+
+  return successResponse(
+    res,
+    200,
+    "Token refreshed successfully.",
+    result
+  );
+});
+
 module.exports = {
   register,
   login,
   logout,
+  refreshToken,
 };

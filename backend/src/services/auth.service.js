@@ -8,9 +8,10 @@ const {
 
 const { calculateExpiry } = require("../utils/token.utils");
 
-const AppError = require("../utils/AppError.utils");
+const AppError = require("../utils/appError");
 
 const { STATUS } = require("../constants/status");
+const { ROLES } = require("../constants/roles");
 
 /**
  * Register User
@@ -37,9 +38,10 @@ const register = async (userData) => {
         );
     }
 
-    const user =
-        await userRepository.create(userData);
-
+   const user = await userRepository.create({
+    ...userData,
+    role: ROLES.CLIENT,
+});
     const accessToken =
         generateAccessToken(user);
 
