@@ -1,9 +1,18 @@
-const trackingRepository = require("../repositories/tracking.repository");
-const dutyRepository = require("../repositories/duty.repository");
-const User = require("../models/user.model");
-const auditLogService = require("./auditLog.service");
+```js
+const trackingRepository =
+    require("../repositories/tracking.repository");
 
-const AppError = require("../utils/AppError");
+const dutyRepository =
+    require("../repositories/duty.repository");
+
+const User =
+    require("../models/user.model");
+
+const auditLogService =
+    require("./auditLog.service");
+
+const AppError =
+    require("../utils/AppError");
 
 /**
  * Driver Updates Live Location
@@ -67,32 +76,32 @@ const updateLocation = async (
 
     if (history.length === 1) {
 
-    const driverUser = await User.findOne({
-        driver: driverId,
-        isDeleted: false,
-    });
+        const driverUser =
+            await User.findOne({
+                driver: driverId,
+                isDeleted: false,
+            });
 
-    if (driverUser) {
-        await auditLogService.createLog({
+        if (driverUser) {
 
-            user: driverUser._id,
+            await auditLogService.createLog({
 
-            action: "CREATE",
+                user: driverUser._id,
 
-            module: "TRACKING",
+                action: "CREATE",
 
-            referenceId: tracking._id,
+                module: "TRACKING",
 
-            description:
-                "Live tracking started.",
+                referenceId: tracking._id,
 
-        });
+                description:
+                    "Live tracking started.",
+
+            });
+        }
     }
 
-} 
-
     return tracking;
-
 };
 
 /**
@@ -102,6 +111,24 @@ const getDutyLiveLocation = async (
     dutyId,
     user
 ) => {
+
+    // Validate duty first
+    const duty =
+        await dutyRepository.findById(
+            dutyId
+        );
+
+    if (
+        !duty ||
+        !duty.vehicleAssignment
+    ) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
+
+    // Get latest tracking record
     const tracking =
         await trackingRepository.findLatestByDuty(
             dutyId
@@ -114,23 +141,30 @@ const getDutyLiveLocation = async (
         );
     }
 
+    // CLIENT can only view tracking
+    // belonging to their own event
     if (user.role === "CLIENT") {
-        const Event = require("../models/event.model");
 
-        const duty = await dutyRepository.findById(dutyId);
-
-        if (!duty || !duty.vehicleAssignment) {
+        if (!user.client) {
             throw new AppError(
-                "Duty not found.",
-                404
+                "Client profile is not linked to this account.",
+                403
             );
         }
 
-        const event = await Event.findOne({
-            _id: duty.vehicleAssignment.event,
-            client: user.client,
-            isDeleted: false,
-        });
+        const Event =
+            require("../models/event.model");
+
+        const event =
+            await Event.findOne({
+                _id:
+                    duty.vehicleAssignment.event,
+
+                client:
+                    user.client,
+
+                isDeleted: false,
+            });
 
         if (!event) {
             throw new AppError(
@@ -148,7 +182,8 @@ const getDutyLiveLocation = async (
  */
 const getAllLiveLocations = async () => {
 
-    return trackingRepository.findLatestActiveLocations();
+    return trackingRepository
+        .findLatestActiveLocations();
 
 };
 
@@ -159,10 +194,22 @@ const getTrackingHistory = async (
     dutyId
 ) => {
 
-    return trackingRepository.findHistoryByDuty(
-        dutyId
-    );
+    const duty =
+        await dutyRepository.findById(
+            dutyId
+        );
 
+    if (!duty) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
+
+    return trackingRepository
+        .findHistoryByDuty(
+            dutyId
+        );
 };
 
 module.exports = {
@@ -176,3 +223,4 @@ module.exports = {
     getTrackingHistory,
 
 };
+```

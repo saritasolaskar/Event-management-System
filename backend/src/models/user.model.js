@@ -116,6 +116,12 @@ const userSchema = new Schema(
             default: null,
         },
 
+        client: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Client",
+    default: null,
+},
+
         // =====================================================
         // Verification
         // =====================================================
