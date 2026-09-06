@@ -6,7 +6,10 @@ const auditLogService = require("./auditLog.service");
 
 const AppError = require("../utils/AppError");
 
-const { DUTY_STATUS } = require("../constants/status");
+const {
+    DUTY_STATUS,
+    VEHICLE_ASSIGNMENT_STATUS,
+} = require("../constants/status");
 
 /**
  * Start Duty
@@ -59,11 +62,11 @@ const startDuty = async (data, userId) => {
         await dutyRepository.create(data);
 
     await vehicleAssignmentRepository.updateById(
-        assignment._id,
-        {
-            status: DUTY_STATUS.STARTED,
-        }
-    );
+    assignment._id,
+    {
+        status: VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
+    }
+);
 
     await notificationService.createNotification({
 
@@ -164,11 +167,11 @@ const completeDuty = async (
         );
 
     await vehicleAssignmentRepository.updateById(
-        duty.vehicleAssignment,
-        {
-            status: DUTY_STATUS.COMPLETED,
-        }
-    );
+    duty.vehicleAssignment,
+    {
+        status: VEHICLE_ASSIGNMENT_STATUS.COMPLETED,
+    }
+);
 
     await notificationService.createNotification({
 
