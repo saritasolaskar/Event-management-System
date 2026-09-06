@@ -1,19 +1,20 @@
 const clientInvoiceRepository =
-require("../../repositories/clientInvoice.repository");
+    require("../../repositories/clientInvoice.repository");
 
 const pdfGenerator = require("../pdfGenerator");
 
 const config =
-require("../../config/env");
+    require("../../config/env");
 
 const AppError =
-require("../../utils/appError");
+    require("../../utils/AppError");
 
 /**
  * Generate Client Invoice PDF
  */
 const generateClientInvoicePdf = async (
-    invoiceId
+    invoiceId,
+    user
 ) => {
 
     const invoice =
@@ -25,6 +26,16 @@ const generateClientInvoicePdf = async (
         throw new AppError(
             "Client Invoice not found.",
             404
+        );
+    }
+
+    if (
+        user.role === "CLIENT" &&
+        invoice.client._id.toString() !== user.client.toString()
+    ) {
+        throw new AppError(
+            "Unauthorized.",
+            403
         );
     }
 
@@ -71,14 +82,18 @@ const generateClientInvoicePdf = async (
                 invoice.invoiceNumber,
 
             invoiceDate:
-                invoice.createdAt.toLocaleDateString(),
+                invoice.invoiceDate
+                    ? invoice.invoiceDate.toLocaleDateString()
+                    : "",
 
-            packageType:
-                invoice.packageType,
+            packageName:
+                invoice.packageName || "",
 
-            packageRate:
-                invoice.packageRate,
+            packageKm:
+                invoice.packageKm || 0,
 
+            packageHours:
+                invoice.packageHours || 0,
             totalKm:
                 invoice.totalKm,
 
@@ -122,7 +137,7 @@ const generateClientInvoicePdf = async (
 
         approvedBy:
             invoice.approvedBy,
-                    generatedAt:
+        generatedAt:
             new Date().toLocaleString(),
 
     };
