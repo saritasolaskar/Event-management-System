@@ -135,6 +135,16 @@ const bulkAssignGuests = async (
         );
     }
 
+    if (
+    vehicleAssignment.status !== "ASSIGNED" &&
+    vehicleAssignment.status !== "ON_DUTY"
+) {
+    throw new AppError(
+        "Guests can only be assigned to an active Vehicle Assignment.",
+        400
+    );
+}
+
     const assignments = [];
 
     for (const [index, guestId] of guestIds.entries()) {
