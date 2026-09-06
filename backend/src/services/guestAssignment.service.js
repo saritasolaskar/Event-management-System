@@ -4,7 +4,10 @@ const guestRepository = require("../repositories/guest.repository");
 
 const notificationService = require("./notification.service");
 const auditLogService = require("./auditLog.service");
-
+const {
+    PICKUP_STATUS,
+    RETURN_STATUS,
+} = require("../constants/status");
 const AppError = require("../utils/AppError");
 
 /**
@@ -278,9 +281,9 @@ const updateGuestAssignment = async (
 
     // Do not modify an assignment after pickup has started
     if (
-        assignment.pickupStatus !== "ASSIGNED" ||
-        assignment.returnStatus !== "EVENT_IN_PROGRESS"
-    ) {
+    assignment.pickupStatus !== PICKUP_STATUS.PENDING ||
+    assignment.returnStatus !== RETURN_STATUS.NOT_STARTED
+){
         throw new AppError(
             "Guest Assignment cannot be modified after the trip has started.",
             400
@@ -469,9 +472,9 @@ const updateGuestAssignment = async (
     }
 
     if (
-        assignment.pickupStatus !== "ASSIGNED" ||
-        assignment.returnStatus !== "EVENT_IN_PROGRESS"
-    ) {
+    assignment.pickupStatus !== PICKUP_STATUS.PENDING ||
+    assignment.returnStatus !== RETURN_STATUS.NOT_STARTED
+) {
         throw new AppError(
             "Guest Assignment cannot be deleted after the trip has started.",
             400
