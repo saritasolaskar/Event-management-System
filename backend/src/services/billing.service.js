@@ -3,7 +3,7 @@ const commercialPackageRepository = require("../repositories/commercialPackage.r
 const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.repository");
 
 const { BILL_STATUS } = require("../constants/status");
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 const generateDraftBill = async (dutyId) => {
 

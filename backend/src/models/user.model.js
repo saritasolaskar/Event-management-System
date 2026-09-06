@@ -39,6 +39,7 @@ const userSchema = new Schema(
             default: null,
         },
 
+
         // =====================================================
         // Authentication
         // =====================================================
@@ -104,6 +105,22 @@ const userSchema = new Schema(
             default: STATUS.ACTIVE,
             required: true,
         },
+
+      // =====================================================
+        // driver reference
+        // =====================================================
+
+        driver: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Driver",
+            default: null,
+        },
+
+        client: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Client",
+    default: null,
+},
 
         // =====================================================
         // Verification

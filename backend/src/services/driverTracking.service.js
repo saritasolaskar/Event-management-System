@@ -1,7 +1,7 @@
 const driverTrackingRepository = require("../repositories/driverTracking.repository");
 const dutyRepository = require("../repositories/duty.repository");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 /**
  * Create Tracking Point

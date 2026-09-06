@@ -1,7 +1,7 @@
 const dutyService = require("../services/duty.service");
 
 const asyncHandler = require("../utils/asyncHandler");
-
+const AppError = require("../utils/AppError");
 const {
     successResponse,
 } = require("../utils/response.utils");
@@ -11,9 +11,17 @@ const {
  */
 const startDuty = asyncHandler(async (req, res) => {
 
+    if (!req.user.driver) {
+        throw new AppError(
+            "Driver profile is not linked to this account.",
+            403
+        );
+    }
+
     const duty = await dutyService.startDuty(
         req.body,
-        req.user._id
+        req.user._id,
+        req.user.driver
     );
 
     return successResponse(
@@ -46,12 +54,20 @@ const getDuty = asyncHandler(async (req, res) => {
  */
 const completeDuty = asyncHandler(async (req, res) => {
 
-    const duty =
-        await dutyService.completeDuty(
-            req.params.id,
-            req.body,
-            req.user._id
-        );
+    if (!req.user.driver) {
+    throw new AppError(
+        "Driver profile is not linked to this account.",
+        403
+    );
+}
+
+const duty =
+    await dutyService.completeDuty(
+        req.params.id,
+        req.body,
+        req.user._id,
+        req.user.driver
+    );
 
     return successResponse(
         res,
@@ -66,11 +82,19 @@ const completeDuty = asyncHandler(async (req, res) => {
  */
 const updateExpenses = asyncHandler(async (req, res) => {
 
+    if (!req.user.driver) {
+        throw new AppError(
+            "Driver profile is not linked to this account.",
+            403
+        );
+    }
+
     const duty =
         await dutyService.updateExpenses(
             req.params.id,
             req.body,
-            req.user._id
+            req.user._id,
+            req.user.driver
         );
 
     return successResponse(

@@ -4,8 +4,11 @@ const guestRepository = require("../repositories/guest.repository");
 
 const notificationService = require("./notification.service");
 const auditLogService = require("./auditLog.service");
-
-const AppError = require("../utils/appError");
+const {
+    PICKUP_STATUS,
+    RETURN_STATUS,
+} = require("../constants/status");
+const AppError = require("../utils/AppError");
 
 /**
  * Create Guest Assignment
@@ -23,7 +26,17 @@ const createGuestAssignment = async (data, userId) => {
             404
         );
     }
-
+    
+    if (
+    vehicleAssignment.status !== "ASSIGNED" &&
+    vehicleAssignment.status !== "ON_DUTY"
+) {
+    throw new AppError(
+        "Guest can only be assigned to an active Vehicle Assignment.",
+        400
+    );
+}
+     
     const guest =
         await guestRepository.findById(
             data.guest
@@ -124,6 +137,16 @@ const bulkAssignGuests = async (
             404
         );
     }
+
+    if (
+    vehicleAssignment.status !== "ASSIGNED" &&
+    vehicleAssignment.status !== "ON_DUTY"
+) {
+    throw new AppError(
+        "Guests can only be assigned to an active Vehicle Assignment.",
+        400
+    );
+}
 
     const assignments = [];
 
@@ -242,19 +265,12 @@ const getGuestAssignmentById = async (id) => {
  * Update Guest Assignment
  */
 const updateGuestAssignment = async (
-
     id,
-
-    updateData,
-
+    data,
     userId
-
 ) => {
-
     const assignment =
-        await guestAssignmentRepository.findById(
-            id
-        );
+        await guestAssignmentRepository.findById(id);
 
     if (!assignment) {
         throw new AppError(
@@ -263,11 +279,23 @@ const updateGuestAssignment = async (
         );
     }
 
-    if (updateData.vehicleAssignment) {
+    // Do not modify an assignment after pickup has started
+    if (
+    assignment.pickupStatus !== PICKUP_STATUS.PENDING ||
+    assignment.returnStatus !== RETURN_STATUS.NOT_STARTED
+){
+        throw new AppError(
+            "Guest Assignment cannot be modified after the trip has started.",
+            400
+        );
+    }
 
+    const updateData = {};
+
+    if (data.vehicleAssignment) {
         const vehicleAssignment =
             await vehicleAssignmentRepository.findById(
-                updateData.vehicleAssignment
+                data.vehicleAssignment
             );
 
         if (!vehicleAssignment) {
@@ -277,13 +305,70 @@ const updateGuestAssignment = async (
             );
         }
 
-    }
+        if (
+            vehicleAssignment.status !== "ASSIGNED" &&
+            vehicleAssignment.status !== "ON_DUTY"
+        ) {
+            throw new AppError(
+                "Guest can only be assigned to an active Vehicle Assignment.",
+                400
+            );
+        }
 
-    if (updateData.guest) {
+        const currentGuest =
+            data.guest || assignment.guest?._id || assignment.guest;
 
         const guest =
+            await guestRepository.findById(currentGuest);
+
+        if (!guest) {
+            throw new AppError(
+                "Guest not found.",
+                404
+            );
+        }
+
+        if (
+            guest.event.toString() !==
+            vehicleAssignment.event.toString()
+        ) {
+            throw new AppError(
+                "Guest and Vehicle Assignment must belong to the same event.",
+                400
+            );
+        }
+
+        if (
+            vehicleAssignment._id.toString() !==
+            (
+                assignment.vehicleAssignment?._id ||
+                assignment.vehicleAssignment
+            ).toString()
+        ) {
+            const existingAssignment =
+                await guestAssignmentRepository.findByGuest(
+                    currentGuest
+                );
+
+            if (
+                existingAssignment &&
+                existingAssignment._id.toString() !== id.toString()
+            ) {
+                throw new AppError(
+                    "Guest is already assigned to another vehicle.",
+                    400
+                );
+            }
+        }
+
+        updateData.vehicleAssignment =
+            data.vehicleAssignment;
+    }
+
+    if (data.guest) {
+        const guest =
             await guestRepository.findById(
-                updateData.guest
+                data.guest
             );
 
         if (!guest) {
@@ -293,6 +378,54 @@ const updateGuestAssignment = async (
             );
         }
 
+        const vehicleAssignment =
+            data.vehicleAssignment
+                ? await vehicleAssignmentRepository.findById(
+                      data.vehicleAssignment
+                  )
+                : assignment.vehicleAssignment;
+
+        if (
+            guest.event.toString() !==
+            vehicleAssignment.event.toString()
+        ) {
+            throw new AppError(
+                "Guest and Vehicle Assignment must belong to the same event.",
+                400
+            );
+        }
+
+        const existingAssignment =
+            await guestAssignmentRepository.findByGuest(
+                data.guest
+            );
+
+        if (
+            existingAssignment &&
+            existingAssignment._id.toString() !== id.toString()
+        ) {
+            throw new AppError(
+                "Guest is already assigned to another vehicle.",
+                400
+            );
+        }
+
+        updateData.guest = data.guest;
+    }
+
+    if (data.pickupSequence !== undefined) {
+        updateData.pickupSequence =
+            data.pickupSequence;
+    }
+
+    if (data.dropSequence !== undefined) {
+        updateData.dropSequence =
+            data.dropSequence;
+    }
+
+    if (data.remarks !== undefined) {
+        updateData.remarks =
+            data.remarks;
     }
 
     updateData.updatedBy = userId;
@@ -303,39 +436,33 @@ const updateGuestAssignment = async (
             updateData
         );
 
+    if (!updatedAssignment) {
+        throw new AppError(
+            "Failed to update Guest Assignment.",
+            500
+        );
+    }
+
     await auditLogService.createLog({
-
         user: userId,
-
         action: "UPDATE",
-
         module: "GUEST_ASSIGNMENT",
-
         referenceId: updatedAssignment._id,
-
         description: "Updated guest assignment.",
-
     });
 
     return updatedAssignment;
-
 };
 
 /**
  * Delete Guest Assignment
  */
-const deleteGuestAssignment = async (
-
+ const deleteGuestAssignment = async (
     id,
-
     userId
-
 ) => {
-
     const assignment =
-        await guestAssignmentRepository.findById(
-            id
-        );
+        await guestAssignmentRepository.findById(id);
 
     if (!assignment) {
         throw new AppError(
@@ -344,24 +471,35 @@ const deleteGuestAssignment = async (
         );
     }
 
-    await guestAssignmentRepository.softDelete(
-        id
-    );
+    if (
+    assignment.pickupStatus !== PICKUP_STATUS.PENDING ||
+    assignment.returnStatus !== RETURN_STATUS.NOT_STARTED
+) {
+        throw new AppError(
+            "Guest Assignment cannot be deleted after the trip has started.",
+            400
+        );
+    }
+
+    const deletedAssignment =
+        await guestAssignmentRepository.softDelete(id);
+
+    if (!deletedAssignment) {
+        throw new AppError(
+            "Failed to delete Guest Assignment.",
+            500
+        );
+    }
 
     await auditLogService.createLog({
-
         user: userId,
-
         action: "DELETE",
-
         module: "GUEST_ASSIGNMENT",
-
         referenceId: assignment._id,
-
         description: "Deleted guest assignment.",
-
     });
 
+    return deletedAssignment;
 };
 
 module.exports = {

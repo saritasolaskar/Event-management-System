@@ -4,14 +4,21 @@ const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.r
 const notificationService = require("./notification.service");
 const auditLogService = require("./auditLog.service");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
-const { DUTY_STATUS } = require("../constants/status");
+const {
+    DUTY_STATUS,
+    VEHICLE_ASSIGNMENT_STATUS,
+} = require("../constants/status");
 
 /**
  * Start Duty
  */
-const startDuty = async (data, userId) => {
+const startDuty = async (
+    data,
+    userId,
+    driverId
+) => {
 
     const assignment =
         await vehicleAssignmentRepository.findById(
@@ -24,21 +31,42 @@ const startDuty = async (data, userId) => {
             404
         );
     }
+    
+const assignedDriver =
+    assignment.driver?._id ||
+    assignment.driver;
+
+if (
+    !assignedDriver ||
+    assignedDriver.toString() !== driverId.toString()
+) {
+    throw new AppError(
+        "You are not authorized to start duty for this assignment.",
+        403
+    );
+}
+
+    if (
+        assignment.status !==
+        VEHICLE_ASSIGNMENT_STATUS.ASSIGNED
+    ) {
+        throw new AppError(
+            "Vehicle Assignment is not available to start duty.",
+            400
+        );
+    }
 
     const existingDuty =
         await dutyRepository.findByVehicleAssignment(
             data.vehicleAssignment
         );
 
-    if (
-        existingDuty &&
-        existingDuty.status !== DUTY_STATUS.COMPLETED
-    ) {
-        throw new AppError(
-            "Duty already started for this assignment.",
-            400
-        );
-    }
+    if (existingDuty) {
+    throw new AppError(
+        "A duty already exists for this vehicle assignment.",
+        400
+    );
+}
 
     if (
         data.startKm === undefined ||
@@ -61,7 +89,7 @@ const startDuty = async (data, userId) => {
     await vehicleAssignmentRepository.updateById(
         assignment._id,
         {
-            status: DUTY_STATUS.STARTED,
+            status: VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
         }
     );
 
@@ -124,7 +152,8 @@ const getDuty = async (id) => {
 const completeDuty = async (
     id,
     data,
-    userId
+    userId,
+    driverId
 ) => {
 
     const duty =
@@ -137,71 +166,89 @@ const completeDuty = async (
         );
     }
 
-    if (
-        duty.status === DUTY_STATUS.COMPLETED
-    ) {
+    const assignedDriver =
+    duty.vehicleAssignment?.driver?._id ||
+    duty.vehicleAssignment?.driver;
+
+if (
+    !assignedDriver ||
+    assignedDriver.toString() !== driverId.toString()
+) {
+    throw new AppError(
+        "You are not authorized to complete this duty.",
+        403
+    );
+}
+
+    if (duty.status !== DUTY_STATUS.STARTED) {
         throw new AppError(
-            "Duty has already been completed.",
+            "Only an active duty can be completed.",
             400
         );
     }
 
-    if (data.endKm < duty.startKm) {
+    if (
+        data.endKm === undefined ||
+        data.endKm < duty.startKm
+    ) {
         throw new AppError(
             "End KM cannot be less than Start KM.",
             400
         );
     }
 
-    data.status = DUTY_STATUS.COMPLETED;
-    data.dutyEndTime = new Date();
-    data.updatedBy = userId;
+    const totalKm =
+        data.endKm - duty.startKm;
 
     const completedDuty =
         await dutyRepository.updateById(
             id,
-            data
+            {
+                endKm: data.endKm,
+                totalKm,
+                status: DUTY_STATUS.COMPLETED,
+                dutyEndTime: new Date(),
+                updatedBy: userId,
+            }
         );
 
+    if (!completedDuty) {
+        throw new AppError(
+            "Failed to complete duty.",
+            500
+        );
+    }
+
     await vehicleAssignmentRepository.updateById(
+        duty.vehicleAssignment._id ||
         duty.vehicleAssignment,
         {
-            status: DUTY_STATUS.COMPLETED,
+            endKm: data.endKm,
+            totalKm,
+            status:
+                VEHICLE_ASSIGNMENT_STATUS.COMPLETED,
+            updatedBy: userId,
         }
     );
 
     await notificationService.createNotification({
-
         recipientUser: userId,
-
         title: "Duty Completed",
-
         message: "Duty completed successfully.",
-
         type: "DUTY_COMPLETED",
-
         referenceType: "DUTY",
-
         referenceId: completedDuty._id,
-
     });
 
     await auditLogService.createLog({
-
         user: userId,
-
         action: "UPDATE",
-
         module: "DUTY",
-
         referenceId: completedDuty._id,
-
         description: "Duty completed.",
-
     });
 
     return completedDuty;
-
 };
 
 /**
@@ -210,7 +257,8 @@ const completeDuty = async (
 const updateExpenses = async (
     id,
     expenses,
-    userId
+    userId,
+    driverId
 ) => {
 
     const duty =
@@ -223,13 +271,49 @@ const updateExpenses = async (
         );
     }
 
-    expenses.updatedBy = userId;
+    const assignedDriver =
+    duty.vehicleAssignment?.driver?._id ||
+    duty.vehicleAssignment?.driver;
 
-    const updatedDuty =
-        await dutyRepository.updateById(
-            id,
-            expenses
-        );
+if (
+    !assignedDriver ||
+    assignedDriver.toString() !== driverId.toString()
+) {
+    throw new AppError(
+        "You are not authorized to update this duty.",
+        403
+    );
+}
+
+    const expenseData = {
+    updatedBy: userId,
+};
+
+if (expenses.DA !== undefined) {
+    expenseData.DA = expenses.DA;
+}
+
+if (expenses.toll !== undefined) {
+    expenseData.toll = expenses.toll;
+}
+
+if (expenses.parking !== undefined) {
+    expenseData.parking = expenses.parking;
+}
+
+if (expenses.entry !== undefined) {
+    expenseData.entry = expenses.entry;
+}
+
+if (expenses.remarks !== undefined) {
+    expenseData.remarks = expenses.remarks;
+}
+
+const updatedDuty =
+    await dutyRepository.updateById(
+        id,
+        expenseData
+    );
 
     await auditLogService.createLog({
 

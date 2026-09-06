@@ -9,7 +9,7 @@ const locationRepository = require("../repositories/location.repository");
 const notificationService = require("./notification.service");
 const auditLogService = require("./auditLog.service");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 /**
  * Create Vehicle Assignment
@@ -220,6 +220,36 @@ const updateVehicleAssignment = async (
         );
     }
 
+
+
+    if (
+        assignment.status === "ON_DUTY" ||
+        assignment.status === "COMPLETED"
+    ) {
+        throw new AppError(
+            "Vehicle Assignment cannot be modified after duty has started.",
+            400
+        );
+    }
+
+    const allowedFields = [
+        "vehicle",
+        "driver",
+        "reportingLocation",
+        "reportingTime",
+        "remarks",
+    ];
+
+    const sanitizedUpdateData = {};
+
+    for (const field of allowedFields) {
+        if (updateData[field] !== undefined) {
+            sanitizedUpdateData[field] = updateData[field];
+        }
+    }
+
+    updateData = sanitizedUpdateData;
+
     if (updateData.driver) {
 
         const driver =
@@ -360,6 +390,16 @@ const deleteVehicleAssignment = async (
         );
     }
 
+    if (
+        assignment.status === "ON_DUTY" ||
+        assignment.status === "COMPLETED"
+    ) {
+        throw new AppError(
+            "Vehicle Assignment cannot be deleted after duty has started.",
+            400
+        );
+    }
+
     await vehicleAssignmentRepository.softDelete(id);
 
     await auditLogService.createLog({
@@ -391,11 +431,8 @@ const updateVehicleAssignmentStatus = async (
     status,
     userId
 ) => {
-
     const assignment =
-        await vehicleAssignmentRepository.findById(
-            id
-        );
+        await vehicleAssignmentRepository.findById(id);
 
     if (!assignment) {
         throw new AppError(
@@ -404,44 +441,50 @@ const updateVehicleAssignmentStatus = async (
         );
     }
 
+    if (status !== "CANCELLED") {
+        throw new AppError(
+            "Only cancellation is allowed through the manual status endpoint.",
+            400
+        );
+    }
+
+    if (
+        assignment.status === "COMPLETED" ||
+        assignment.status === "CANCELLED"
+    ) {
+        throw new AppError(
+            `Cannot cancel an assignment with status ${assignment.status}.`,
+            400
+        );
+    }
+
     const updatedAssignment =
         await vehicleAssignmentRepository.updateById(
             id,
-            { status }
+            {
+                status: "CANCELLED",
+                updatedBy: userId,
+            }
         );
 
     await notificationService.createNotification({
-
         recipientUser: userId,
-
-        title: "Vehicle Assignment Status Updated",
-
-        message: `Vehicle assignment status updated to ${status}.`,
-
+        title: "Vehicle Assignment Cancelled",
+        message: "Vehicle assignment has been cancelled.",
         type: "SYSTEM",
-
         referenceType: "VEHICLE_ASSIGNMENT",
-
         referenceId: updatedAssignment._id,
-
     });
 
     await auditLogService.createLog({
-
         user: userId,
-
         action: "UPDATE",
-
         module: "VEHICLE_ASSIGNMENT",
-
         referenceId: updatedAssignment._id,
-
-        description: `Vehicle assignment status changed to ${status}.`,
-
+        description: "Vehicle assignment cancelled.",
     });
 
     return updatedAssignment;
-
 };
 
 module.exports = {

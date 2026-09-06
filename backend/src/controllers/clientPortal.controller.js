@@ -59,8 +59,9 @@ const getGuests = asyncHandler(async (req, res) => {
 
     const guests =
         await clientPortalService.getGuests(
-            req.params.id
-        );
+    req.params.id,
+    req.user.client
+);
 
     return successResponse(
         res,
@@ -75,8 +76,9 @@ const getVehicles = asyncHandler(async (req, res) => {
 
     const vehicles =
         await clientPortalService.getVehicles(
-            req.params.id
-        );
+    req.params.id,
+    req.user.client
+);
 
     return successResponse(
         res,
@@ -131,8 +133,9 @@ asyncHandler(async(req,res)=>{
     const tracking =
         await clientPortalService
             .getLiveTracking(
-                req.params.id
-            );
+    req.params.id,
+    req.user.client
+);
 
     return successResponse(
 
@@ -181,8 +184,9 @@ asyncHandler(async(req,res)=>{
 
     const drivers =
         await clientPortalService.getDrivers(
-            req.params.id
-        );
+    req.params.id,
+    req.user.client
+);
 
     return successResponse(
 

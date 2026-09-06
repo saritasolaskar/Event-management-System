@@ -1,7 +1,7 @@
 const vendorBillRepository = require("../repositories/vendorBill.repository");
 const clientInvoiceRepository = require("../repositories/clientInvoice.repository");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 const { BILL_STATUS } = require("../constants/status");
 
 /**

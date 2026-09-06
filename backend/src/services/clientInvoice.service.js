@@ -2,7 +2,7 @@ const clientInvoiceRepository = require("../repositories/clientInvoice.repositor
 const billingService = require("./billing.service");
 const dutyRepository = require("../repositories/duty.repository");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 const createClientInvoice = async (
     dutyId,

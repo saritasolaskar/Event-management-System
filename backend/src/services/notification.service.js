@@ -2,7 +2,7 @@ const notificationRepository =
 require("../repositories/notification.repository");
 
 const AppError =
-require("../utils/appError");
+require("../utils/AppError");
 
 /**
  * Create Notification

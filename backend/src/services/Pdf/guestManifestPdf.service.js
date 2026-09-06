@@ -2,7 +2,7 @@ const eventRepository = require("../../repositories/event.repository");
 const guestRepository = require("../../repositories/guest.repository");
 const guestAssignmentRepository = require("../../repositories/guestAssignment.repository");
 
-const pdfGenerator = require("./pdfGenerator");
+const pdfGenerator = require("../pdfGenerator");
 
 const config = require("../../config/env");
 const AppError = require("../../utils/appError");

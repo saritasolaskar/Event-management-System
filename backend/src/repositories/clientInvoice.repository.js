@@ -4,8 +4,10 @@ const create = (data) =>
     ClientInvoice.create(data);
 
 const findById = (id) =>
-    ClientInvoice.findById(id)
-
+    ClientInvoice.findOne({
+        _id: id,
+        isDeleted: false,
+    })
         .populate("client")
 
         .populate({
@@ -41,8 +43,11 @@ const findAll = () =>
         });
 
 const updateById = (id, data) =>
-    ClientInvoice.findByIdAndUpdate(
-        id,
+    ClientInvoice.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         data,
         {
             new: true,
@@ -63,10 +68,18 @@ const findByClient = async (clientId) => {
 
 };
 
+const findByDuty = (dutyId) =>
+    ClientInvoice.findOne({
+        duty: dutyId,
+        isDeleted: false,
+    });
+
+    
 module.exports = {
     create,
     findById,
     findAll,
     updateById,
     findByClient,
+    findByDuty,
 };

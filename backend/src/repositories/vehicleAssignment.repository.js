@@ -57,10 +57,17 @@ const findTodayByDriver = async (driverId) => {
     return VehicleAssignment.findOne({
         driver: driverId,
         isDeleted: false,
+        status: {
+            $in: ["ASSIGNED", "ON_DUTY"],
+        },
     })
         .populate("vehicle")
         .populate("event")
-        .populate("vendor");
+        .populate("vendor")
+        .sort({
+            reportingTime: 1,
+            createdAt: -1,
+        });
 };
 
 const findByEvent = async (eventId) => {
@@ -88,6 +95,9 @@ const findActiveByDriver = async (
     const query = {
         driver: driverId,
         isDeleted: false,
+        status: {
+            $in: ["ASSIGNED", "ON_DUTY"],
+        },
     };
 
     if (excludeAssignmentId) {
@@ -112,6 +122,9 @@ const findActiveByVehicle = async (
     const query = {
         vehicle: vehicleId,
         isDeleted: false,
+        status: {
+            $in: ["ASSIGNED", "ON_DUTY"],
+        },
     };
 
     if (excludeAssignmentId) {
@@ -123,7 +136,6 @@ const findActiveByVehicle = async (
     return VehicleAssignment.findOne(query);
 
 };
-
 module.exports = {
     create,
     findById,

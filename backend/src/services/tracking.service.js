@@ -1,9 +1,18 @@
-const trackingRepository = require("../repositories/tracking.repository");
-const dutyRepository = require("../repositories/duty.repository");
+```js
+const trackingRepository =
+    require("../repositories/tracking.repository");
 
-const auditLogService = require("./auditLog.service");
+const dutyRepository =
+    require("../repositories/duty.repository");
 
-const AppError = require("../utils/appError");
+const User =
+    require("../models/user.model");
+
+const auditLogService =
+    require("./auditLog.service");
+
+const AppError =
+    require("../utils/AppError");
 
 /**
  * Driver Updates Live Location
@@ -67,34 +76,59 @@ const updateLocation = async (
 
     if (history.length === 1) {
 
-        await auditLogService.createLog({
+        const driverUser =
+            await User.findOne({
+                driver: driverId,
+                isDeleted: false,
+            });
 
-            user: driverId,
+        if (driverUser) {
 
-            action: "CREATE",
+            await auditLogService.createLog({
 
-            module: "TRACKING",
+                user: driverUser._id,
 
-            referenceId: tracking._id,
+                action: "CREATE",
 
-            description:
-                "Live tracking started.",
+                module: "TRACKING",
 
-        });
+                referenceId: tracking._id,
 
+                description:
+                    "Live tracking started.",
+
+            });
+        }
     }
 
     return tracking;
-
 };
 
 /**
  * Get Latest Location Of A Duty
  */
 const getDutyLiveLocation = async (
-    dutyId
+    dutyId,
+    user
 ) => {
 
+    // Validate duty first
+    const duty =
+        await dutyRepository.findById(
+            dutyId
+        );
+
+    if (
+        !duty ||
+        !duty.vehicleAssignment
+    ) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
+
+    // Get latest tracking record
     const tracking =
         await trackingRepository.findLatestByDuty(
             dutyId
@@ -107,8 +141,40 @@ const getDutyLiveLocation = async (
         );
     }
 
-    return tracking;
+    // CLIENT can only view tracking
+    // belonging to their own event
+    if (user.role === "CLIENT") {
 
+        if (!user.client) {
+            throw new AppError(
+                "Client profile is not linked to this account.",
+                403
+            );
+        }
+
+        const Event =
+            require("../models/event.model");
+
+        const event =
+            await Event.findOne({
+                _id:
+                    duty.vehicleAssignment.event,
+
+                client:
+                    user.client,
+
+                isDeleted: false,
+            });
+
+        if (!event) {
+            throw new AppError(
+                "You are not authorized to view this tracking data.",
+                403
+            );
+        }
+    }
+
+    return tracking;
 };
 
 /**
@@ -116,7 +182,8 @@ const getDutyLiveLocation = async (
  */
 const getAllLiveLocations = async () => {
 
-    return trackingRepository.findLatestActiveLocations();
+    return trackingRepository
+        .findLatestActiveLocations();
 
 };
 
@@ -127,10 +194,22 @@ const getTrackingHistory = async (
     dutyId
 ) => {
 
-    return trackingRepository.findHistoryByDuty(
-        dutyId
-    );
+    const duty =
+        await dutyRepository.findById(
+            dutyId
+        );
 
+    if (!duty) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
+
+    return trackingRepository
+        .findHistoryByDuty(
+            dutyId
+        );
 };
 
 module.exports = {
@@ -144,3 +223,4 @@ module.exports = {
     getTrackingHistory,
 
 };
+```

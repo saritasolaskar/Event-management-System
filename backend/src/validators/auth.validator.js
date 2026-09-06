@@ -1,26 +1,15 @@
 const { body } = require("express-validator");
 
-const ROLES = require("../constants/roles");
+const { ROLES } = require("../constants/roles");
 
 const registerValidator = [
 
-    body("firstName")
-        .trim()
-        .notEmpty()
-        .withMessage("First name is required")
-        .isLength({ min: 2, max: 50 })
-        .withMessage(
-            "First name must be between 2 and 50 characters"
-        ),
-
-    body("lastName")
-        .trim()
-        .notEmpty()
-        .withMessage("Last name is required")
-        .isLength({ min: 2, max: 50 })
-        .withMessage(
-            "Last name must be between 2 and 50 characters"
-        ),
+    body("name")
+    .trim()
+    .notEmpty()
+    .withMessage("Name is required")
+    .isLength({ min: 2, max: 100 })
+    .withMessage("Name must be between 2 and 100 characters"),
 
     body("email")
         .trim()
@@ -73,11 +62,18 @@ const loginValidator = [
         .withMessage("Password is required"),
 
 ];
+const refreshTokenValidator = [
+  body("refreshToken")
+    .notEmpty()
+    .withMessage("Refresh token is required."),
+];
 
 module.exports = {
 
     registerValidator,
-
     loginValidator,
+    refreshTokenValidator,
+
+   
 
 };
