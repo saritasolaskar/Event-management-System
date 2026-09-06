@@ -38,10 +38,10 @@ const downloadInvoicePdf =
     asyncHandler(async (req, res) => {
 
         const pdf =
-            await clientInvoicePdfService.generateInvoicePdf(
-                req.params.id,
-                req.user
-            );
+    await clientInvoicePdfService.generateClientInvoicePdf(
+        req.params.id,
+        req.user
+    );
 
         res.set({
             "Content-Type": "application/pdf",
