@@ -99,9 +99,9 @@ const updateLocation = async (
  * Get Latest Location Of A Duty
  */
 const getDutyLiveLocation = async (
-    dutyId
+    dutyId,
+    user
 ) => {
-
     const tracking =
         await trackingRepository.findLatestByDuty(
             dutyId
@@ -114,8 +114,33 @@ const getDutyLiveLocation = async (
         );
     }
 
-    return tracking;
+    if (user.role === "CLIENT") {
+        const Event = require("../models/event.model");
 
+        const duty = await dutyRepository.findById(dutyId);
+
+        if (!duty || !duty.vehicleAssignment) {
+            throw new AppError(
+                "Duty not found.",
+                404
+            );
+        }
+
+        const event = await Event.findOne({
+            _id: duty.vehicleAssignment.event,
+            client: user.client,
+            isDeleted: false,
+        });
+
+        if (!event) {
+            throw new AppError(
+                "You are not authorized to view this tracking data.",
+                403
+            );
+        }
+    }
+
+    return tracking;
 };
 
 /**
