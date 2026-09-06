@@ -14,7 +14,11 @@ const {
 /**
  * Start Duty
  */
-const startDuty = async (data, userId) => {
+const startDuty = async (
+    data,
+    userId,
+    driverId
+) => {
 
     const assignment =
         await vehicleAssignmentRepository.findById(
@@ -27,6 +31,20 @@ const startDuty = async (data, userId) => {
             404
         );
     }
+    
+const assignedDriver =
+    assignment.driver?._id ||
+    assignment.driver;
+
+if (
+    !assignedDriver ||
+    assignedDriver.toString() !== driverId.toString()
+) {
+    throw new AppError(
+        "You are not authorized to start duty for this assignment.",
+        403
+    );
+}
 
     if (
         assignment.status !==
@@ -43,15 +61,12 @@ const startDuty = async (data, userId) => {
             data.vehicleAssignment
         );
 
-    if (
-        existingDuty &&
-        existingDuty.status !== DUTY_STATUS.COMPLETED
-    ) {
-        throw new AppError(
-            "Duty already started for this assignment.",
-            400
-        );
-    }
+    if (existingDuty) {
+    throw new AppError(
+        "A duty already exists for this vehicle assignment.",
+        400
+    );
+}
 
     if (
         data.startKm === undefined ||
@@ -242,7 +257,8 @@ if (
 const updateExpenses = async (
     id,
     expenses,
-    userId
+    userId,
+    driverId
 ) => {
 
     const duty =
@@ -255,13 +271,49 @@ const updateExpenses = async (
         );
     }
 
-    expenses.updatedBy = userId;
+    const assignedDriver =
+    duty.vehicleAssignment?.driver?._id ||
+    duty.vehicleAssignment?.driver;
 
-    const updatedDuty =
-        await dutyRepository.updateById(
-            id,
-            expenses
-        );
+if (
+    !assignedDriver ||
+    assignedDriver.toString() !== driverId.toString()
+) {
+    throw new AppError(
+        "You are not authorized to update this duty.",
+        403
+    );
+}
+
+    const expenseData = {
+    updatedBy: userId,
+};
+
+if (expenses.DA !== undefined) {
+    expenseData.DA = expenses.DA;
+}
+
+if (expenses.toll !== undefined) {
+    expenseData.toll = expenses.toll;
+}
+
+if (expenses.parking !== undefined) {
+    expenseData.parking = expenses.parking;
+}
+
+if (expenses.entry !== undefined) {
+    expenseData.entry = expenses.entry;
+}
+
+if (expenses.remarks !== undefined) {
+    expenseData.remarks = expenses.remarks;
+}
+
+const updatedDuty =
+    await dutyRepository.updateById(
+        id,
+        expenseData
+    );
 
     await auditLogService.createLog({
 
