@@ -137,7 +137,8 @@ const getDuty = async (id) => {
 const completeDuty = async (
     id,
     data,
-    userId
+    userId,
+    driverId
 ) => {
 
     const duty =
@@ -149,6 +150,20 @@ const completeDuty = async (
             404
         );
     }
+
+    const assignedDriver =
+    duty.vehicleAssignment?.driver?._id ||
+    duty.vehicleAssignment?.driver;
+
+if (
+    !assignedDriver ||
+    assignedDriver.toString() !== driverId.toString()
+) {
+    throw new AppError(
+        "You are not authorized to complete this duty.",
+        403
+    );
+}
 
     if (duty.status !== DUTY_STATUS.STARTED) {
         throw new AppError(

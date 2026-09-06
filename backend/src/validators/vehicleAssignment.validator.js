@@ -57,8 +57,19 @@ const vehicleAssignmentIdValidator = [
     .withMessage("Invalid Assignment ID."),
 ];
 
+const updateVehicleAssignmentStatusValidator = [
+    param("id")
+        .isMongoId()
+        .withMessage("Invalid Vehicle Assignment ID."),
+
+    body("status")
+        .equals("CANCELLED")
+        .withMessage("Only CANCELLED status is allowed."),
+];
+
 module.exports = {
   createVehicleAssignmentValidator,
   updateVehicleAssignmentValidator,
   vehicleAssignmentIdValidator,
+  updateVehicleAssignmentStatusValidator,
 };
