@@ -1,3 +1,4 @@
+```js
 const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.repository");
 const guestAssignmentRepository = require("../repositories/guestAssignment.repository");
 
@@ -88,7 +89,17 @@ const getAssignedGuests = async (driverId) => {
  * Driver En Route
  */
 const markDriverEnRoute = async (id, driverId) => {
-    await getDriverGuestAssignment(id, driverId);
+    const assignment =
+        await getDriverGuestAssignment(id, driverId);
+
+    if (
+        assignment.pickupStatus !== PICKUP_STATUS.PENDING
+    ) {
+        throw new AppError(
+            "Guest must be in PENDING status before starting pickup.",
+            400
+        );
+    }
 
     return guestAssignmentRepository.updateById(id, {
         pickupStatus: PICKUP_STATUS.DRIVER_EN_ROUTE,
@@ -99,7 +110,17 @@ const markDriverEnRoute = async (id, driverId) => {
  * Guest Picked
  */
 const markGuestPicked = async (id, driverId) => {
-    await getDriverGuestAssignment(id, driverId);
+    const assignment =
+        await getDriverGuestAssignment(id, driverId);
+
+    if (
+        assignment.pickupStatus !== PICKUP_STATUS.DRIVER_EN_ROUTE
+    ) {
+        throw new AppError(
+            "Driver must be en route before marking guest as picked up.",
+            400
+        );
+    }
 
     return guestAssignmentRepository.updateById(id, {
         pickupStatus: PICKUP_STATUS.PICKED_UP,
@@ -111,7 +132,17 @@ const markGuestPicked = async (id, driverId) => {
  * Venue Reached
  */
 const markVenueReached = async (id, driverId) => {
-    await getDriverGuestAssignment(id, driverId);
+    const assignment =
+        await getDriverGuestAssignment(id, driverId);
+
+    if (
+        assignment.pickupStatus !== PICKUP_STATUS.PICKED_UP
+    ) {
+        throw new AppError(
+            "Guest must be picked up before reaching the venue.",
+            400
+        );
+    }
 
     return guestAssignmentRepository.updateById(id, {
         pickupStatus: PICKUP_STATUS.DROPPED_AT_VENUE,
@@ -123,7 +154,26 @@ const markVenueReached = async (id, driverId) => {
  * Return Pickup
  */
 const markReturnPickup = async (id, driverId) => {
-    await getDriverGuestAssignment(id, driverId);
+    const assignment =
+        await getDriverGuestAssignment(id, driverId);
+
+    if (
+        assignment.pickupStatus !== PICKUP_STATUS.DROPPED_AT_VENUE
+    ) {
+        throw new AppError(
+            "Guest must reach the venue before return pickup.",
+            400
+        );
+    }
+
+    if (
+        assignment.returnStatus !== RETURN_STATUS.NOT_STARTED
+    ) {
+        throw new AppError(
+            "Return pickup has already started or completed.",
+            400
+        );
+    }
 
     return guestAssignmentRepository.updateById(id, {
         returnStatus: RETURN_STATUS.RETURN_PICKUP,
@@ -135,7 +185,17 @@ const markReturnPickup = async (id, driverId) => {
  * Guest Dropped
  */
 const markGuestDropped = async (id, driverId) => {
-    await getDriverGuestAssignment(id, driverId);
+    const assignment =
+        await getDriverGuestAssignment(id, driverId);
+
+    if (
+        assignment.returnStatus !== RETURN_STATUS.RETURN_PICKUP
+    ) {
+        throw new AppError(
+            "Guest must be picked up for return before marking as dropped.",
+            400
+        );
+    }
 
     return guestAssignmentRepository.updateById(id, {
         returnStatus: RETURN_STATUS.DROPPED,
@@ -152,3 +212,4 @@ module.exports = {
     markReturnPickup,
     markGuestDropped,
 };
+```
