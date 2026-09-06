@@ -7,6 +7,8 @@ const AppError = require("../utils/AppError");
  * Create Driver
  */
 const createDriver = async (driverData, userId) => {
+  const User = require("../models/user.model");
+
   // Check Vendor Exists
   const vendor = await vendorRepository.findById(driverData.vendor);
 
@@ -44,11 +46,44 @@ const createDriver = async (driverData, userId) => {
     throw new AppError("License number already exists.", 409);
   }
 
-  // Audit Fields
+  // Create Driver
   driverData.createdBy = userId;
   driverData.updatedBy = userId;
 
-  return await driverRepository.create(driverData);
+  const driver = await driverRepository.create(driverData);
+
+  // Create Driver Login User
+  const driverName = `${driver.firstName} ${driver.lastName}`.trim();
+
+  const existingUser = await User.findOne({
+    $or: [
+      { phone: driver.phone },
+      ...(driver.email ? [{ email: driver.email }] : []),
+    ],
+    isDeleted: false,
+  });
+
+  if (existingUser) {
+    existingUser.driver = driver._id;
+    existingUser.role = "DRIVER";
+    await existingUser.save();
+
+    return driver;
+  }
+
+  const driverUser = await User.create({
+    name: driverName,
+    email:
+      driver.email ||
+      `${driver.phone}@driver.local`,
+    phone: driver.phone,
+    password: driver.phone,
+    role: "DRIVER",
+    driver: driver._id,
+    status: "ACTIVE",
+  });
+
+  return driver;
 };
 
 /**
