@@ -1,7 +1,7 @@
 const driverRepository = require("../repositories/driver.repository");
 const vendorRepository = require("../repositories/vendor.repository");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 /**
  * Create Driver

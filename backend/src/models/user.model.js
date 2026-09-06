@@ -38,11 +38,7 @@ const userSchema = new Schema(
             type: String,
             default: null,
         },
-        driver: {
-    type: Schema.Types.ObjectId,
-    ref: "Driver",
-    default: null,
-},
+
 
         // =====================================================
         // Authentication
@@ -108,6 +104,16 @@ const userSchema = new Schema(
             enum: Object.values(STATUS),
             default: STATUS.ACTIVE,
             required: true,
+        },
+
+      // =====================================================
+        // driver reference
+        // =====================================================
+
+        driver: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Driver",
+            default: null,
         },
 
         // =====================================================

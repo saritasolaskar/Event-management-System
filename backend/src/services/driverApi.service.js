@@ -1,7 +1,7 @@
 const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.repository");
 const guestAssignmentRepository = require("../repositories/guestAssignment.repository");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 const {
     PICKUP_STATUS,
