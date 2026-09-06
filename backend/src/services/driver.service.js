@@ -64,12 +64,18 @@ const createDriver = async (driverData, userId) => {
   });
 
   if (existingUser) {
+    if (existingUser.role !== "DRIVER") {
+        throw new AppError(
+            "A user with this email or phone already exists with a different role.",
+            409
+        );
+    }
+
     existingUser.driver = driver._id;
-    existingUser.role = "DRIVER";
     await existingUser.save();
 
     return driver;
-  }
+}
 
   const driverUser = await User.create({
     name: driverName,
