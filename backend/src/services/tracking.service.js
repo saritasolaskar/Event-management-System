@@ -3,7 +3,7 @@ const dutyRepository = require("../repositories/duty.repository");
 
 const auditLogService = require("./auditLog.service");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 /**
  * Driver Updates Live Location
