@@ -1,5 +1,5 @@
 const clientRepository = require("../repositories/client.repository");
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 const CLIENT_FIELDS = [
   "companyName",

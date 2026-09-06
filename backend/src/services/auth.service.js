@@ -8,7 +8,7 @@ const {
 
 const { calculateExpiry } = require("../utils/token.utils");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 const { STATUS } = require("../constants/status");
 const { ROLES } = require("../constants/roles");
