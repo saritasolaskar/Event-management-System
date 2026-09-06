@@ -1,6 +1,6 @@
 const trackingRepository = require("../repositories/tracking.repository");
 const dutyRepository = require("../repositories/duty.repository");
-
+const User = require("../models/user.model");
 const auditLogService = require("./auditLog.service");
 
 const AppError = require("../utils/AppError");
@@ -67,9 +67,15 @@ const updateLocation = async (
 
     if (history.length === 1) {
 
+    const driverUser = await User.findOne({
+        driver: driverId,
+        isDeleted: false,
+    });
+
+    if (driverUser) {
         await auditLogService.createLog({
 
-            user: driverId,
+            user: driverUser._id,
 
             action: "CREATE",
 
@@ -81,8 +87,9 @@ const updateLocation = async (
                 "Live tracking started.",
 
         });
-
     }
+
+} 
 
     return tracking;
 
