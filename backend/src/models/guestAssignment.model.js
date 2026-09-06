@@ -90,6 +90,16 @@ guestAssignmentSchema.index({ guest: 1 });
 guestAssignmentSchema.index({ pickupStatus: 1 });
 guestAssignmentSchema.index({ returnStatus: 1 });
 
+guestAssignmentSchema.index(
+    { guest: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            isDeleted: false,
+        },
+    }
+);
+
 module.exports = mongoose.model(
     "GuestAssignment",
     guestAssignmentSchema

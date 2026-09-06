@@ -154,9 +154,13 @@ const findByVehicleAssignment = async (vehicleAssignmentId) => {
     return GuestAssignment.find({
         vehicleAssignment: vehicleAssignmentId,
         isDeleted: false,
-    }).populate("guest");
+    })
+        .populate("guest")
+        .sort({
+            pickupSequence: 1,
+            dropSequence: 1,
+        });
 };
-
 /**
  * Find Guest Assignments By Driver
  */
