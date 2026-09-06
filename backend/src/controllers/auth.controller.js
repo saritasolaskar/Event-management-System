@@ -59,9 +59,20 @@ const refreshToken = asyncHandler(async (req, res) => {
   );
 });
 
+const logoutAllDevices = asyncHandler(async (req, res) => {
+  const result = await authService.logoutAllDevices(req.user._id);
+
+  return successResponse(
+    res,
+    200,
+    result.message
+  );
+});
+
 module.exports = {
   register,
   login,
   logout,
+  logoutAllDevices,
   refreshToken,
 };

@@ -2,7 +2,7 @@ const express = require("express");
 
 const authController = require("../controllers/auth.controller");
 const validate = require("../middleware/validate");
-
+const protect = require("../middleware/auth.middleware");
 const {
   registerValidator,
   loginValidator,
@@ -37,6 +37,12 @@ router.post(
   refreshTokenValidator,
   validate,
   authController.refreshToken
+);
+
+router.post(
+  "/logout-all",
+  protect,
+  authController.logoutAllDevices
 );
 
 module.exports = router;
