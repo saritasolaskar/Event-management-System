@@ -220,15 +220,35 @@ const updateVehicleAssignment = async (
         );
     }
 
+
+
     if (
-    assignment.status === "ON_DUTY" ||
-    assignment.status === "COMPLETED"
-) {
-    throw new AppError(
-        "Vehicle Assignment cannot be modified after duty has started.",
-        400
-    );
-}
+        assignment.status === "ON_DUTY" ||
+        assignment.status === "COMPLETED"
+    ) {
+        throw new AppError(
+            "Vehicle Assignment cannot be modified after duty has started.",
+            400
+        );
+    }
+
+    const allowedFields = [
+        "vehicle",
+        "driver",
+        "reportingLocation",
+        "reportingTime",
+        "remarks",
+    ];
+
+    const sanitizedUpdateData = {};
+
+    for (const field of allowedFields) {
+        if (updateData[field] !== undefined) {
+            sanitizedUpdateData[field] = updateData[field];
+        }
+    }
+
+    updateData = sanitizedUpdateData;
 
     if (updateData.driver) {
 
@@ -367,6 +387,16 @@ const deleteVehicleAssignment = async (
         throw new AppError(
             "Vehicle Assignment not found.",
             404
+        );
+    }
+
+    if (
+        assignment.status === "ON_DUTY" ||
+        assignment.status === "COMPLETED"
+    ) {
+        throw new AppError(
+            "Vehicle Assignment cannot be deleted after duty has started.",
+            400
         );
     }
 
