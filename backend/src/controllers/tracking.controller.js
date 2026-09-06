@@ -7,12 +7,19 @@ const asyncHandler =
 const {
     successResponse,
 } = require("../utils/response.utils");
-
+const AppError = require("../utils/AppError");
 /**
  * Driver Updates Live Location
  */
 const updateLocation =
     asyncHandler(async (req, res) => {
+
+        if (!req.user.driver) {
+    throw new AppError(
+        "Driver profile is not linked to this account.",
+        403
+    );
+}
 
         const tracking =
             await trackingService.updateLocation(
