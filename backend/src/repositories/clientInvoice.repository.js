@@ -68,10 +68,18 @@ const findByClient = async (clientId) => {
 
 };
 
+const findByDuty = (dutyId) =>
+    ClientInvoice.findOne({
+        duty: dutyId,
+        isDeleted: false,
+    });
+
+    
 module.exports = {
     create,
     findById,
     findAll,
     updateById,
     findByClient,
+    findByDuty,
 };
