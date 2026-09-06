@@ -5,7 +5,7 @@ const locationRepository = require("../repositories/location.repository");
 const notificationService = require("./notification.service");
 const auditLogService = require("./auditLog.service");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 /**
  * Create Event

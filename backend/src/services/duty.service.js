@@ -4,7 +4,7 @@ const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.r
 const notificationService = require("./notification.service");
 const auditLogService = require("./auditLog.service");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 const { DUTY_STATUS } = require("../constants/status");
 

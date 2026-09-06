@@ -5,7 +5,7 @@ const clientInvoiceRepository = require("../repositories/clientInvoice.repositor
 const guestAssignmentRepository = require("../repositories/guestAssignment.repository");
 const driverTrackingRepository = require("../repositories/driverTracking.repository");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 const {
     BILL_STATUS,

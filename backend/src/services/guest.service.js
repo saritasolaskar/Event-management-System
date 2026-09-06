@@ -2,7 +2,7 @@ const guestRepository = require("../repositories/guest.repository");
 const eventRepository = require("../repositories/event.repository");
 const locationRepository = require("../repositories/location.repository");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 /**
  * Create Guest

@@ -1,6 +1,6 @@
 const locationRepository = require("../repositories/location.repository");
 
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 /**
  * Create Location

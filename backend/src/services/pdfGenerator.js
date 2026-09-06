@@ -3,7 +3,7 @@ const path = require("path");
 
 const puppeteer = require("puppeteer");
 const Handlebars = require("handlebars");
-const AppError = require("../utils/appError");
+const AppError = require("../utils/AppError");
 
 /**
  * Handlebars Helper

@@ -2,7 +2,7 @@ const vendorBillRepository = require("../../repositories/vendorBill.repository")
 const pdfGenerator = require("./pdfGenerator");
 
 const config = require("../../config/env");
-const AppError = require("../../utils/appError");
+const AppError = require("../../utils/AppError");
 
 /**
  * Generate Vendor Bill PDF
