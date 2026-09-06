@@ -9,10 +9,40 @@ const {
 } = require("../constants/status");
 
 /**
+ * Verify that a guest assignment belongs to the logged-in driver.
+ */
+const getDriverGuestAssignment = async (id, driverId) => {
+    const guestAssignment =
+        await guestAssignmentRepository.findById(id);
+
+    if (!guestAssignment) {
+        throw new AppError(
+            "Guest assignment not found.",
+            404
+        );
+    }
+
+    const assignedDriver =
+        guestAssignment.vehicleAssignment?.driver?._id ||
+        guestAssignment.vehicleAssignment?.driver;
+
+    if (
+        !assignedDriver ||
+        assignedDriver.toString() !== driverId.toString()
+    ) {
+        throw new AppError(
+            "You are not authorized to update this guest assignment.",
+            403
+        );
+    }
+
+    return guestAssignment;
+};
+
+/**
  * Driver Dashboard
  */
 const getDriverDashboard = async (driverId) => {
-
     const assignment =
         await vehicleAssignmentRepository.findTodayByDriver(driverId);
 
@@ -33,14 +63,12 @@ const getDriverDashboard = async (driverId) => {
         totalGuests: guests.length,
         guests,
     };
-
 };
 
 /**
  * Assigned Guests
  */
 const getAssignedGuests = async (driverId) => {
-
     const assignment =
         await vehicleAssignmentRepository.findTodayByDriver(driverId);
 
@@ -54,116 +82,65 @@ const getAssignedGuests = async (driverId) => {
     return guestAssignmentRepository.findByVehicleAssignment(
         assignment._id
     );
-
 };
 
 /**
  * Driver En Route
  */
-const markDriverEnRoute = async (id) => {
-
-    const guestAssignment =
-        await guestAssignmentRepository.findById(id);
-
-    if (!guestAssignment) {
-        throw new AppError(
-            "Guest assignment not found.",
-            404
-        );
-    }
+const markDriverEnRoute = async (id, driverId) => {
+    await getDriverGuestAssignment(id, driverId);
 
     return guestAssignmentRepository.updateById(id, {
         pickupStatus: PICKUP_STATUS.DRIVER_EN_ROUTE,
     });
-
 };
 
 /**
  * Guest Picked
  */
-const markGuestPicked = async (id) => {
-
-    const guestAssignment =
-        await guestAssignmentRepository.findById(id);
-
-    if (!guestAssignment) {
-        throw new AppError(
-            "Guest assignment not found.",
-            404
-        );
-    }
+const markGuestPicked = async (id, driverId) => {
+    await getDriverGuestAssignment(id, driverId);
 
     return guestAssignmentRepository.updateById(id, {
         pickupStatus: PICKUP_STATUS.PICKED_UP,
         pickupTime: new Date(),
     });
-
 };
 
 /**
  * Venue Reached
  */
-const markVenueReached = async (id) => {
-
-    const guestAssignment =
-        await guestAssignmentRepository.findById(id);
-
-    if (!guestAssignment) {
-        throw new AppError(
-            "Guest assignment not found.",
-            404
-        );
-    }
+const markVenueReached = async (id, driverId) => {
+    await getDriverGuestAssignment(id, driverId);
 
     return guestAssignmentRepository.updateById(id, {
         pickupStatus: PICKUP_STATUS.DROPPED_AT_VENUE,
         venueArrivalTime: new Date(),
     });
-
 };
 
 /**
  * Return Pickup
  */
-const markReturnPickup = async (id) => {
-
-    const guestAssignment =
-        await guestAssignmentRepository.findById(id);
-
-    if (!guestAssignment) {
-        throw new AppError(
-            "Guest assignment not found.",
-            404
-        );
-    }
+const markReturnPickup = async (id, driverId) => {
+    await getDriverGuestAssignment(id, driverId);
 
     return guestAssignmentRepository.updateById(id, {
         returnStatus: RETURN_STATUS.RETURN_PICKUP,
         returnPickupTime: new Date(),
     });
-
 };
 
 /**
  * Guest Dropped
  */
-const markGuestDropped = async (id) => {
-
-    const guestAssignment =
-        await guestAssignmentRepository.findById(id);
-
-    if (!guestAssignment) {
-        throw new AppError(
-            "Guest assignment not found.",
-            404
-        );
-    }
+const markGuestDropped = async (id, driverId) => {
+    await getDriverGuestAssignment(id, driverId);
 
     return guestAssignmentRepository.updateById(id, {
         returnStatus: RETURN_STATUS.DROPPED,
         dropTime: new Date(),
     });
-
 };
 
 module.exports = {
