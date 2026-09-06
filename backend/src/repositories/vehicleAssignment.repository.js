@@ -88,6 +88,9 @@ const findActiveByDriver = async (
     const query = {
         driver: driverId,
         isDeleted: false,
+        status: {
+            $in: ["ASSIGNED", "ON_DUTY"],
+        },
     };
 
     if (excludeAssignmentId) {
@@ -112,6 +115,9 @@ const findActiveByVehicle = async (
     const query = {
         vehicle: vehicleId,
         isDeleted: false,
+        status: {
+            $in: ["ASSIGNED", "ON_DUTY"],
+        },
     };
 
     if (excludeAssignmentId) {
@@ -123,7 +129,6 @@ const findActiveByVehicle = async (
     return VehicleAssignment.findOne(query);
 
 };
-
 module.exports = {
     create,
     findById,
