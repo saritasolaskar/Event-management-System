@@ -40,31 +40,41 @@ const updateExpensesValidator = [
         .isMongoId()
         .withMessage("Invalid Duty ID."),
 
-    body("parkingCharges")
+    body("DA")
         .optional()
         .isFloat({ min: 0 })
-        .withMessage("Parking charges cannot be negative."),
+        .withMessage("DA cannot be negative."),
 
-    body("tollCharges")
+    body("toll")
         .optional()
         .isFloat({ min: 0 })
-        .withMessage("Toll charges cannot be negative."),
+        .withMessage("Toll cannot be negative."),
 
-    body("entryCharges")
+    body("parking")
         .optional()
         .isFloat({ min: 0 })
-        .withMessage("Entry charges cannot be negative."),
+        .withMessage("Parking cannot be negative."),
 
-    body("daCharges")
+    body("entry")
         .optional()
         .isFloat({ min: 0 })
-        .withMessage("DA charges cannot be negative."),
+        .withMessage("Entry cannot be negative."),
+
+    body("remarks")
+        .optional()
+        .isString()
+        .trim()
+        .isLength({ max: 500 })
+        .withMessage("Remarks cannot exceed 500 characters."),
 ];
 
+/**
+ * Duty ID Validation
+ */
 const dutyIdValidator = [
     param("id")
         .isMongoId()
-        .withMessage("Invalid duty ID."),
+        .withMessage("Invalid Duty ID."),
 ];
 
 module.exports = {

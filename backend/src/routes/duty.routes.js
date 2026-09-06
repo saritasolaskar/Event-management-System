@@ -35,6 +35,13 @@ router.post(
 router.get(
     "/:id",
     protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.OPERATIONS_MANAGER,
+        ROLES.DISPATCHER,
+        ROLES.ACCOUNTS,
+        ROLES.DRIVER
+    ),
     dutyIdValidator,
     validate,
     dutyController.getDuty
