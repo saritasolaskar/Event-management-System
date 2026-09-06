@@ -39,14 +39,14 @@ const downloadInvoicePdf =
 
         const pdf =
     await clientInvoicePdfService.generateClientInvoicePdf(
-        req.params.id,
+        req.params.invoiceId,
         req.user
     );
 
         res.set({
             "Content-Type": "application/pdf",
             "Content-Disposition":
-                `attachment; filename=invoice-${req.params.id}.pdf`,
+                `attachment; filename=invoice-${req.params.invoiceId}.pdf`,
         });
 
         return res.send(pdf);
