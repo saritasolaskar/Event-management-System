@@ -38,6 +38,11 @@ const userSchema = new Schema(
             type: String,
             default: null,
         },
+        driver: {
+    type: Schema.Types.ObjectId,
+    ref: "Driver",
+    default: null,
+},
 
         // =====================================================
         // Authentication
