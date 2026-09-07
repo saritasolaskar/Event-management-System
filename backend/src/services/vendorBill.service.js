@@ -50,6 +50,15 @@ const createVendorBill = async (
         vehicleAssignment:
             draft.assignment._id,
 
+        packageName:
+            draft.assignment.commercialPackage?.name,
+
+        packageKm:
+            draft.assignment.commercialPackage?.vendorIncludedKm,
+
+        packageHours:
+            draft.assignment.commercialPackage?.vendorIncludedHours,
+
         billDate:
             new Date(),
 

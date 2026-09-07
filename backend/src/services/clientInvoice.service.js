@@ -45,6 +45,14 @@ const createClientInvoice = async (
         vehicleAssignment:
             draft.assignment._id,
 
+        packageName:
+            draft.assignment.commercialPackage?.name,
+
+        packageKm:
+            draft.assignment.commercialPackage?.clientIncludedKm,
+
+        packageHours:
+            draft.assignment.commercialPackage?.clientIncludedHours,
         invoiceNumber:
             `INV-${Date.now()}`,
 
