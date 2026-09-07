@@ -1,20 +1,16 @@
-const commercialPackageRepository =
-    require("../repositories/commercialPackage.repository");
+const commercialPackageService =
+    require("../services/commercialPackage.service");
 
-const AppError =
-    require("../utils/AppError");
-
-const createCommercialPackage = async (req, res, next) => {
+const createCommercialPackage = async (
+    req,
+    res,
+    next
+) => {
     try {
-        const packageData = {
-            ...req.body,
-            createdBy: req.user._id,
-            updatedBy: req.user._id,
-        };
-
         const commercialPackage =
-            await commercialPackageRepository.create(
-                packageData
+            await commercialPackageService.createCommercialPackage(
+                req.body,
+                req.user._id
             );
 
         res.status(201).json({
@@ -26,10 +22,14 @@ const createCommercialPackage = async (req, res, next) => {
     }
 };
 
-const getAllCommercialPackages = async (req, res, next) => {
+const getAllCommercialPackages = async (
+    req,
+    res,
+    next
+) => {
     try {
         const packages =
-            await commercialPackageRepository.findAll();
+            await commercialPackageService.getAllCommercialPackages();
 
         res.status(200).json({
             success: true,
@@ -47,7 +47,7 @@ const getActiveCommercialPackages = async (
 ) => {
     try {
         const packages =
-            await commercialPackageRepository.findActive();
+            await commercialPackageService.getActiveCommercialPackages();
 
         res.status(200).json({
             success: true,
@@ -65,16 +65,9 @@ const getCommercialPackageById = async (
 ) => {
     try {
         const commercialPackage =
-            await commercialPackageRepository.findById(
+            await commercialPackageService.getCommercialPackageById(
                 req.params.id
             );
-
-        if (!commercialPackage) {
-            throw new AppError(
-                "Commercial Package not found.",
-                404
-            );
-        }
 
         res.status(200).json({
             success: true,
@@ -92,29 +85,15 @@ const updateCommercialPackage = async (
 ) => {
     try {
         const commercialPackage =
-            await commercialPackageRepository.findById(
-                req.params.id
-            );
-
-        if (!commercialPackage) {
-            throw new AppError(
-                "Commercial Package not found.",
-                404
-            );
-        }
-
-        const updated =
-            await commercialPackageRepository.updateById(
+            await commercialPackageService.updateCommercialPackage(
                 req.params.id,
-                {
-                    ...req.body,
-                    updatedBy: req.user._id,
-                }
+                req.body,
+                req.user._id
             );
 
         res.status(200).json({
             success: true,
-            data: updated,
+            data: commercialPackage,
         });
     } catch (error) {
         next(error);
@@ -127,17 +106,10 @@ const deleteCommercialPackage = async (
     next
 ) => {
     try {
-        const commercialPackage =
-            await commercialPackageRepository.softDelete(
-                req.params.id
-            );
-
-        if (!commercialPackage) {
-            throw new AppError(
-                "Commercial Package not found.",
-                404
-            );
-        }
+        await commercialPackageService.deleteCommercialPackage(
+            req.params.id,
+            req.user._id
+        );
 
         res.status(200).json({
             success: true,

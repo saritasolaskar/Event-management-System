@@ -137,6 +137,17 @@ const findActiveByVehicle = async (
     return VehicleAssignment.findOne(query);
 
 };
+
+const findByCommercialPackage = async (
+    commercialPackageId
+) => {
+    return VehicleAssignment.find({
+        commercialPackage: commercialPackageId,
+        isDeleted: false,
+    }).select("_id assignmentCode status");
+};
+
+
 module.exports = {
     create,
     findById,
@@ -147,4 +158,5 @@ module.exports = {
     findByEvent,
     findActiveByDriver,
     findActiveByVehicle,
+    findByCommercialPackage,
 };

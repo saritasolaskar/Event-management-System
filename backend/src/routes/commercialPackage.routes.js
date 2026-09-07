@@ -11,11 +11,23 @@ const authorize =
 const controller =
     require("../controllers/commercialPackage.controller");
 
+const validate =
+    require("../middleware/validate.middleware");
+
+const {
+    commercialPackageIdValidator,
+    createCommercialPackageValidator,
+    updateCommercialPackageValidator,
+} =
+    require("../validators/commercialPackage.validator");
+
 router.use(protect);
 
 router.post(
     "/",
     authorize("ADMIN", "ACCOUNTS"),
+    createCommercialPackageValidator,
+    validate,
     controller.createCommercialPackage
 );
 
@@ -34,18 +46,24 @@ router.get(
 router.get(
     "/:id",
     authorize("ADMIN", "ACCOUNTS"),
+    commercialPackageIdValidator,
+    validate,
     controller.getCommercialPackageById
 );
 
 router.patch(
     "/:id",
     authorize("ADMIN", "ACCOUNTS"),
+    updateCommercialPackageValidator,
+    validate,
     controller.updateCommercialPackage
 );
 
 router.delete(
     "/:id",
     authorize("ADMIN", "ACCOUNTS"),
+    commercialPackageIdValidator,
+    validate,
     controller.deleteCommercialPackage
 );
 
