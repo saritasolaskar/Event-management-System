@@ -33,23 +33,64 @@ const createVehicleAssignment = async (
     }
 
     const commercialPackage =
-    await commercialPackageRepository.findById(
-        data.commercialPackage
-    );
+        await commercialPackageRepository.findById(
+            data.commercialPackage
+        );
 
-if (!commercialPackage) {
-    throw new AppError(
-        "Commercial Package not found.",
-        404
-    );
-}
+    if (!commercialPackage) {
+        throw new AppError(
+            "Commercial Package not found.",
+            404
+        );
+    }
 
-if (!commercialPackage.isActive) {
-    throw new AppError(
-        "Commercial Package is inactive.",
-        400
-    );
-}
+    if (!commercialPackage.isActive) {
+        throw new AppError(
+            "Commercial Package is inactive.",
+            400
+        );
+    }
+
+    /*
+     * Snapshot the commercial package rates at the time
+     * of vehicle assignment creation.
+     *
+     * This protects historical billing from future
+     * changes to the master commercial package.
+     */
+    data.commercialPackageSnapshot = {
+        name: commercialPackage.name,
+
+        vendorBaseRate:
+            commercialPackage.vendorBaseRate,
+
+        vendorIncludedKm:
+            commercialPackage.vendorIncludedKm,
+
+        vendorExtraKmRate:
+            commercialPackage.vendorExtraKmRate,
+
+        vendorIncludedHours:
+            commercialPackage.vendorIncludedHours,
+
+        vendorExtraHourRate:
+            commercialPackage.vendorExtraHourRate,
+
+        clientBaseRate:
+            commercialPackage.clientBaseRate,
+
+        clientIncludedKm:
+            commercialPackage.clientIncludedKm,
+
+        clientExtraKmRate:
+            commercialPackage.clientExtraKmRate,
+
+        clientIncludedHours:
+            commercialPackage.clientIncludedHours,
+
+        clientExtraHourRate:
+            commercialPackage.clientExtraHourRate,
+    };
 
     const vendor =
         await vendorRepository.findById(
@@ -120,7 +161,6 @@ if (!commercialPackage.isActive) {
                 404
             );
         }
-
     }
 
     const existingDriverAssignment =
@@ -161,7 +201,8 @@ if (!commercialPackage.isActive) {
 
         title: "Vehicle Assigned",
 
-        message: `Vehicle assigned successfully for Event ${event.eventCode}.`,
+        message:
+            `Vehicle assigned successfully for Event ${event.eventCode}.`,
 
         type: "VEHICLE_ASSIGNED",
 
@@ -181,12 +222,12 @@ if (!commercialPackage.isActive) {
 
         referenceId: assignment._id,
 
-        description: `Assigned vehicle ${vehicle.registrationNumber} to driver ${driver.firstName} ${driver.lastName}.`,
+        description:
+            `Assigned vehicle ${vehicle.registrationNumber} to driver ${driver.firstName} ${driver.lastName}.`,
 
     });
 
     return assignment;
-
 };
 
 /**
@@ -218,7 +259,6 @@ const getVehicleAssignmentById = async (
     }
 
     return assignment;
-
 };
 
 /**
@@ -231,7 +271,9 @@ const updateVehicleAssignment = async (
 ) => {
 
     const assignment =
-        await vehicleAssignmentRepository.findById(id);
+        await vehicleAssignmentRepository.findById(
+            id
+        );
 
     if (!assignment) {
         throw new AppError(
@@ -239,8 +281,6 @@ const updateVehicleAssignment = async (
             404
         );
     }
-
-
 
     if (
         assignment.status === "ON_DUTY" ||
@@ -252,20 +292,28 @@ const updateVehicleAssignment = async (
         );
     }
 
+    /*
+     * Commercial package is intentionally NOT included
+     * here because the package and its rates are frozen
+     * when the assignment is created.
+     */
     const allowedFields = [
-    "vehicle",
-    "driver",
-    "commercialPackage",
-    "reportingLocation",
-    "reportingTime",
-    "remarks",
-];
+        "vehicle",
+        "driver",
+        "reportingLocation",
+        "reportingTime",
+        "remarks",
+    ];
 
     const sanitizedUpdateData = {};
 
     for (const field of allowedFields) {
+
         if (updateData[field] !== undefined) {
-            sanitizedUpdateData[field] = updateData[field];
+
+            sanitizedUpdateData[field] =
+                updateData[field];
+
         }
     }
 
@@ -307,7 +355,6 @@ const updateVehicleAssignment = async (
                 409
             );
         }
-
     }
 
     if (updateData.vehicle) {
@@ -346,7 +393,6 @@ const updateVehicleAssignment = async (
                 409
             );
         }
-
     }
 
     if (updateData.reportingLocation) {
@@ -362,30 +408,7 @@ const updateVehicleAssignment = async (
                 404
             );
         }
-
     }
-    
-    if (updateData.commercialPackage) {
-
-    const commercialPackage =
-        await commercialPackageRepository.findById(
-            updateData.commercialPackage
-        );
-
-    if (!commercialPackage) {
-        throw new AppError(
-            "Commercial Package not found.",
-            404
-        );
-    }
-
-    if (!commercialPackage.isActive) {
-        throw new AppError(
-            "Commercial Package is inactive.",
-            400
-        );
-    }
-}
 
     updateData.updatedBy = userId;
 
@@ -405,12 +428,12 @@ const updateVehicleAssignment = async (
 
         referenceId: updatedAssignment._id,
 
-        description: "Vehicle Assignment updated.",
+        description:
+            "Vehicle Assignment updated.",
 
     });
 
     return updatedAssignment;
-
 };
 
 /**
@@ -443,7 +466,9 @@ const deleteVehicleAssignment = async (
         );
     }
 
-    await vehicleAssignmentRepository.softDelete(id);
+    await vehicleAssignmentRepository.softDelete(
+        id
+    );
 
     await auditLogService.createLog({
 
@@ -455,7 +480,8 @@ const deleteVehicleAssignment = async (
 
         referenceId: assignment._id,
 
-        description: "Vehicle Assignment deleted.",
+        description:
+            "Vehicle Assignment deleted.",
 
     });
 
@@ -463,7 +489,6 @@ const deleteVehicleAssignment = async (
         message:
             "Vehicle Assignment deleted successfully."
     };
-
 };
 
 /**
@@ -474,8 +499,11 @@ const updateVehicleAssignmentStatus = async (
     status,
     userId
 ) => {
+
     const assignment =
-        await vehicleAssignmentRepository.findById(id);
+        await vehicleAssignmentRepository.findById(
+            id
+        );
 
     if (!assignment) {
         throw new AppError(
@@ -511,20 +539,40 @@ const updateVehicleAssignmentStatus = async (
         );
 
     await notificationService.createNotification({
+
         recipientUser: userId,
-        title: "Vehicle Assignment Cancelled",
-        message: "Vehicle assignment has been cancelled.",
+
+        title:
+            "Vehicle Assignment Cancelled",
+
+        message:
+            "Vehicle assignment has been cancelled.",
+
         type: "SYSTEM",
-        referenceType: "VEHICLE_ASSIGNMENT",
-        referenceId: updatedAssignment._id,
+
+        referenceType:
+            "VEHICLE_ASSIGNMENT",
+
+        referenceId:
+            updatedAssignment._id,
+
     });
 
     await auditLogService.createLog({
+
         user: userId,
+
         action: "UPDATE",
-        module: "VEHICLE_ASSIGNMENT",
-        referenceId: updatedAssignment._id,
-        description: "Vehicle assignment cancelled.",
+
+        module:
+            "VEHICLE_ASSIGNMENT",
+
+        referenceId:
+            updatedAssignment._id,
+
+        description:
+            "Vehicle assignment cancelled.",
+
     });
 
     return updatedAssignment;

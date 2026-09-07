@@ -1,8 +1,7 @@
 const dutyRepository =
 require("../repositories/duty.repository");
 
-const commercialPackageRepository =
-require("../repositories/commercialPackage.repository");
+
 
 const vehicleAssignmentRepository =
 require("../repositories/vehicleAssignment.repository");
@@ -58,16 +57,12 @@ if (!assignment.commercialPackage) {
     );
 }
 
-const commercial =
-    await commercialPackageRepository.findById(
-        assignment.commercialPackage._id ||
-        assignment.commercialPackage
-    );
+const commercial = assignment.commercialPackageSnapshot;
 
 if (!commercial) {
     throw new AppError(
-        "Commercial Package not found.",
-        404
+        "Commercial Package snapshot not found for this vehicle assignment.",
+        400
     );
 }
 
