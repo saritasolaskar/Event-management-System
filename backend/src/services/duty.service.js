@@ -47,7 +47,7 @@ const startDuty = async (
     if (
         !assignedDriver ||
         assignedDriver.toString() !==
-            driverId.toString()
+        driverId.toString()
     ) {
         throw new AppError(
             "You are not authorized to start duty for this assignment.",
@@ -133,14 +133,20 @@ const startDuty = async (
                     await vehicleAssignmentRepository.updateById(
                         assignment._id,
                         {
+                            startKm:
+                                data.startKm,
+
+                            dutyStartTime:
+                                data.dutyStartTime,
+
                             status:
                                 VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
+
                             updatedBy:
                                 userId,
                         },
                         session
                     );
-
                 if (!updatedAssignment) {
                     throw new AppError(
                         "Failed to update vehicle assignment.",
@@ -202,7 +208,7 @@ const getDuty = async (
         if (
             !assignedDriver ||
             assignedDriver.toString() !==
-                driverId.toString()
+            driverId.toString()
         ) {
             throw new AppError(
                 "You are not authorized to view this duty.",
@@ -240,7 +246,7 @@ const completeDuty = async (
     if (
         !assignedDriver ||
         assignedDriver.toString() !==
-            driverId.toString()
+        driverId.toString()
     ) {
         throw new AppError(
             "You are not authorized to complete this duty.",
@@ -329,7 +335,7 @@ const completeDuty = async (
                 const updatedAssignment =
                     await vehicleAssignmentRepository.updateById(
                         duty.vehicleAssignment._id ||
-                            duty.vehicleAssignment,
+                        duty.vehicleAssignment,
                         {
                             endKm:
                                 data.endKm,
@@ -408,7 +414,7 @@ const updateExpenses = async (
     if (
         !assignedDriver ||
         assignedDriver.toString() !==
-            driverId.toString()
+        driverId.toString()
     ) {
         throw new AppError(
             "You are not authorized to update this duty.",
