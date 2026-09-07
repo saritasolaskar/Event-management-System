@@ -30,13 +30,23 @@ const findAll = async () => {
         });
 };
 
-const updateById = async (id, data) => {
-    return VehicleAssignment.findByIdAndUpdate(
-        id,
+const updateById = (
+    id,
+    data,
+    session = null
+) => {
+    return VehicleAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         data,
         {
             new: true,
             runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
         }
     );
 };

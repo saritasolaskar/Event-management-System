@@ -1,9 +1,7 @@
 const Duty = require("../models/duty.model");
 const VehicleAssignment = require("../models/vehicleAssignment.model");
 
-const create = (data) => {
-    return Duty.create(data);
-};
+
 
 const findById = (id) => {
     return Duty.findOne({
@@ -35,19 +33,7 @@ const findByVehicleAssignment = (assignmentId) => {
     });
 };
 
-const updateById = (id, data) => {
-    return Duty.findOneAndUpdate(
-        {
-            _id: id,
-            isDeleted: false,
-        },
-        data,
-        {
-            new: true,
-            runValidators: true,
-        }
-    );
-};
+
 
 const findActiveDutyByDriver = async (driverId) => {
     const activeAssignment = await VehicleAssignment.findOne({
@@ -82,6 +68,40 @@ const findActiveDutyByDriver = async (driverId) => {
         ],
     });
 };
+
+const create = (
+    data,
+    session = null
+) => {
+    return Duty.create(
+        [data],
+        session
+            ? { session }
+            : undefined
+    ).then((docs) => docs[0]);
+};
+
+const updateById = (
+    id,
+    data,
+    session = null
+) => {
+    return Duty.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
+};
+
 
 module.exports = {
     create,
