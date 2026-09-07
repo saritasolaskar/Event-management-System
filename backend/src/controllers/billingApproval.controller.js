@@ -1,134 +1,165 @@
-const service = require("../services/billingApproval.service");
+const service =
+    require("../services/billingApproval.service");
 
-const asyncHandler = require("../utils/asyncHandler");
+const asyncHandler =
+    require("../utils/asyncHandler");
 
-const { successResponse } = require("../utils/response.utils");
+const {
+    successResponse
+} = require("../utils/response.utils");
 
-const approveVendorBill = asyncHandler(async(req,res)=>{
 
-    const bill = await service.approveVendorBill(
-        req.params.id,
-        req.body.remarks,
-        req.user._id
-    );
+const approveVendorBill =
+    asyncHandler(async (req, res) => {
 
-    return successResponse(
-        res,
-        200,
-        "Vendor Bill approved successfully.",
-        bill
-    );
+        const bill =
+            await service.approveVendorBill(
+                req.params.id,
+                req.body.remarks,
+                req.user._id
+            );
 
-});
+        return successResponse(
+            res,
+            200,
+            "Vendor Bill approved successfully.",
+            bill
+        );
+    });
 
-const rejectVendorBill = asyncHandler(async(req,res)=>{
 
-    const bill = await service.rejectVendorBill(
-        req.params.id,
-        req.body.remarks,
-        req.user._id
-    );
+const rejectVendorBill =
+    asyncHandler(async (req, res) => {
 
-    return successResponse(
-        res,
-        200,
-        "Vendor Bill rejected successfully.",
-        bill
-    );
+        const bill =
+            await service.rejectVendorBill(
+                req.params.id,
+                req.body.remarks,
+                req.user._id
+            );
 
-});
+        return successResponse(
+            res,
+            200,
+            "Vendor Bill rejected successfully.",
+            bill
+        );
+    });
 
-const shareVendorBill = asyncHandler(async(req,res)=>{
 
-    const bill =
-    await service.shareVendorBill(req.params.id);
+const shareVendorBill =
+    asyncHandler(async (req, res) => {
 
-    return successResponse(
-        res,
-        200,
-        "Vendor Bill shared successfully.",
-        bill
-    );
+        const bill =
+            await service.shareVendorBill(
+                req.params.id,
+                req.user._id
+            );
 
-});
+        return successResponse(
+            res,
+            200,
+            "Vendor Bill shared successfully.",
+            bill
+        );
+    });
 
-const markVendorBillPaid = asyncHandler(async(req,res)=>{
 
-    const bill =
-    await service.markVendorBillPaid(req.params.id);
+const markVendorBillPaid =
+    asyncHandler(async (req, res) => {
 
-    return successResponse(
-        res,
-        200,
-        "Vendor Bill marked paid.",
-        bill
-    );
+        const bill =
+            await service.markVendorBillPaid(
+                req.params.id,
+                req.body.paymentMode,
+                req.body.paymentReference,
+                req.user._id
+            );
 
-});
+        return successResponse(
+            res,
+            200,
+            "Vendor Bill marked paid.",
+            bill
+        );
+    });
 
-const approveClientInvoice = asyncHandler(async(req,res)=>{
 
-    const invoice =
-    await service.approveClientInvoice(
-        req.params.id,
-        req.body.remarks,
-        req.user._id
-    );
+const approveClientInvoice =
+    asyncHandler(async (req, res) => {
 
-    return successResponse(
-        res,
-        200,
-        "Client Invoice approved successfully.",
-        invoice
-    );
+        const invoice =
+            await service.approveClientInvoice(
+                req.params.id,
+                req.body.remarks,
+                req.user._id
+            );
 
-});
+        return successResponse(
+            res,
+            200,
+            "Client Invoice approved successfully.",
+            invoice
+        );
+    });
 
-const rejectClientInvoice = asyncHandler(async(req,res)=>{
 
-    const invoice =
-    await service.rejectClientInvoice(
-        req.params.id,
-        req.body.remarks,
-        req.user._id
-    );
+const rejectClientInvoice =
+    asyncHandler(async (req, res) => {
 
-    return successResponse(
-        res,
-        200,
-        "Client Invoice rejected successfully.",
-        invoice
-    );
+        const invoice =
+            await service.rejectClientInvoice(
+                req.params.id,
+                req.body.remarks,
+                req.user._id
+            );
 
-});
+        return successResponse(
+            res,
+            200,
+            "Client Invoice rejected successfully.",
+            invoice
+        );
+    });
 
-const shareClientInvoice = asyncHandler(async(req,res)=>{
 
-    const invoice =
-    await service.shareClientInvoice(req.params.id);
+const shareClientInvoice =
+    asyncHandler(async (req, res) => {
 
-    return successResponse(
-        res,
-        200,
-        "Client Invoice shared successfully.",
-        invoice
-    );
+        const invoice =
+            await service.shareClientInvoice(
+                req.params.id,
+                req.user._id
+            );
 
-});
+        return successResponse(
+            res,
+            200,
+            "Client Invoice shared successfully.",
+            invoice
+        );
+    });
 
-const markClientInvoicePaid = asyncHandler(async(req,res)=>{
 
-    const invoice =
-    await service.markClientInvoicePaid(req.params.id);
+const markClientInvoicePaid =
+    asyncHandler(async (req, res) => {
 
-    return successResponse(
-        res,
-        200,
-        "Client Invoice marked paid.",
-        invoice
-    );
+        const invoice =
+            await service.markClientInvoicePaid(
+                req.params.id,
+                req.body.paymentMode,
+                req.body.paymentReference,
+                req.user._id
+            );
 
-});
+        return successResponse(
+            res,
+            200,
+            "Client Invoice marked paid.",
+            invoice
+        );
+    });
+
 
 module.exports = {
     approveVendorBill,
