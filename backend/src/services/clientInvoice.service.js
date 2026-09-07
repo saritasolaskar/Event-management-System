@@ -76,13 +76,13 @@ return clientInvoiceRepository.create({
         draft.assignment._id,
 
     packageName:
-        draft.assignment.commercialPackage?.name,
+        draft.assignment.commercialPackageSnapshot?.name,
 
     packageKm:
-        draft.assignment.commercialPackage?.clientIncludedKm,
+        draft.assignment.commercialPackageSnapshot?.clientIncludedKm,
 
     packageHours:
-        draft.assignment.commercialPackage?.clientIncludedHours,
+        draft.assignment.commercialPackageSnapshot?.clientIncludedHours,
 
     invoiceNumber:
         `INV-${Date.now()}`,
