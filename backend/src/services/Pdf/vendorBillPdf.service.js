@@ -1,7 +1,7 @@
 const vendorBillRepository = require("../../repositories/vendorBill.repository");
 const pdfGenerator = require("../pdfGenerator");
 
-const AppError = require("../../utils/appError");
+const AppError = require("../../utils/AppError");
 
 const COMPANY = {
     name: "Transit Fleets",
