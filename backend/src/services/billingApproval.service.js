@@ -157,15 +157,10 @@ const markVendorBillPaid = async (
     return vendorBillRepository.updateById(
         id,
         {
-            status: BILL_STATUS.REJECTED,
-            rejectedBy: userId,
-            rejectedAt: new Date(),
-
-            // Clear any previous approval metadata.
-            approvedBy: null,
-            approvedAt: null,
-
-            remarks,
+            status: BILL_STATUS.PAID,
+            paymentDate: new Date(),
+            paymentMode,
+            paymentReference,
             updatedBy: userId,
         }
     );
