@@ -82,9 +82,21 @@ const startDuty = async (
     data.createdBy = userId;
     data.updatedBy = userId;
 
-    const duty =
-        await dutyRepository.create(data);
+    let duty;
 
+    try {
+        duty =
+            await dutyRepository.create(data);
+    } catch (error) {
+        if (error.code === 11000) {
+            throw new AppError(
+                "A duty already exists for this vehicle assignment.",
+                409
+            );
+        }
+
+        throw error;
+    }
     await vehicleAssignmentRepository.updateById(
         assignment._id,
         {
@@ -139,7 +151,7 @@ const getDuty = async (
         if (
             !assignedDriver ||
             assignedDriver.toString() !==
-                driverId.toString()
+            driverId.toString()
         ) {
             throw new AppError(
                 "You are not authorized to view this duty.",

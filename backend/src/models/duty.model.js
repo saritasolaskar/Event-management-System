@@ -94,9 +94,15 @@ const dutySchema = new mongoose.Schema(
     }
 );
 
-dutySchema.index({
-    vehicleAssignment: 1,
-});
+dutySchema.index(
+    { vehicleAssignment: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            isDeleted: false,
+        },
+    }
+);
 
 dutySchema.index({
     status: 1,
