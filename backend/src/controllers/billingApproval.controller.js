@@ -65,24 +65,42 @@ const shareVendorBill =
     });
 
 
-const markVendorBillPaid =
-    asyncHandler(async (req, res) => {
+const markVendorBillPaid = async (
+    id,
+    paymentMode,
+    paymentReference,
+    userId
+) => {
+    const bill =
+        await vendorBillRepository.findById(id);
 
-        const bill =
-            await service.markVendorBillPaid(
-                req.params.id,
-                req.body.paymentMode,
-                req.body.paymentReference,
-                req.user._id
-            );
-
-        return successResponse(
-            res,
-            200,
-            "Vendor Bill marked paid.",
-            bill
+    if (!bill) {
+        throw new AppError(
+            "Vendor Bill not found.",
+            404
         );
-    });
+    }
+
+    if (
+        bill.status !== BILL_STATUS.SHARED
+    ) {
+        throw new AppError(
+            "Only shared Vendor Bills can be marked as paid.",
+            400
+        );
+    }
+
+    return vendorBillRepository.updateById(
+        id,
+        {
+            status: BILL_STATUS.PAID,
+            paymentDate: new Date(),
+            paymentMode,
+            paymentReference,
+            updatedBy: userId,
+        }
+    );
+};
 
 
 const approveClientInvoice =
@@ -141,24 +159,42 @@ const shareClientInvoice =
     });
 
 
-const markClientInvoicePaid =
-    asyncHandler(async (req, res) => {
+const markClientInvoicePaid = async (
+    id,
+    paymentMode,
+    paymentReference,
+    userId
+) => {
+    const invoice =
+        await clientInvoiceRepository.findById(id);
 
-        const invoice =
-            await service.markClientInvoicePaid(
-                req.params.id,
-                req.body.paymentMode,
-                req.body.paymentReference,
-                req.user._id
-            );
-
-        return successResponse(
-            res,
-            200,
-            "Client Invoice marked paid.",
-            invoice
+    if (!invoice) {
+        throw new AppError(
+            "Invoice not found.",
+            404
         );
-    });
+    }
+
+    if (
+        invoice.status !== BILL_STATUS.SHARED
+    ) {
+        throw new AppError(
+            "Only shared Client Invoices can be marked as paid.",
+            400
+        );
+    }
+
+    return clientInvoiceRepository.updateById(
+        id,
+        {
+            status: BILL_STATUS.PAID,
+            paymentDate: new Date(),
+            paymentMode,
+            paymentReference,
+            updatedBy: userId,
+        }
+    );
+};
 
 
 module.exports = {

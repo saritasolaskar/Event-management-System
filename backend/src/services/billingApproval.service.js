@@ -10,7 +10,6 @@ const AppError =
 const { BILL_STATUS } =
     require("../constants/status");
 
-
 /**
  * Approve Vendor Bill
  */
@@ -19,7 +18,6 @@ const approveVendorBill = async (
     remarks,
     userId
 ) => {
-
     const bill =
         await vendorBillRepository.findById(id);
 
@@ -30,9 +28,12 @@ const approveVendorBill = async (
         );
     }
 
-    if (bill.status !== BILL_STATUS.DRAFT) {
+    if (
+        bill.status !== BILL_STATUS.DRAFT &&
+        bill.status !== BILL_STATUS.UNDER_REVIEW
+    ) {
         throw new AppError(
-            `Vendor Bill cannot be approved from ${bill.status} status.`,
+            "Only draft or under-review Vendor Bills can be approved.",
             400
         );
     }
@@ -58,7 +59,6 @@ const rejectVendorBill = async (
     remarks,
     userId
 ) => {
-
     const bill =
         await vendorBillRepository.findById(id);
 
@@ -69,9 +69,12 @@ const rejectVendorBill = async (
         );
     }
 
-    if (bill.status !== BILL_STATUS.DRAFT) {
+    if (
+        bill.status !== BILL_STATUS.DRAFT &&
+        bill.status !== BILL_STATUS.UNDER_REVIEW
+    ) {
         throw new AppError(
-            `Vendor Bill cannot be rejected from ${bill.status} status.`,
+            "Only draft or under-review Vendor Bills can be rejected.",
             400
         );
     }
@@ -96,7 +99,6 @@ const shareVendorBill = async (
     id,
     userId
 ) => {
-
     const bill =
         await vendorBillRepository.findById(id);
 
@@ -107,7 +109,9 @@ const shareVendorBill = async (
         );
     }
 
-    if (bill.status !== BILL_STATUS.APPROVED) {
+    if (
+        bill.status !== BILL_STATUS.APPROVED
+    ) {
         throw new AppError(
             "Only approved Vendor Bills can be shared.",
             400
@@ -129,11 +133,9 @@ const shareVendorBill = async (
  */
 const markVendorBillPaid = async (
     id,
-    paymentMode,
-    paymentReference,
+    paymentData,
     userId
 ) => {
-
     const bill =
         await vendorBillRepository.findById(id);
 
@@ -144,7 +146,9 @@ const markVendorBillPaid = async (
         );
     }
 
-    if (bill.status !== BILL_STATUS.SHARED) {
+    if (
+        bill.status !== BILL_STATUS.SHARED
+    ) {
         throw new AppError(
             "Only shared Vendor Bills can be marked as paid.",
             400
@@ -155,9 +159,13 @@ const markVendorBillPaid = async (
         id,
         {
             status: BILL_STATUS.PAID,
-            paymentDate: new Date(),
-            paymentMode,
-            paymentReference,
+            paymentDate:
+                paymentData?.paymentDate ||
+                new Date(),
+            paymentMode:
+                paymentData?.paymentMode,
+            paymentReference:
+                paymentData?.paymentReference,
             updatedBy: userId,
         }
     );
@@ -172,7 +180,6 @@ const approveClientInvoice = async (
     remarks,
     userId
 ) => {
-
     const invoice =
         await clientInvoiceRepository.findById(id);
 
@@ -183,9 +190,12 @@ const approveClientInvoice = async (
         );
     }
 
-    if (invoice.status !== BILL_STATUS.DRAFT) {
+    if (
+        invoice.status !== BILL_STATUS.DRAFT &&
+        invoice.status !== BILL_STATUS.UNDER_REVIEW
+    ) {
         throw new AppError(
-            `Invoice cannot be approved from ${invoice.status} status.`,
+            "Only draft or under-review Client Invoices can be approved.",
             400
         );
     }
@@ -211,7 +221,6 @@ const rejectClientInvoice = async (
     remarks,
     userId
 ) => {
-
     const invoice =
         await clientInvoiceRepository.findById(id);
 
@@ -222,9 +231,12 @@ const rejectClientInvoice = async (
         );
     }
 
-    if (invoice.status !== BILL_STATUS.DRAFT) {
+    if (
+        invoice.status !== BILL_STATUS.DRAFT &&
+        invoice.status !== BILL_STATUS.UNDER_REVIEW
+    ) {
         throw new AppError(
-            `Invoice cannot be rejected from ${invoice.status} status.`,
+            "Only draft or under-review Client Invoices can be rejected.",
             400
         );
     }
@@ -249,7 +261,6 @@ const shareClientInvoice = async (
     id,
     userId
 ) => {
-
     const invoice =
         await clientInvoiceRepository.findById(id);
 
@@ -260,7 +271,9 @@ const shareClientInvoice = async (
         );
     }
 
-    if (invoice.status !== BILL_STATUS.APPROVED) {
+    if (
+        invoice.status !== BILL_STATUS.APPROVED
+    ) {
         throw new AppError(
             "Only approved Client Invoices can be shared.",
             400
@@ -282,11 +295,9 @@ const shareClientInvoice = async (
  */
 const markClientInvoicePaid = async (
     id,
-    paymentMode,
-    paymentReference,
+    paymentData,
     userId
 ) => {
-
     const invoice =
         await clientInvoiceRepository.findById(id);
 
@@ -297,7 +308,9 @@ const markClientInvoicePaid = async (
         );
     }
 
-    if (invoice.status !== BILL_STATUS.SHARED) {
+    if (
+        invoice.status !== BILL_STATUS.SHARED
+    ) {
         throw new AppError(
             "Only shared Client Invoices can be marked as paid.",
             400
@@ -308,9 +321,13 @@ const markClientInvoicePaid = async (
         id,
         {
             status: BILL_STATUS.PAID,
-            paymentDate: new Date(),
-            paymentMode,
-            paymentReference,
+            paymentDate:
+                paymentData?.paymentDate ||
+                new Date(),
+            paymentMode:
+                paymentData?.paymentMode,
+            paymentReference:
+                paymentData?.paymentReference,
             updatedBy: userId,
         }
     );
