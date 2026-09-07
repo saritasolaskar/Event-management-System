@@ -17,7 +17,7 @@ const generateDraftBill = async (
 dutyId
 ) => {
 
-```
+
 const duty =
     await dutyRepository.findById(dutyId);
 
@@ -225,7 +225,7 @@ return {
     status:
         BILL_STATUS.DRAFT,
 };
-```
+
 
 };
 

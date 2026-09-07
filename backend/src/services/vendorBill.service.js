@@ -12,7 +12,7 @@ dutyId,
 userId
 ) => {
 
-```
+
 const existingBill =
     await vendorBillRepository.findByDuty(
         dutyId
@@ -100,7 +100,7 @@ return vendorBillRepository.create({
         userId,
 
 });
-```
+
 
 };
 

@@ -29,7 +29,7 @@ email:
 gst:
     process.env.COMPANY_GST ||
     "",
-```
+
 
 };
 
@@ -37,7 +37,7 @@ const generateVendorBillPdf = async (
 billId
 ) => {
 
-```
+
 const bill =
     await vendorBillRepository.findById(
         billId
