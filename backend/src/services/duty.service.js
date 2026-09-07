@@ -112,10 +112,14 @@ const startDuty = async (
     return duty;
 };
 
+
 /**
  * Get Duty
  */
-const getDuty = async (id) => {
+const getDuty = async (
+    id,
+    driverId = null
+) => {
     const duty =
         await dutyRepository.findById(id);
 
@@ -126,9 +130,26 @@ const getDuty = async (id) => {
         );
     }
 
+    // Driver can only access their own duty.
+    if (driverId) {
+        const assignedDriver =
+            duty.vehicleAssignment?.driver?._id ||
+            duty.vehicleAssignment?.driver;
+
+        if (
+            !assignedDriver ||
+            assignedDriver.toString() !==
+                driverId.toString()
+        ) {
+            throw new AppError(
+                "You are not authorized to view this duty.",
+                403
+            );
+        }
+    }
+
     return duty;
 };
-
 /**
  * Complete Duty
  */
