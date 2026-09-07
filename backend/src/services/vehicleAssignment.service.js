@@ -1,16 +1,129 @@
-const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.repository");
+const vehicleAssignmentRepository =
+    require("../repositories/vehicleAssignment.repository");
 
-const eventRepository = require("../repositories/event.repository");
-const vendorRepository = require("../repositories/vendor.repository");
-const driverRepository = require("../repositories/driver.repository");
-const vehicleRepository = require("../repositories/vehicle.repository");
-const locationRepository = require("../repositories/location.repository");
+const eventRepository =
+    require("../repositories/event.repository");
+
+const vendorRepository =
+    require("../repositories/vendor.repository");
+
+const driverRepository =
+    require("../repositories/driver.repository");
+
+const vehicleRepository =
+    require("../repositories/vehicle.repository");
+
+const locationRepository =
+    require("../repositories/location.repository");
+
 const commercialPackageRepository =
     require("../repositories/commercialPackage.repository");
-const notificationService = require("./notification.service");
-const auditLogService = require("./auditLog.service");
 
-const AppError = require("../utils/AppError");
+const notificationService =
+    require("./notification.service");
+
+const auditLogService =
+    require("./auditLog.service");
+
+const AppError =
+    require("../utils/AppError");
+
+const {
+    STATUS,
+    VEHICLE_STATUS,
+} = require("../constants/status");
+
+
+/**
+ * Validate driver for vehicle assignment.
+ */
+const validateDriverForAssignment = async (
+    driverId,
+    vendorId
+) => {
+
+    const driver =
+        await driverRepository.findById(
+            driverId
+        );
+
+    if (!driver) {
+        throw new AppError(
+            "Driver not found.",
+            404
+        );
+    }
+
+    if (driver.status !== STATUS.ACTIVE) {
+        throw new AppError(
+            `Driver cannot be assigned because driver status is ${driver.status}.`,
+            400
+        );
+    }
+
+    if (
+        driver.vendor.toString() !==
+        vendorId.toString()
+    ) {
+        throw new AppError(
+            "Driver does not belong to the selected vendor.",
+            400
+        );
+    }
+
+    return driver;
+};
+
+
+/**
+ * Validate vehicle for vehicle assignment.
+ */
+const validateVehicleForAssignment = async (
+    vehicleId,
+    vendorId
+) => {
+
+    const vehicle =
+        await vehicleRepository.findById(
+            vehicleId
+        );
+
+    if (!vehicle) {
+        throw new AppError(
+            "Vehicle not found.",
+            404
+        );
+    }
+
+    if (
+        vehicle.vendor.toString() !==
+        vendorId.toString()
+    ) {
+        throw new AppError(
+            "Vehicle does not belong to the selected vendor.",
+            400
+        );
+    }
+
+    const allowedStatuses = [
+        VEHICLE_STATUS.AVAILABLE,
+        VEHICLE_STATUS.ASSIGNED,
+    ];
+
+    if (
+        !allowedStatuses.includes(
+            vehicle.status
+        )
+    ) {
+        throw new AppError(
+            `Vehicle cannot be assigned because vehicle status is ${vehicle.status}.`,
+            400
+        );
+    }
+
+    return vehicle;
+};
+
 
 /**
  * Create Vehicle Assignment
@@ -105,48 +218,16 @@ const createVehicleAssignment = async (
     }
 
     const driver =
-        await driverRepository.findById(
-            data.driver
+        await validateDriverForAssignment(
+            data.driver,
+            vendor._id
         );
-
-    if (!driver) {
-        throw new AppError(
-            "Driver not found.",
-            404
-        );
-    }
-
-    if (
-        driver.vendor.toString() !==
-        vendor._id.toString()
-    ) {
-        throw new AppError(
-            "Driver does not belong to the selected vendor.",
-            400
-        );
-    }
 
     const vehicle =
-        await vehicleRepository.findById(
-            data.vehicle
+        await validateVehicleForAssignment(
+            data.vehicle,
+            vendor._id
         );
-
-    if (!vehicle) {
-        throw new AppError(
-            "Vehicle not found.",
-            404
-        );
-    }
-
-    if (
-        vehicle.vendor.toString() !==
-        vendor._id.toString()
-    ) {
-        throw new AppError(
-            "Vehicle does not belong to the selected vendor.",
-            400
-        );
-    }
 
     if (data.reportingLocation) {
 
@@ -206,9 +287,11 @@ const createVehicleAssignment = async (
 
         type: "VEHICLE_ASSIGNED",
 
-        referenceType: "VEHICLE_ASSIGNMENT",
+        referenceType:
+            "VEHICLE_ASSIGNMENT",
 
-        referenceId: assignment._id,
+        referenceId:
+            assignment._id,
 
     });
 
@@ -218,9 +301,11 @@ const createVehicleAssignment = async (
 
         action: "CREATE",
 
-        module: "VEHICLE_ASSIGNMENT",
+        module:
+            "VEHICLE_ASSIGNMENT",
 
-        referenceId: assignment._id,
+        referenceId:
+            assignment._id,
 
         description:
             `Assigned vehicle ${vehicle.registrationNumber} to driver ${driver.firstName} ${driver.lastName}.`,
@@ -230,6 +315,7 @@ const createVehicleAssignment = async (
     return assignment;
 };
 
+
 /**
  * Get All Assignments
  */
@@ -238,6 +324,7 @@ const getAllVehicleAssignments = async () => {
     return vehicleAssignmentRepository.findAll();
 
 };
+
 
 /**
  * Get Assignment By ID
@@ -260,6 +347,7 @@ const getVehicleAssignmentById = async (
 
     return assignment;
 };
+
 
 /**
  * Update Assignment
@@ -309,39 +397,28 @@ const updateVehicleAssignment = async (
 
     for (const field of allowedFields) {
 
-        if (updateData[field] !== undefined) {
-
+        if (
+            updateData[field] !== undefined
+        ) {
             sanitizedUpdateData[field] =
                 updateData[field];
-
         }
     }
 
-    updateData = sanitizedUpdateData;
+    updateData =
+        sanitizedUpdateData;
 
+
+    /*
+     * Validate driver when changing driver.
+     */
     if (updateData.driver) {
 
         const driver =
-            await driverRepository.findById(
-                updateData.driver
+            await validateDriverForAssignment(
+                updateData.driver,
+                assignment.vendor._id
             );
-
-        if (!driver) {
-            throw new AppError(
-                "Driver not found.",
-                404
-            );
-        }
-
-        if (
-            driver.vendor.toString() !==
-            assignment.vendor._id.toString()
-        ) {
-            throw new AppError(
-                "Driver does not belong to the selected vendor.",
-                400
-            );
-        }
 
         const existingDriverAssignment =
             await vehicleAssignmentRepository.findActiveByDriver(
@@ -357,29 +434,17 @@ const updateVehicleAssignment = async (
         }
     }
 
+
+    /*
+     * Validate vehicle when changing vehicle.
+     */
     if (updateData.vehicle) {
 
         const vehicle =
-            await vehicleRepository.findById(
-                updateData.vehicle
+            await validateVehicleForAssignment(
+                updateData.vehicle,
+                assignment.vendor._id
             );
-
-        if (!vehicle) {
-            throw new AppError(
-                "Vehicle not found.",
-                404
-            );
-        }
-
-        if (
-            vehicle.vendor.toString() !==
-            assignment.vendor._id.toString()
-        ) {
-            throw new AppError(
-                "Vehicle does not belong to the selected vendor.",
-                400
-            );
-        }
 
         const existingVehicleAssignment =
             await vehicleAssignmentRepository.findActiveByVehicle(
@@ -394,6 +459,32 @@ const updateVehicleAssignment = async (
             );
         }
     }
+
+
+    /*
+     * Also validate the existing driver/vehicle when
+     * assignment is being updated without replacing them.
+     *
+     * This prevents an assignment from being edited while
+     * its linked driver or vehicle has become unusable.
+     */
+    if (!updateData.driver) {
+
+        await validateDriverForAssignment(
+            assignment.driver._id,
+            assignment.vendor._id
+        );
+    }
+
+
+    if (!updateData.vehicle) {
+
+        await validateVehicleForAssignment(
+            assignment.vehicle._id,
+            assignment.vendor._id
+        );
+    }
+
 
     if (updateData.reportingLocation) {
 
@@ -410,7 +501,8 @@ const updateVehicleAssignment = async (
         }
     }
 
-    updateData.updatedBy = userId;
+    updateData.updatedBy =
+        userId;
 
     const updatedAssignment =
         await vehicleAssignmentRepository.updateById(
@@ -424,9 +516,11 @@ const updateVehicleAssignment = async (
 
         action: "UPDATE",
 
-        module: "VEHICLE_ASSIGNMENT",
+        module:
+            "VEHICLE_ASSIGNMENT",
 
-        referenceId: updatedAssignment._id,
+        referenceId:
+            updatedAssignment._id,
 
         description:
             "Vehicle Assignment updated.",
@@ -435,6 +529,7 @@ const updateVehicleAssignment = async (
 
     return updatedAssignment;
 };
+
 
 /**
  * Delete Assignment
@@ -476,9 +571,11 @@ const deleteVehicleAssignment = async (
 
         action: "DELETE",
 
-        module: "VEHICLE_ASSIGNMENT",
+        module:
+            "VEHICLE_ASSIGNMENT",
 
-        referenceId: assignment._id,
+        referenceId:
+            assignment._id,
 
         description:
             "Vehicle Assignment deleted.",
@@ -490,6 +587,7 @@ const deleteVehicleAssignment = async (
             "Vehicle Assignment deleted successfully."
     };
 };
+
 
 /**
  * Update Assignment Status
@@ -515,6 +613,19 @@ const updateVehicleAssignmentStatus = async (
     if (status !== "CANCELLED") {
         throw new AppError(
             "Only cancellation is allowed through the manual status endpoint.",
+            400
+        );
+    }
+
+    /*
+     * Once duty has started, assignment cancellation
+     * must happen through the duty lifecycle.
+     */
+    if (
+        assignment.status === "ON_DUTY"
+    ) {
+        throw new AppError(
+            "Vehicle Assignment cannot be cancelled after duty has started.",
             400
         );
     }
@@ -548,7 +659,8 @@ const updateVehicleAssignmentStatus = async (
         message:
             "Vehicle assignment has been cancelled.",
 
-        type: "SYSTEM",
+        type:
+            "SYSTEM",
 
         referenceType:
             "VEHICLE_ASSIGNMENT",
@@ -577,6 +689,7 @@ const updateVehicleAssignmentStatus = async (
 
     return updatedAssignment;
 };
+
 
 module.exports = {
 
