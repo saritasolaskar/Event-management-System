@@ -1,38 +1,69 @@
-const driverRepository = require("../repositories/driver.repository");
-const vendorRepository = require("../repositories/vendor.repository");
+const driverRepository =
+  require("../repositories/driver.repository");
 
-const AppError = require("../utils/AppError");
+const vendorRepository =
+  require("../repositories/vendor.repository");
+
+const User =
+  require("../models/user.model");
+
+const AppError =
+  require("../utils/AppError");
+
+const { ROLES } =
+  require("../constants/roles");
+
+const { STATUS } =
+  require("../constants/status");
+
 
 /**
  * Create Driver
  */
-const createDriver = async (driverData, userId) => {
-  const User = require("../models/user.model");
+const createDriver = async (
+  driverData,
+  userId
+) => {
 
   // Check Vendor Exists
-  const vendor = await vendorRepository.findById(driverData.vendor);
+  const vendor =
+    await vendorRepository.findById(
+      driverData.vendor
+    );
 
   if (!vendor) {
-    throw new AppError("Vendor not found.", 404);
+    throw new AppError(
+      "Vendor not found.",
+      404
+    );
   }
 
   // Check Phone Number
-  const existingPhone = await driverRepository.findByPhone(
-    driverData.phone
-  );
+  const existingPhone =
+    await driverRepository.findByPhone(
+      driverData.phone
+    );
 
   if (existingPhone) {
-    throw new AppError("Phone number already exists.", 409);
+    throw new AppError(
+      "Phone number already exists.",
+      409
+    );
   }
 
   // Check Email
   if (driverData.email) {
-    const existingEmail = await driverRepository.findByEmail(
-      driverData.email
-    );
+
+    const existingEmail =
+      await driverRepository.findByEmail(
+        driverData.email
+      );
 
     if (existingEmail) {
-      throw new AppError("Email already exists.", 409);
+      throw new AppError(
+        "Email already exists.",
+        409
+      );
     }
   }
 
@@ -43,74 +74,131 @@ const createDriver = async (driverData, userId) => {
     );
 
   if (existingLicense) {
-    throw new AppError("License number already exists.", 409);
+    throw new AppError(
+      "License number already exists.",
+      409
+    );
   }
 
-  // Create Driver
   driverData.createdBy = userId;
   driverData.updatedBy = userId;
 
-  const driver = await driverRepository.create(driverData);
+  const driver =
+    await driverRepository.create(
+      driverData
+    );
 
-  // Create Driver Login User
-  const driverName = `${driver.firstName} ${driver.lastName}`.trim();
+  /*
+   * Create / link Driver Login User
+   */
+  const driverName =
+    `${driver.firstName} ${driver.lastName}`.trim();
 
-  const existingUser = await User.findOne({
-    $or: [
-      { phone: driver.phone },
-      ...(driver.email ? [{ email: driver.email }] : []),
-    ],
-    isDeleted: false,
-  });
+  const existingUser =
+    await User.findOne({
+      $or: [
+        { phone: driver.phone },
+        ...(driver.email
+          ? [{ email: driver.email.toLowerCase() }]
+          : []),
+      ],
+      isDeleted: false,
+    });
 
   if (existingUser) {
-    if (existingUser.role !== "DRIVER") {
-        throw new AppError(
-            "A user with this email or phone already exists with a different role.",
-            409
-        );
+
+    if (existingUser.role !== ROLES.DRIVER) {
+
+      throw new AppError(
+        "A user with this email or phone already exists with a different role.",
+        409
+      );
     }
 
-    existingUser.driver = driver._id;
+    existingUser.driver =
+      driver._id;
+
+    existingUser.status =
+      STATUS.ACTIVE;
+
     await existingUser.save();
 
     return driver;
-}
+  }
 
-  const driverUser = await User.create({
+  /*
+   * IMPORTANT:
+   * Do not use the driver's phone number
+   * as the login password.
+   *
+   * A temporary random password is generated.
+   * The driver should receive/reset it through
+   * the application's password-reset mechanism.
+   */
+  const crypto =
+    require("crypto");
+
+  const temporaryPassword =
+    crypto.randomBytes(24).toString("hex");
+
+  await User.create({
     name: driverName,
+
     email:
       driver.email ||
       `${driver.phone}@driver.local`,
+
     phone: driver.phone,
-    password: driver.phone,
-    role: "DRIVER",
-    driver: driver._id,
-    status: "ACTIVE",
+
+    password:
+      temporaryPassword,
+
+    role:
+      ROLES.DRIVER,
+
+    driver:
+      driver._id,
+
+    status:
+      STATUS.ACTIVE,
   });
 
   return driver;
 };
+
 
 /**
  * Get All Drivers
  */
 const getAllDrivers = async () => {
-  return await driverRepository.findAll();
+
+  return driverRepository.findAll();
+
 };
+
 
 /**
  * Get Driver By ID
  */
-const getDriverById = async (driverId) => {
-  const driver = await driverRepository.findById(driverId);
+const getDriverById = async (
+  driverId
+) => {
+
+  const driver =
+    await driverRepository.findById(
+      driverId
+    );
 
   if (!driver) {
-    throw new AppError("Driver not found.", 404);
+    throw new AppError(
+      "Driver not found.",
+      404
+    );
   }
 
   return driver;
 };
+
 
 /**
  * Update Driver
@@ -120,20 +208,32 @@ const updateDriver = async (
   updateData,
   userId
 ) => {
-  const driver = await driverRepository.findById(driverId);
+
+  const driver =
+    await driverRepository.findById(
+      driverId
+    );
 
   if (!driver) {
-    throw new AppError("Driver not found.", 404);
+    throw new AppError(
+      "Driver not found.",
+      404
+    );
   }
 
   // Vendor Validation
   if (updateData.vendor) {
-    const vendor = await vendorRepository.findById(
-      updateData.vendor
-    );
+
+    const vendor =
+      await vendorRepository.findById(
+        updateData.vendor
+      );
 
     if (!vendor) {
-      throw new AppError("Vendor not found.", 404);
+      throw new AppError(
+        "Vendor not found.",
+        404
+      );
     }
   }
 
@@ -142,12 +242,18 @@ const updateDriver = async (
     updateData.phone &&
     updateData.phone !== driver.phone
   ) {
+
     const existingPhone =
       await driverRepository.findByPhone(
         updateData.phone
       );
 
-    if (existingPhone) {
+    if (
+      existingPhone &&
+      existingPhone._id.toString() !==
+        driver._id.toString()
+    ) {
+
       throw new AppError(
         "Phone number already exists.",
         409
@@ -160,12 +266,18 @@ const updateDriver = async (
     updateData.email &&
     updateData.email !== driver.email
   ) {
+
     const existingEmail =
       await driverRepository.findByEmail(
         updateData.email
       );
 
-    if (existingEmail) {
+    if (
+      existingEmail &&
+      existingEmail._id.toString() !==
+        driver._id.toString()
+    ) {
+
       throw new AppError(
         "Email already exists.",
         409
@@ -179,12 +291,18 @@ const updateDriver = async (
     updateData.licenseNumber !==
       driver.licenseNumber
   ) {
+
     const existingLicense =
       await driverRepository.findByLicenseNumber(
         updateData.licenseNumber
       );
 
-    if (existingLicense) {
+    if (
+      existingLicense &&
+      existingLicense._id.toString() !==
+        driver._id.toString()
+    ) {
+
       throw new AppError(
         "License number already exists.",
         409
@@ -192,26 +310,106 @@ const updateDriver = async (
     }
   }
 
-  updateData.updatedBy = userId;
+  const updatedDriver =
+    await driverRepository.updateById(
+      driverId,
+      {
+        ...updateData,
+        updatedBy: userId,
+      }
+    );
 
-  return await driverRepository.updateById(
-    driverId,
-    updateData
-  );
+  /*
+   * Keep linked login user synchronized
+   * when phone/email changes.
+   */
+  const linkedUser =
+    await User.findOne({
+      driver: driverId,
+      isDeleted: false,
+    });
+
+  if (linkedUser) {
+
+    let userChanged = false;
+
+    if (
+      updateData.phone &&
+      updateData.phone !== linkedUser.phone
+    ) {
+      linkedUser.phone =
+        updateData.phone;
+
+      userChanged = true;
+    }
+
+    if (
+      updateData.email &&
+      updateData.email !== linkedUser.email
+    ) {
+      linkedUser.email =
+        updateData.email.toLowerCase();
+
+      userChanged = true;
+    }
+
+    if (userChanged) {
+      await linkedUser.save();
+    }
+  }
+
+  return updatedDriver;
 };
+
 
 /**
  * Delete Driver
  */
-const deleteDriver = async (driverId) => {
-  const driver = await driverRepository.findById(driverId);
+const deleteDriver = async (
+  driverId
+) => {
+
+  const driver =
+    await driverRepository.findById(
+      driverId
+    );
 
   if (!driver) {
-    throw new AppError("Driver not found.", 404);
+    throw new AppError(
+      "Driver not found.",
+      404
+    );
   }
 
-  await driverRepository.softDelete(driverId);
+  /*
+   * Disable the linked login account
+   * before soft-deleting the driver.
+   */
+  await User.updateMany(
+    {
+      driver: driverId,
+      isDeleted: false,
+    },
+    {
+      $set: {
+        status: STATUS.INACTIVE,
+      },
+      $unset: {
+        refreshTokens: 1,
+      },
+    }
+  );
+
+  await driverRepository.softDelete(
+    driverId
+  );
+
+  return {
+    message:
+      "Driver deleted successfully.",
+  };
 };
+
 
 /**
  * Update Driver Status
@@ -220,17 +418,57 @@ const updateDriverStatus = async (
   driverId,
   status
 ) => {
-  const driver = await driverRepository.findById(driverId);
+
+  const driver =
+    await driverRepository.findById(
+      driverId
+    );
 
   if (!driver) {
-    throw new AppError("Driver not found.", 404);
+    throw new AppError(
+      "Driver not found.",
+      404
+    );
   }
 
-  return await driverRepository.updateStatus(
-    driverId,
-    status
-  );
+  const updatedDriver =
+    await driverRepository.updateStatus(
+      driverId,
+      status
+    );
+
+  /*
+   * Keep Driver login status aligned
+   * with the Driver record.
+   */
+  const linkedUser =
+    await User.findOne({
+      driver: driverId,
+      isDeleted: false,
+    });
+
+  if (linkedUser) {
+
+    const userStatus =
+      status === STATUS.ACTIVE
+        ? STATUS.ACTIVE
+        : STATUS.INACTIVE;
+
+    if (
+      linkedUser.status !==
+      userStatus
+    ) {
+
+      linkedUser.status =
+        userStatus;
+
+      await linkedUser.save();
+    }
+  }
+
+  return updatedDriver;
 };
+
 
 module.exports = {
   createDriver,
