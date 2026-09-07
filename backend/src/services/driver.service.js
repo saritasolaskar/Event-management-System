@@ -97,146 +97,256 @@ const createDriver = async (
     );
 
 
-  /*
-   * Create / link Driver Login User
-   */
-  const driverName =
-    `${driver.firstName} ${driver.lastName}`.trim();
+  try {
+
+    /*
+     * Create / link Driver Login User
+     */
+    const driverName =
+      `${driver.firstName} ${driver.lastName}`.trim();
 
 
-  const existingUser =
-    await User.findOne({
-      $or: [
-        {
-          phone: driver.phone,
-        },
-        ...(driver.email
-          ? [
-              {
-                email:
-                  driver.email.toLowerCase(),
-              },
-            ]
-          : []),
-      ],
-      isDeleted: false,
-    });
+    const existingUser =
+      await User.findOne({
+        $or: [
+          {
+            phone: driver.phone,
+          },
+          ...(driver.email
+            ? [
+                {
+                  email:
+                    driver.email.toLowerCase(),
+                },
+              ]
+            : []),
+        ],
+        isDeleted: false,
+      });
 
 
-  /*
-   * Existing User
-   */
-  if (existingUser) {
+    /*
+     * Existing User
+     */
+    if (existingUser) {
 
-    if (
-      existingUser.role !==
-      ROLES.DRIVER
-    ) {
+      if (
+        existingUser.role !==
+        ROLES.DRIVER
+      ) {
 
-      throw new AppError(
-        "A user with this email or phone already exists with a different role.",
-        409
-      );
+        throw new AppError(
+          "A user with this email or phone already exists with a different role.",
+          409
+        );
+      }
+
+
+      /*
+       * Prevent the same login account
+       * from being linked to another driver.
+       */
+      if (
+        existingUser.driver &&
+        existingUser.driver.toString() !==
+          driver._id.toString()
+      ) {
+
+        throw new AppError(
+          "This user account is already linked to another driver.",
+          409
+        );
+      }
+
+
+      /*
+       * Preserve the original User state
+       * so it can be restored if a later
+       * operation fails.
+       */
+      const previousDriver =
+        existingUser.driver;
+
+      const previousStatus =
+        existingUser.status;
+
+      const previousPasswordResetToken =
+        existingUser.passwordResetToken;
+
+      const previousPasswordResetExpires =
+        existingUser.passwordResetExpires;
+
+
+      existingUser.driver =
+        driver._id;
+
+      existingUser.status =
+        STATUS.ACTIVE;
+
+      await existingUser.save();
+
+
+      try {
+
+        const passwordSetupToken =
+          await authService.createPasswordSetupToken(
+            existingUser._id
+          );
+
+
+        return {
+          driver,
+          passwordSetupToken,
+        };
+
+      } catch (error) {
+
+        /*
+         * Restore the User to its
+         * previous state.
+         */
+        existingUser.driver =
+          previousDriver;
+
+        existingUser.status =
+          previousStatus;
+
+        existingUser.passwordResetToken =
+          previousPasswordResetToken;
+
+        existingUser.passwordResetExpires =
+          previousPasswordResetExpires;
+
+
+        try {
+          await existingUser.save();
+        } catch (rollbackError) {
+          console.error(
+            "Failed to restore Driver User during rollback:",
+            rollbackError
+          );
+        }
+
+
+        throw error;
+      }
     }
 
 
     /*
-     * Prevent the same login account
-     * from being linked to another driver.
+     * New Driver Login User
      */
-    if (
-      existingUser.driver &&
-      existingUser.driver.toString() !==
-        driver._id.toString()
-    ) {
+    const crypto =
+      require("crypto");
 
-      throw new AppError(
-        "This user account is already linked to another driver.",
-        409
+
+    const temporaryPassword =
+      crypto.randomBytes(24).toString("hex");
+
+
+    const user =
+      await User.create({
+        name:
+          driverName,
+
+        email:
+          driver.email ||
+          `${driver.phone}@driver.local`,
+
+        phone:
+          driver.phone,
+
+        password:
+          temporaryPassword,
+
+        role:
+          ROLES.DRIVER,
+
+        driver:
+          driver._id,
+
+        status:
+          STATUS.ACTIVE,
+      });
+
+
+    try {
+
+      const passwordSetupToken =
+        await authService.createPasswordSetupToken(
+          user._id
+        );
+
+
+      return {
+        driver,
+        passwordSetupToken,
+      };
+
+    } catch (error) {
+
+      /*
+       * Password setup failed after User
+       * creation. Disable the newly-created
+       * login account before propagating
+       * the error.
+       */
+      try {
+
+        await User.updateOne(
+          {
+            _id: user._id,
+          },
+          {
+            $set: {
+              isDeleted: true,
+              status:
+                STATUS.INACTIVE,
+            },
+            $unset: {
+              refreshTokens: 1,
+            },
+          }
+        );
+
+      } catch (rollbackError) {
+
+        console.error(
+          "Failed to rollback Driver User:",
+          rollbackError
+        );
+      }
+
+
+      throw error;
+    }
+
+  } catch (error) {
+
+    /*
+     * Driver was created but a later
+     * operation failed.
+     *
+     * Soft-delete the Driver so we do
+     * not leave an orphan Driver record.
+     */
+    try {
+
+      await driverRepository.softDelete(
+        driver._id
+      );
+
+    } catch (rollbackError) {
+
+      console.error(
+        "Failed to rollback Driver:",
+        rollbackError
       );
     }
 
 
-    existingUser.driver =
-      driver._id;
-
-    existingUser.status =
-      STATUS.ACTIVE;
-
-    await existingUser.save();
-
-
-    /*
-     * Generate one-time password
-     * setup token.
-     */
-    const passwordSetupToken =
-      await authService.createPasswordSetupToken(
-        existingUser._id
-      );
-
-
-    return {
-      driver,
-      passwordSetupToken,
-    };
+    throw error;
   }
-
-
-  /*
-   * New Driver Login User
-   *
-   * Generate a random temporary password.
-   * The driver will replace it using
-   * the password setup token.
-   */
-  const crypto =
-    require("crypto");
-
-  const temporaryPassword =
-    crypto.randomBytes(24).toString("hex");
-
-
-  const user =
-    await User.create({
-      name:
-        driverName,
-
-      email:
-        driver.email ||
-        `${driver.phone}@driver.local`,
-
-      phone:
-        driver.phone,
-
-      password:
-        temporaryPassword,
-
-      role:
-        ROLES.DRIVER,
-
-      driver:
-        driver._id,
-
-      status:
-        STATUS.ACTIVE,
-    });
-
-
-  /*
-   * Generate one-time password
-   * setup token.
-   */
-  const passwordSetupToken =
-    await authService.createPasswordSetupToken(
-      user._id
-    );
-
-
-  return {
-    driver,
-    passwordSetupToken,
-  };
 };
 
 
