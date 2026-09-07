@@ -22,6 +22,12 @@ const vehicleAssignmentSchema = new mongoose.Schema(
             required: true,
         },
 
+        commercialPackage: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "CommercialPackage",
+            required: true,
+        },
+
         vehicle: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Vehicle",

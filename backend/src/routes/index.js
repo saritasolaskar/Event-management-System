@@ -22,7 +22,9 @@ const dutyPdfRoutes = require("./dutyPdf.routes");
 const guestManifestPdfRoutes = require("./guestManifestPdf.routes");
 const userRoutes = require("./user.routes");
 const router = express.Router();
+const commercialPackageRoutes = require("./commercialPackage.routes");
 
+router.use("/commercial-packages", commercialPackageRoutes );
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes); 
 router.use("/clients", clientRoutes);

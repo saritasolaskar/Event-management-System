@@ -33,6 +33,7 @@ const generateDraftBill = async (dutyId) => {
 
     const commercial =
         await commercialPackageRepository.findById(
+            assignment.commercialPackage._id ||
             assignment.commercialPackage
         );
 

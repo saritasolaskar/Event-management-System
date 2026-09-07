@@ -5,7 +5,8 @@ const vendorRepository = require("../repositories/vendor.repository");
 const driverRepository = require("../repositories/driver.repository");
 const vehicleRepository = require("../repositories/vehicle.repository");
 const locationRepository = require("../repositories/location.repository");
-
+const commercialPackageRepository =
+    require("../repositories/commercialPackage.repository");
 const notificationService = require("./notification.service");
 const auditLogService = require("./auditLog.service");
 
@@ -30,6 +31,25 @@ const createVehicleAssignment = async (
             404
         );
     }
+
+    const commercialPackage =
+    await commercialPackageRepository.findById(
+        data.commercialPackage
+    );
+
+if (!commercialPackage) {
+    throw new AppError(
+        "Commercial Package not found.",
+        404
+    );
+}
+
+if (!commercialPackage.isActive) {
+    throw new AppError(
+        "Commercial Package is inactive.",
+        400
+    );
+}
 
     const vendor =
         await vendorRepository.findById(
@@ -233,12 +253,13 @@ const updateVehicleAssignment = async (
     }
 
     const allowedFields = [
-        "vehicle",
-        "driver",
-        "reportingLocation",
-        "reportingTime",
-        "remarks",
-    ];
+    "vehicle",
+    "driver",
+    "commercialPackage",
+    "reportingLocation",
+    "reportingTime",
+    "remarks",
+];
 
     const sanitizedUpdateData = {};
 
@@ -343,6 +364,28 @@ const updateVehicleAssignment = async (
         }
 
     }
+    
+    if (updateData.commercialPackage) {
+
+    const commercialPackage =
+        await commercialPackageRepository.findById(
+            updateData.commercialPackage
+        );
+
+    if (!commercialPackage) {
+        throw new AppError(
+            "Commercial Package not found.",
+            404
+        );
+    }
+
+    if (!commercialPackage.isActive) {
+        throw new AppError(
+            "Commercial Package is inactive.",
+            400
+        );
+    }
+}
 
     updateData.updatedBy = userId;
 

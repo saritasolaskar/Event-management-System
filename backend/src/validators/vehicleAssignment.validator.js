@@ -37,6 +37,12 @@ const createVehicleAssignmentValidator = [
     .optional()
     .isISO8601()
     .withMessage("Invalid Reporting Time."),
+
+  body("commercialPackage")
+    .notEmpty()
+    .withMessage("Commercial Package is required.")
+    .isMongoId()
+    .withMessage("Invalid Commercial Package ID."),
 ];
 
 /**
@@ -73,6 +79,11 @@ const updateVehicleAssignmentValidator = [
     .trim()
     .isLength({ max: 500 })
     .withMessage("Remarks cannot exceed 500 characters."),
+
+  body("commercialPackage")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid Commercial Package ID."),  
 ];
 
 /**

@@ -12,6 +12,7 @@ const findById = async (id) => {
         .populate("event")
         .populate("vendor")
         .populate("driver")
+        .populate("commercialPackage")
         .populate("vehicle")
         .populate("reportingLocation");
 };
