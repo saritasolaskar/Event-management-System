@@ -155,6 +155,13 @@ const clientInvoiceSchema = new mongoose.Schema(
 
         approvedAt: Date,
 
+        rejectedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
+
+        rejectedAt: Date,
+
         remarks: {
             type: String,
             trim: true,
