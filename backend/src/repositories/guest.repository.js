@@ -3,118 +3,155 @@ const Guest = require("../models/guest.model");
 /**
  * Create Guest
  */
-const create = async (guestData) => {
-  return Guest.create(guestData);
+const create = async (
+    guestData,
+    session = null
+) => {
+    return Guest.create(
+        [guestData],
+        session
+            ? { session }
+            : undefined
+    ).then((docs) => docs[0]);
 };
 
 /**
  * Find Guest By ID
  */
 const findById = async (id) => {
-  return Guest.findOne({
-    _id: id,
-    isDeleted: false,
-  })
-    .populate("event", "eventCode name")
-    .populate("pickupLocation", "name city")
-    .populate("dropLocation", "name city");
+    return Guest.findOne({
+        _id: id,
+        isDeleted: false,
+    })
+        .populate("event", "eventCode name client status")
+        .populate("pickupLocation", "name city")
+        .populate("dropLocation", "name city");
 };
 
 /**
  * Find Guest By Code
  */
 const findByGuestCode = async (guestCode) => {
-  return Guest.findOne({
-    guestCode,
-    isDeleted: false,
-  });
+    return Guest.findOne({
+        guestCode,
+        isDeleted: false,
+    });
 };
 
 /**
  * Get Guests By Event
  */
 const findByEvent = async (eventId) => {
-
     return Guest.find({
         event: eventId,
         isDeleted: false,
     })
-    .populate("pickupLocation")
-    .populate("dropLocation")
-   .sort({
-    firstName: 1,
-    lastName: 1,
-});
-
+        .populate("pickupLocation")
+        .populate("dropLocation")
+        .sort({
+            firstName: 1,
+            lastName: 1,
+        });
 };
 
 /**
  * Get All Guests
  */
 const findAll = async (filter = {}) => {
-  return Guest.find({
-    isDeleted: false,
-    ...filter,
-  })
-    .populate("event", "eventCode name")
-    .populate("pickupLocation", "name city")
-    .populate("dropLocation", "name city")
-    .sort({
-      createdAt: -1,
-    });
+    return Guest.find({
+        ...filter,
+        isDeleted: false,
+    })
+        .populate("event", "eventCode name client status")
+        .populate("pickupLocation", "name city")
+        .populate("dropLocation", "name city")
+        .sort({
+            createdAt: -1,
+        });
 };
 
 /**
  * Update Guest
  */
-const updateById = async (id, updateData) => {
-  return Guest.findByIdAndUpdate(
+const updateById = async (
     id,
     updateData,
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
+    session = null
+) => {
+    return Guest.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        updateData,
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
 };
 
 /**
  * Soft Delete Guest
  */
-const softDelete = async (id) => {
-  return Guest.findByIdAndUpdate(
+const softDelete = async (
     id,
-    {
-      isDeleted: true,
-    },
-    {
-      new: true,
-    }
-  );
+    session = null
+) => {
+    return Guest.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        {
+            isDeleted: true,
+        },
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
 };
 
 /**
  * Update Guest Status
  */
-const updateStatus = async (id, status) => {
-  return Guest.findByIdAndUpdate(
+const updateStatus = async (
     id,
-    { status },
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
+    status,
+    session = null
+) => {
+    return Guest.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        {
+            status,
+        },
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
 };
 
-
 module.exports = {
-  create,
-  findById,
-  findByGuestCode,
-  findByEvent,
-  findAll,
-  updateById,
-  softDelete,
-  updateStatus,
+    create,
+    findById,
+    findByGuestCode,
+    findByEvent,
+    findAll,
+    updateById,
+    softDelete,
+    updateStatus,
 };

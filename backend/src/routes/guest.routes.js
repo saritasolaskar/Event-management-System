@@ -13,6 +13,7 @@ const {
     updateGuestValidator,
     guestIdValidator,
     eventIdValidator,
+    guestStatusValidator,
 } = require("../validators/guest.validator");
 
 const router = express.Router();
@@ -116,7 +117,7 @@ router.patch(
         ROLES.ADMIN,
         ROLES.OPERATIONS_MANAGER
     ),
-    guestIdValidator,
+    guestStatusValidator,
     validate,
     guestController.updateGuestStatus
 );
