@@ -39,10 +39,7 @@ const registerValidator = [
             "Password must contain at least 8 characters, one uppercase, one lowercase, one number and one special character"
         ),
 
-    body("role")
-        .optional()
-        .isIn(Object.values(ROLES))
-        .withMessage("Invalid role"),
+    
 
 ];
 
