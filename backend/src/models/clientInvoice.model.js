@@ -57,6 +57,11 @@ const clientInvoiceSchema = new mongoose.Schema(
             ],
         },
 
+        paymentReference: {
+            type: String,
+            trim: true,
+            maxlength: 100,
+        },
 
 
         totalKm: {
