@@ -1,11 +1,22 @@
-const GuestAssignment = require("../models/guestAssignment.model");
-const VehicleAssignment = require("../models/vehicleAssignment.model");
+const GuestAssignment =
+    require("../models/guestAssignment.model");
+
+const VehicleAssignment =
+    require("../models/vehicleAssignment.model");
 
 /**
  * Create Guest Assignment
  */
-const create = async (data) => {
-    return GuestAssignment.create(data);
+const create = (
+    data,
+    session = null
+) => {
+    return GuestAssignment.create(
+        [data],
+        session
+            ? { session }
+            : undefined
+    ).then((docs) => docs[0]);
 };
 
 /**
@@ -22,19 +33,22 @@ const findById = async (id) => {
             populate: [
                 {
                     path: "driver",
-                    select: "firstName lastName phone",
+                    select:
+                        "firstName lastName phone",
                 },
                 {
                     path: "vehicle",
-                    select: "vehicleNumber vehicleType",
-                },
+                    select:
+                        "vehicleNumber vehicleType",
+                    },
                 {
                     path: "vendor",
                     select: "companyName",
                 },
                 {
                     path: "event",
-                    select: "name eventCode",
+                    select:
+                        "name eventCode",
                 },
             ],
         });
@@ -57,30 +71,94 @@ const findAll = async () => {
                 { path: "event" },
             ],
         })
-        .sort({ createdAt: -1 });
+        .sort({
+            createdAt: -1,
+        });
 };
 
 /**
  * Update Guest Assignment
  */
-const updateById = async (id, data) => {
-    return GuestAssignment.findByIdAndUpdate(id, data, {
-        new: true,
-        runValidators: true,
-    });
+const updateById = async (
+    id,
+    data
+) => {
+    return GuestAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
+};
+
+/**
+ * Update only if the trip has not started.
+ *
+ * This prevents a stale request from modifying
+ * an assignment after pickup/return processing begins.
+ */
+const updateByIdIfPending = async (
+    id,
+    data
+) => {
+    return GuestAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            pickupStatus: "PENDING",
+            returnStatus: "NOT_STARTED",
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
 };
 
 /**
  * Soft Delete Guest Assignment
  */
 const softDelete = async (id) => {
-    return GuestAssignment.findByIdAndUpdate(
-        id,
+    return GuestAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         {
             isDeleted: true,
         },
         {
             new: true,
+            runValidators: true,
+        }
+    );
+};
+
+/**
+ * Soft Delete only if trip has not started.
+ */
+const softDeleteIfPending = async (
+    id
+) => {
+    return GuestAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            pickupStatus: "PENDING",
+            returnStatus: "NOT_STARTED",
+        },
+        {
+            isDeleted: true,
+        },
+        {
+            new: true,
+            runValidators: true,
         }
     );
 };
@@ -88,15 +166,20 @@ const softDelete = async (id) => {
 /**
  * Find Guest Assignments By Event
  */
-const findByEvent = async (eventId) => {
-    const vehicleAssignments = await VehicleAssignment.find({
-        event: eventId,
-        isDeleted: false,
-    }).select("_id");
+const findByEvent = async (
+    eventId
+) => {
+    const vehicleAssignments =
+        await VehicleAssignment.find({
+            event: eventId,
+            isDeleted: false,
+        }).select("_id");
 
-    const assignmentIds = vehicleAssignments.map(
-        (assignment) => assignment._id
-    );
+    const assignmentIds =
+        vehicleAssignments.map(
+            (assignment) =>
+                assignment._id
+        );
 
     return GuestAssignment.find({
         vehicleAssignment: {
@@ -118,13 +201,19 @@ const findByEvent = async (eventId) => {
                     path: "event",
                 },
             ],
+        })
+        .sort({
+            pickupSequence: 1,
+            dropSequence: 1,
         });
 };
 
 /**
  * Find Guest Assignment By Guest
  */
-const findByGuest = async (guestId) => {
+const findByGuest = async (
+    guestId
+) => {
     return GuestAssignment.findOne({
         guest: guestId,
         isDeleted: false,
@@ -150,47 +239,55 @@ const findByGuest = async (guestId) => {
 /**
  * Find Guest Assignments By Vehicle Assignment
  */
-const findByVehicleAssignment = async (vehicleAssignmentId) => {
-    return GuestAssignment.find({
-        vehicleAssignment: vehicleAssignmentId,
-        isDeleted: false,
-    })
-        .populate("guest")
-        .sort({
-            pickupSequence: 1,
-            dropSequence: 1,
-        });
-};
+const findByVehicleAssignment =
+    async (
+        vehicleAssignmentId
+    ) => {
+        return GuestAssignment.find({
+            vehicleAssignment:
+                vehicleAssignmentId,
+            isDeleted: false,
+        })
+            .populate("guest")
+            .sort({
+                pickupSequence: 1,
+                dropSequence: 1,
+            });
+    };
+
 /**
  * Find Guest Assignments By Driver
  */
-const findByDriver = async (driverId) => {
-    const assignments = await GuestAssignment.find({
-        isDeleted: false,
-    })
-        .populate({
-            path: "vehicleAssignment",
-            match: {
-                driver: driverId,
-                isDeleted: false,
-            },
-            populate: [
-                {
-                    path: "vehicle",
-                },
-                {
-                    path: "event",
-                },
-                {
-                    path: "vendor",
-                },
-            ],
+const findByDriver = async (
+    driverId
+) => {
+    const assignments =
+        await GuestAssignment.find({
+            isDeleted: false,
         })
-        .populate("guest");
+            .populate({
+                path: "vehicleAssignment",
+                match: {
+                    driver: driverId,
+                    isDeleted: false,
+                },
+                populate: [
+                    {
+                        path: "vehicle",
+                    },
+                    {
+                        path: "event",
+                    },
+                    {
+                        path: "vendor",
+                    },
+                ],
+            })
+            .populate("guest");
 
-    // Remove records where vehicleAssignment didn't match
     return assignments.filter(
-        (assignment) => assignment.vehicleAssignment
+        (assignment) =>
+            assignment.vehicleAssignment
     );
 };
 
@@ -199,7 +296,9 @@ module.exports = {
     findById,
     findAll,
     updateById,
+    updateByIdIfPending,
     softDelete,
+    softDeleteIfPending,
     findByEvent,
     findByVehicleAssignment,
     findByGuest,
