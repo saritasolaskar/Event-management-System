@@ -142,10 +142,7 @@ const updateDriverValidator = [
         .isMongoId()
         .withMessage("Invalid vehicle ID."),
 
-    body("status")
-        .optional()
-        .isIn(Object.values(STATUS))
-        .withMessage("Invalid driver status."),
+    
 
 ];
 
