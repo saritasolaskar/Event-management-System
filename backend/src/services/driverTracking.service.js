@@ -1,7 +1,12 @@
-const driverTrackingRepository = require("../repositories/driverTracking.repository");
-const dutyRepository = require("../repositories/duty.repository");
+const driverTrackingRepository =
+    require("../repositories/driverTracking.repository");
 
-const AppError = require("../utils/AppError");
+const dutyRepository =
+    require("../repositories/duty.repository");
+
+const AppError =
+    require("../utils/AppError");
+
 
 /**
  * Create Tracking Point
@@ -32,13 +37,52 @@ const createTrackingPoint = async (
         heading: trackingData.heading,
         stage: trackingData.stage,
     });
-
 };
+
 
 /**
  * Get Latest Location
+ *
+ * Client access is restricted to duties
+ * belonging to that client.
  */
-const getLatestLocation = async (dutyId) => {
+const getLatestLocation = async (
+    dutyId,
+    clientId
+) => {
+
+    const duty =
+        await dutyRepository.findById(
+            dutyId
+        );
+
+    if (!duty) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
+
+    if (clientId) {
+
+        const event =
+            duty.vehicleAssignment?.event;
+
+        const eventClientId =
+            event?.client?._id ||
+            event?.client;
+
+        if (
+            !eventClientId ||
+            eventClientId.toString() !==
+                clientId.toString()
+        ) {
+            throw new AppError(
+                "Unauthorized.",
+                403
+            );
+        }
+    }
 
     const tracking =
         await driverTrackingRepository.findLatestByDuty(
@@ -53,35 +97,33 @@ const getLatestLocation = async (dutyId) => {
     }
 
     return tracking;
-
 };
+
 
 /**
  * Get Tracking History
  */
-const getTrackingHistory = async (dutyId) => {
+const getTrackingHistory = async (
+    dutyId
+) => {
 
     return driverTrackingRepository.findHistoryByDuty(
         dutyId
     );
-
 };
 
+
 /**
- * Delete Tracking History
- * Intentionally not implemented.
+ * Tracking history is intentionally preserved.
  *
- * Tracking history should be preserved for:
+ * It is useful for:
  * - Analytics
  * - Route history
  * - Driver performance
- * - Audit logs
+ * - Audit
  * - Reporting
  */
 
-// const deleteTrackingHistory = async (dutyId) => {
-//     return driverTrackingRepository.deleteByDuty(dutyId);
-// };
 
 module.exports = {
     createTrackingPoint,
