@@ -1,110 +1,109 @@
 const vendorBillRepository =
-    require("../repositories/vendorBill.repository");
+require("../repositories/vendorBill.repository");
 
 const billingService =
-    require("./billing.service");
+require("./billing.service");
 
 const AppError =
-    require("../utils/AppError");
+require("../utils/AppError");
 
-/**
- * Create Vendor Bill
- */
 const createVendorBill = async (
-    dutyId,
-    userId
+dutyId,
+userId
 ) => {
 
-    const existingBill =
-        await vendorBillRepository.findByDuty(
-            dutyId
-        );
+```
+const existingBill =
+    await vendorBillRepository.findByDuty(
+        dutyId
+    );
 
-    if (existingBill) {
-        throw new AppError(
-            "Vendor Bill already exists for this duty.",
-            409
-        );
-    }
+if (existingBill) {
+    throw new AppError(
+        "Vendor Bill already exists for this duty.",
+        409
+    );
+}
 
-    const draft =
-        await billingService.generateDraftBill(
-            dutyId
-        );
+const draft =
+    await billingService.generateDraftBill(
+        dutyId
+    );
 
-    if (!draft.assignment.vendor) {
-        throw new AppError(
-            "Vendor not found for this vehicle assignment.",
-            404
-        );
-    }
+if (!draft.assignment.vendor) {
+    throw new AppError(
+        "Vendor not found for this vehicle assignment.",
+        404
+    );
+}
 
-    return vendorBillRepository.create({
+return vendorBillRepository.create({
 
-        duty:
-            draft.duty._id,
+    duty:
+        draft.duty._id,
 
-        vendor:
-            draft.assignment.vendor,
+    vendor:
+        draft.assignment.vendor,
 
-        vehicleAssignment:
-            draft.assignment._id,
+    vehicleAssignment:
+        draft.assignment._id,
 
-        packageName:
-            draft.assignment.commercialPackage?.name,
+    packageName:
+        draft.assignment.commercialPackage?.name,
 
-        packageKm:
-            draft.assignment.commercialPackage?.vendorIncludedKm,
+    packageKm:
+        draft.assignment.commercialPackage?.vendorIncludedKm,
 
-        packageHours:
-            draft.assignment.commercialPackage?.vendorIncludedHours,
+    packageHours:
+        draft.assignment.commercialPackage?.vendorIncludedHours,
 
-        billDate:
-            new Date(),
+    billDate:
+        new Date(),
 
-        totalKm:
-            draft.totalKm,
+    totalKm:
+        draft.totalKm,
 
-        totalHours:
-            draft.totalHours,
+    totalHours:
+        draft.totalHours,
 
-        vendorRate:
-            draft.vendorBill.vendorRate,
+    vendorRate:
+        draft.vendorBill.vendorRate,
 
-        extraKm:
-            draft.vendorBill.extraKm,
+    extraKm:
+        draft.vendorBill.extraKm,
 
-        extraHour:
-            draft.vendorBill.extraHour,
+    extraHour:
+        draft.vendorBill.extraHour,
 
-        parkingCharges:
-            draft.duty.parkingCharges || 0,
+    parkingCharges:
+        draft.vendorBill.parkingCharges,
 
-        tollCharges:
-            draft.duty.tollCharges || 0,
+    tollCharges:
+        draft.vendorBill.tollCharges,
 
-        entryCharges:
-            draft.duty.entryCharges || 0,
+    entryCharges:
+        draft.vendorBill.entryCharges,
 
-        daCharges:
-            draft.duty.daCharges || 0,
+    daCharges:
+        draft.vendorBill.daCharges,
 
-        totalAmount:
-            draft.vendorBill.amount,
+    totalAmount:
+        draft.vendorBill.amount,
 
-        status:
-            draft.status,
+    status:
+        draft.status,
 
-        createdBy:
-            userId,
+    createdBy:
+        userId,
 
-        updatedBy:
-            userId,
+    updatedBy:
+        userId,
 
-    });
+});
+```
 
 };
 
 module.exports = {
-    createVendorBill,
+createVendorBill,
 };

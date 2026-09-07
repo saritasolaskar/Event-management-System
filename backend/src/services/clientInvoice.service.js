@@ -1,111 +1,148 @@
-const clientInvoiceRepository = require("../repositories/clientInvoice.repository");
-const billingService = require("./billing.service");
-const dutyRepository = require("../repositories/duty.repository");
+const clientInvoiceRepository =
+require("../repositories/clientInvoice.repository");
 
-const AppError = require("../utils/AppError");
+const billingService =
+require("./billing.service");
+
+const dutyRepository =
+require("../repositories/duty.repository");
+
+const AppError =
+require("../utils/AppError");
 
 const createClientInvoice = async (
-    dutyId,
-    userId
+dutyId,
+userId
 ) => {
 
-    const existingInvoice =
-        await clientInvoiceRepository.findByDuty(dutyId);
+const existingInvoice =
+    await clientInvoiceRepository.findByDuty(
+        dutyId
+    );
 
-    if (existingInvoice) {
-        throw new AppError(
-            "Client Invoice already exists for this duty.",
-            409
-        );
-    }
+if (existingInvoice) {
+    throw new AppError(
+        "Client Invoice already exists for this duty.",
+        409
+    );
+}
 
-    const draft =
-        await billingService.generateDraftBill(
-            dutyId
-        );
+const draft =
+    await billingService.generateDraftBill(
+        dutyId
+    );
 
-    const duty =
-        await dutyRepository.findById(dutyId);
+const duty =
+    await dutyRepository.findById(
+        dutyId
+    );
 
-    if (!duty) {
-        throw new AppError(
-            "Duty not found.",
-            404
-        );
-    }
+if (!duty) {
+    throw new AppError(
+        "Duty not found.",
+        404
+    );
+}
 
-    return clientInvoiceRepository.create({
+const event =
+    duty.vehicleAssignment?.event;
 
-        duty: duty._id,
+if (!event) {
+    throw new AppError(
+        "Event not found for this duty.",
+        404
+    );
+}
 
-        client: duty.event.client,
+if (!event.client) {
+    throw new AppError(
+        "Client not found for this event.",
+        404
+    );
+}
 
-        event: duty.event._id,
+return clientInvoiceRepository.create({
 
-        vehicleAssignment:
-            draft.assignment._id,
+    duty:
+        duty._id,
 
-        packageName:
-            draft.assignment.commercialPackage?.name,
+    client:
+        event.client,
 
-        packageKm:
-            draft.assignment.commercialPackage?.clientIncludedKm,
+    event:
+        event._id,
 
-        packageHours:
-            draft.assignment.commercialPackage?.clientIncludedHours,
-        invoiceNumber:
-            `INV-${Date.now()}`,
+    vehicleAssignment:
+        draft.assignment._id,
 
-        invoiceDate:
-            new Date(),
+    packageName:
+        draft.assignment.commercialPackage?.name,
 
-        totalKm:
-            draft.totalKm,
+    packageKm:
+        draft.assignment.commercialPackage?.clientIncludedKm,
 
-        totalHours:
-            draft.totalHours,
+    packageHours:
+        draft.assignment.commercialPackage?.clientIncludedHours,
 
-        clientRate:
-            draft.clientBill.clientRate,
+    invoiceNumber:
+        `INV-${Date.now()}`,
 
-        extraKm:
-            draft.clientBill.extraKm,
+    invoiceDate:
+        new Date(),
 
-        extraHour:
-            draft.clientBill.extraHour,
+    totalKm:
+        draft.totalKm,
 
-        parkingCharges:
-            draft.duty.parkingCharges || 0,
+    totalHours:
+        draft.totalHours,
 
-        tollCharges:
-            draft.duty.tollCharges || 0,
+    clientRate:
+        draft.clientBill.clientRate,
 
-        entryCharges:
-            draft.duty.entryCharges || 0,
+    extraKm:
+        draft.clientBill.extraKm,
 
-        daCharges:
-            draft.duty.daCharges || 0,
+    extraHour:
+        draft.clientBill.extraHour,
 
-        subtotal:
-            draft.clientBill.amount,
+    parkingCharges:
+        draft.clientBill.parkingCharges,
 
-        discount: 0,
+    tollCharges:
+        draft.clientBill.tollCharges,
 
-        gstPercentage: 0,
+    entryCharges:
+        draft.clientBill.entryCharges,
 
-        gstAmount: 0,
+    daCharges:
+        draft.clientBill.daCharges,
 
-        totalAmount:
-            draft.clientBill.amount,
+    subtotal:
+        draft.clientBill.amount,
 
-        createdBy: userId,
+    discount:
+        0,
 
-        updatedBy: userId,
+    gstPercentage:
+        0,
 
-    });
+    gstAmount:
+        0,
+
+    totalAmount:
+        draft.clientBill.amount,
+
+    createdBy:
+        userId,
+
+    updatedBy:
+        userId,
+
+});
+
 
 };
 
 module.exports = {
-    createClientInvoice,
+createClientInvoice,
 };
