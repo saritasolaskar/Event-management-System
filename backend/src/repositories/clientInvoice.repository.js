@@ -29,7 +29,9 @@ const findById = (id) =>
             ],
         })
 
-        .populate("duty");
+        .populate("duty")
+
+        .populate("approvedBy");
 
 const findAll = () =>
     ClientInvoice.find({

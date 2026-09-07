@@ -1,4 +1,3 @@
-```js
 const clientInvoiceRepository =
     require("../../repositories/clientInvoice.repository");
 
@@ -11,9 +10,6 @@ const config =
 const AppError =
     require("../../utils/AppError");
 
-/**
- * Generate Client Invoice PDF
- */
 const generateClientInvoicePdf = async (
     invoiceId,
     user
@@ -31,7 +27,6 @@ const generateClientInvoicePdf = async (
         );
     }
 
-    // Ensure the client reference exists before accessing invoice.client._id
     if (!invoice.client) {
         throw new AppError(
             "Client not found.",
@@ -39,7 +34,6 @@ const generateClientInvoicePdf = async (
         );
     }
 
-    // CLIENT users can only access their own invoices
     if (
         user.role === "CLIENT" &&
         (
@@ -57,6 +51,13 @@ const generateClientInvoicePdf = async (
     if (!invoice.event) {
         throw new AppError(
             "Event not found.",
+            404
+        );
+    }
+
+    if (!invoice.vehicleAssignment) {
+        throw new AppError(
+            "Vehicle Assignment not found.",
             404
         );
     }
@@ -82,7 +83,6 @@ const generateClientInvoicePdf = async (
         gst:
             config.COMPANY_GST ||
             "",
-
     };
 
     const data = {
@@ -99,23 +99,26 @@ const generateClientInvoicePdf = async (
                     ? invoice.invoiceDate.toLocaleDateString()
                     : "",
 
+            status:
+                invoice.status,
+
             packageName:
-                invoice.packageName ||
-                "",
+                invoice.packageName || "",
 
             packageKm:
-                invoice.packageKm ||
-                0,
+                invoice.packageKm || 0,
 
             packageHours:
-                invoice.packageHours ||
-                0,
+                invoice.packageHours || 0,
 
             totalKm:
                 invoice.totalKm,
 
             totalHours:
                 invoice.totalHours,
+
+            clientRate:
+                invoice.clientRate,
 
             extraKm:
                 invoice.extraKm,
@@ -135,15 +138,25 @@ const generateClientInvoicePdf = async (
             daCharges:
                 invoice.daCharges,
 
+            subtotal:
+                invoice.subtotal,
+
+            discount:
+                invoice.discount,
+
+            gstPercentage:
+                invoice.gstPercentage,
+
+            gstAmount:
+                invoice.gstAmount,
+
             totalAmount:
                 invoice.totalAmount,
 
-            status:
-                invoice.status,
-
-            approvedAt:
-                invoice.approvedAt,
-
+            approvedAtFormatted:
+                invoice.approvedAt
+                    ? invoice.approvedAt.toLocaleString()
+                    : "",
         },
 
         client:
@@ -152,22 +165,25 @@ const generateClientInvoicePdf = async (
         event:
             invoice.event,
 
+        vehicle:
+            invoice.vehicleAssignment.vehicle,
+
+        driver:
+            invoice.vehicleAssignment.driver,
+
         approvedBy:
             invoice.approvedBy,
 
         generatedAt:
             new Date().toLocaleString(),
-
     };
 
     return pdfGenerator.generatePdf(
         "clientInvoice",
         data
     );
-
 };
 
 module.exports = {
     generateClientInvoicePdf,
 };
-```
