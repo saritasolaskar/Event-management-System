@@ -4,9 +4,10 @@ const authController = require("../controllers/auth.controller");
 const validate = require("../middleware/validate");
 const protect = require("../middleware/auth.middleware");
 const {
-  registerValidator,
-  loginValidator,
-  refreshTokenValidator,
+    registerValidator,
+    loginValidator,
+    refreshTokenValidator,
+    setPasswordValidator,
 } = require("../validators/auth.validator");
 
 const router = express.Router();
@@ -44,5 +45,10 @@ router.post(
   protect,
   authController.logoutAllDevices
 );
-
+router.post(
+    "/set-password",
+    setPasswordValidator,
+    validate,
+    authController.setPassword
+);
 module.exports = router;

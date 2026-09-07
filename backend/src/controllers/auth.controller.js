@@ -69,10 +69,28 @@ const logoutAllDevices = asyncHandler(async (req, res) => {
   );
 });
 
+const setPassword = asyncHandler(
+    async (req, res) => {
+
+        const result =
+            await authService.setPassword(
+                req.body.token,
+                req.body.password
+            );
+
+        return successResponse(
+            res,
+            200,
+            result.message
+        );
+    }
+);
+
 module.exports = {
   register,
   login,
   logout,
   logoutAllDevices,
   refreshToken,
+  setPassword,
 };

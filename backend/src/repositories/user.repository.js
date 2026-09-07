@@ -175,6 +175,17 @@ const removeAllRefreshTokens = async (userId) => {
     );
 };
 
+const findByPasswordResetToken = async (
+    token
+) => {
+
+    return User.findOne({
+        passwordResetToken: token,
+        isDeleted: false,
+    }).select("+password");
+};
+
+
 module.exports = {
     create,
     findById,
@@ -188,4 +199,5 @@ module.exports = {
     findByRefreshToken,
     removeRefreshToken,
     removeAllRefreshTokens,
+    findByPasswordResetToken,
 };

@@ -16,6 +16,9 @@ const { ROLES } =
 const { STATUS } =
   require("../constants/status");
 
+const authService =
+  require("./auth.service");
+
 
 /**
  * Create Driver
@@ -38,6 +41,7 @@ const createDriver = async (
     );
   }
 
+
   // Check Phone Number
   const existingPhone =
     await driverRepository.findByPhone(
@@ -50,6 +54,7 @@ const createDriver = async (
       409
     );
   }
+
 
   // Check Email
   if (driverData.email) {
@@ -67,6 +72,7 @@ const createDriver = async (
     }
   }
 
+
   // Check License Number
   const existingLicense =
     await driverRepository.findByLicenseNumber(
@@ -80,13 +86,16 @@ const createDriver = async (
     );
   }
 
+
   driverData.createdBy = userId;
   driverData.updatedBy = userId;
+
 
   const driver =
     await driverRepository.create(
       driverData
     );
+
 
   /*
    * Create / link Driver Login User
@@ -94,26 +103,59 @@ const createDriver = async (
   const driverName =
     `${driver.firstName} ${driver.lastName}`.trim();
 
+
   const existingUser =
     await User.findOne({
       $or: [
-        { phone: driver.phone },
+        {
+          phone: driver.phone,
+        },
         ...(driver.email
-          ? [{ email: driver.email.toLowerCase() }]
+          ? [
+              {
+                email:
+                  driver.email.toLowerCase(),
+              },
+            ]
           : []),
       ],
       isDeleted: false,
     });
 
+
+  /*
+   * Existing User
+   */
   if (existingUser) {
 
-    if (existingUser.role !== ROLES.DRIVER) {
+    if (
+      existingUser.role !==
+      ROLES.DRIVER
+    ) {
 
       throw new AppError(
         "A user with this email or phone already exists with a different role.",
         409
       );
     }
+
+
+    /*
+     * Prevent the same login account
+     * from being linked to another driver.
+     */
+    if (
+      existingUser.driver &&
+      existingUser.driver.toString() !==
+        driver._id.toString()
+    ) {
+
+      throw new AppError(
+        "This user account is already linked to another driver.",
+        409
+      );
+    }
+
 
     existingUser.driver =
       driver._id;
@@ -123,17 +165,30 @@ const createDriver = async (
 
     await existingUser.save();
 
-    return driver;
+
+    /*
+     * Generate one-time password
+     * setup token.
+     */
+    const passwordSetupToken =
+      await authService.createPasswordSetupToken(
+        existingUser._id
+      );
+
+
+    return {
+      driver,
+      passwordSetupToken,
+    };
   }
 
+
   /*
-   * IMPORTANT:
-   * Do not use the driver's phone number
-   * as the login password.
+   * New Driver Login User
    *
-   * A temporary random password is generated.
-   * The driver should receive/reset it through
-   * the application's password-reset mechanism.
+   * Generate a random temporary password.
+   * The driver will replace it using
+   * the password setup token.
    */
   const crypto =
     require("crypto");
@@ -141,29 +196,47 @@ const createDriver = async (
   const temporaryPassword =
     crypto.randomBytes(24).toString("hex");
 
-  await User.create({
-    name: driverName,
 
-    email:
-      driver.email ||
-      `${driver.phone}@driver.local`,
+  const user =
+    await User.create({
+      name:
+        driverName,
 
-    phone: driver.phone,
+      email:
+        driver.email ||
+        `${driver.phone}@driver.local`,
 
-    password:
-      temporaryPassword,
+      phone:
+        driver.phone,
 
-    role:
-      ROLES.DRIVER,
+      password:
+        temporaryPassword,
 
-    driver:
-      driver._id,
+      role:
+        ROLES.DRIVER,
 
-    status:
-      STATUS.ACTIVE,
-  });
+      driver:
+        driver._id,
 
-  return driver;
+      status:
+        STATUS.ACTIVE,
+    });
+
+
+  /*
+   * Generate one-time password
+   * setup token.
+   */
+  const passwordSetupToken =
+    await authService.createPasswordSetupToken(
+      user._id
+    );
+
+
+  return {
+    driver,
+    passwordSetupToken,
+  };
 };
 
 
@@ -221,6 +294,7 @@ const updateDriver = async (
     );
   }
 
+
   // Vendor Validation
   if (updateData.vendor) {
 
@@ -237,10 +311,12 @@ const updateDriver = async (
     }
   }
 
+
   // Phone Validation
   if (
     updateData.phone &&
-    updateData.phone !== driver.phone
+    updateData.phone !==
+      driver.phone
   ) {
 
     const existingPhone =
@@ -261,10 +337,12 @@ const updateDriver = async (
     }
   }
 
+
   // Email Validation
   if (
     updateData.email &&
-    updateData.email !== driver.email
+    updateData.email !==
+      driver.email
   ) {
 
     const existingEmail =
@@ -284,6 +362,7 @@ const updateDriver = async (
       );
     }
   }
+
 
   // License Validation
   if (
@@ -310,6 +389,7 @@ const updateDriver = async (
     }
   }
 
+
   const updatedDriver =
     await driverRepository.updateById(
       driverId,
@@ -318,6 +398,7 @@ const updateDriver = async (
         updatedBy: userId,
       }
     );
+
 
   /*
    * Keep linked login user synchronized
@@ -329,34 +410,43 @@ const updateDriver = async (
       isDeleted: false,
     });
 
+
   if (linkedUser) {
 
     let userChanged = false;
 
+
     if (
       updateData.phone &&
-      updateData.phone !== linkedUser.phone
+      updateData.phone !==
+        linkedUser.phone
     ) {
+
       linkedUser.phone =
         updateData.phone;
 
       userChanged = true;
     }
 
+
     if (
       updateData.email &&
-      updateData.email !== linkedUser.email
+      updateData.email !==
+        linkedUser.email
     ) {
+
       linkedUser.email =
         updateData.email.toLowerCase();
 
       userChanged = true;
     }
 
+
     if (userChanged) {
       await linkedUser.save();
     }
   }
+
 
   return updatedDriver;
 };
@@ -381,9 +471,10 @@ const deleteDriver = async (
     );
   }
 
+
   /*
-   * Disable the linked login account
-   * before soft-deleting the driver.
+   * Disable linked login account
+   * before soft-deleting driver.
    */
   await User.updateMany(
     {
@@ -392,7 +483,8 @@ const deleteDriver = async (
     },
     {
       $set: {
-        status: STATUS.INACTIVE,
+        status:
+          STATUS.INACTIVE,
       },
       $unset: {
         refreshTokens: 1,
@@ -400,9 +492,11 @@ const deleteDriver = async (
     }
   );
 
+
   await driverRepository.softDelete(
     driverId
   );
+
 
   return {
     message:
@@ -431,11 +525,13 @@ const updateDriverStatus = async (
     );
   }
 
+
   const updatedDriver =
     await driverRepository.updateStatus(
       driverId,
       status
     );
+
 
   /*
    * Keep Driver login status aligned
@@ -447,12 +543,14 @@ const updateDriverStatus = async (
       isDeleted: false,
     });
 
+
   if (linkedUser) {
 
     const userStatus =
       status === STATUS.ACTIVE
         ? STATUS.ACTIVE
         : STATUS.INACTIVE;
+
 
     if (
       linkedUser.status !==
@@ -465,6 +563,7 @@ const updateDriverStatus = async (
       await linkedUser.save();
     }
   }
+
 
   return updatedDriver;
 };

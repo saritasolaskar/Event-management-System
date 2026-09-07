@@ -1,6 +1,5 @@
 const { body } = require("express-validator");
 
-const { ROLES } = require("../constants/roles");
 
 const registerValidator = [
 
@@ -68,12 +67,39 @@ const refreshTokenValidator = [
     .withMessage("Refresh token is required."),
 ];
 
+const setPasswordValidator = [
+
+    body("token")
+        .trim()
+        .notEmpty()
+        .withMessage(
+            "Password setup token is required."
+        ),
+
+    body("password")
+        .notEmpty()
+        .withMessage(
+            "Password is required."
+        )
+        .isStrongPassword({
+            minLength: 8,
+            minLowercase: 1,
+            minUppercase: 1,
+            minNumbers: 1,
+            minSymbols: 1,
+        })
+        .withMessage(
+            "Password must contain at least 8 characters, one uppercase, one lowercase, one number and one special character."
+        ),
+
+];
+
 module.exports = {
 
     registerValidator,
     loginValidator,
     refreshTokenValidator,
-
+    setPasswordValidator,
    
 
 };
