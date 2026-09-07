@@ -102,6 +102,28 @@ const updateById = (
     );
 };
 
+const updateByIdAndStatus = (
+    id,
+    currentStatus,
+    data,
+    session = null
+) => {
+    return Duty.findOneAndUpdate(
+        {
+            _id: id,
+            status: currentStatus,
+            isDeleted: false,
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
+};
 
 module.exports = {
     create,
@@ -109,4 +131,5 @@ module.exports = {
     findByVehicleAssignment,
     updateById,
     findActiveDutyByDriver,
+    updateByIdAndStatus,
 };

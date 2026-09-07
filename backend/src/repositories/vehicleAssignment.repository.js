@@ -157,6 +157,28 @@ const findByCommercialPackage = async (
     }).select("_id assignmentCode status");
 };
 
+const updateByIdAndStatus = (
+    id,
+    currentStatus,
+    data,
+    session = null
+) => {
+    return VehicleAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            status: currentStatus,
+            isDeleted: false,
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
+};
 
 module.exports = {
     create,
@@ -169,4 +191,5 @@ module.exports = {
     findActiveByDriver,
     findActiveByVehicle,
     findByCommercialPackage,
+    updateByIdAndStatus,
 };

@@ -130,8 +130,9 @@ const startDuty = async (
                 }
 
                 const updatedAssignment =
-                    await vehicleAssignmentRepository.updateById(
+                    await vehicleAssignmentRepository.updateByIdAndStatus(
                         assignment._id,
+                        VEHICLE_ASSIGNMENT_STATUS.ASSIGNED,
                         {
                             startKm:
                                 data.startKm,
@@ -305,25 +306,26 @@ const completeDuty = async (
             async () => {
 
                 completedDuty =
-                    await dutyRepository.updateById(
-                        id,
-                        {
-                            endKm:
-                                data.endKm,
+    await dutyRepository.updateByIdAndStatus(
+        id,
+        DUTY_STATUS.STARTED,
+        {
+            endKm:
+                data.endKm,
 
-                            totalKm,
+            totalKm,
 
-                            status:
-                                DUTY_STATUS.COMPLETED,
+            status:
+                DUTY_STATUS.COMPLETED,
 
-                            dutyEndTime:
-                                new Date(),
+            dutyEndTime:
+                new Date(),
 
-                            updatedBy:
-                                userId,
-                        },
-                        session
-                    );
+            updatedBy:
+                userId,
+        },
+        session
+    );
 
                 if (!completedDuty) {
                     throw new AppError(
@@ -333,23 +335,27 @@ const completeDuty = async (
                 }
 
                 const updatedAssignment =
-                    await vehicleAssignmentRepository.updateById(
-                        duty.vehicleAssignment._id ||
-                        duty.vehicleAssignment,
-                        {
-                            endKm:
-                                data.endKm,
+    await vehicleAssignmentRepository.updateByIdAndStatus(
+        duty.vehicleAssignment._id ||
+            duty.vehicleAssignment,
+        VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
+        {
+            endKm:
+                data.endKm,
 
-                            totalKm,
+            totalKm,
 
-                            status:
-                                VEHICLE_ASSIGNMENT_STATUS.COMPLETED,
+            dutyEndTime:
+                new Date(),
 
-                            updatedBy:
-                                userId,
-                        },
-                        session
-                    );
+            status:
+                VEHICLE_ASSIGNMENT_STATUS.COMPLETED,
+
+            updatedBy:
+                userId,
+        },
+        session
+    );
 
                 if (!updatedAssignment) {
                     throw new AppError(
