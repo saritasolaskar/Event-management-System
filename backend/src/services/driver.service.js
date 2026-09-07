@@ -4,6 +4,9 @@ const driverRepository =
 const vendorRepository =
   require("../repositories/vendor.repository");
 
+const vehicleRepository =
+  require("../repositories/vehicle.repository");
+
 const User =
   require("../models/user.model");
 
@@ -13,7 +16,10 @@ const AppError =
 const { ROLES } =
   require("../constants/roles");
 
-const { STATUS } =
+const {
+  STATUS,
+  VEHICLE_STATUS,
+} =
   require("../constants/status");
 
 const authService =
@@ -87,17 +93,105 @@ const createDriver = async (
   }
 
 
+  /*
+   * Current Vehicle Validation
+   */
+  if (driverData.currentVehicle) {
+
+    const vehicle =
+      await vehicleRepository.findById(
+        driverData.currentVehicle
+      );
+
+    if (!vehicle) {
+      throw new AppError(
+        "Current vehicle not found.",
+        404
+      );
+    }
+
+    const vehicleVendorId =
+      vehicle.vendor?._id ||
+      vehicle.vendor;
+
+    if (
+      !vehicleVendorId ||
+      vehicleVendorId.toString() !==
+        driverData.vendor.toString()
+    ) {
+      throw new AppError(
+        "Current vehicle does not belong to the selected vendor.",
+        400
+      );
+    }
+
+    if (vehicle.currentDriver) {
+      throw new AppError(
+        "Current vehicle is already assigned to another driver.",
+        409
+      );
+    }
+
+    if (
+      vehicle.status !==
+      VEHICLE_STATUS.AVAILABLE
+    ) {
+      throw new AppError(
+        "Current vehicle is not available.",
+        400
+      );
+    }
+  }
+
+
   driverData.createdBy = userId;
   driverData.updatedBy = userId;
 
 
-  const driver =
-    await driverRepository.create(
-      driverData
-    );
-
+  /*
+   * Driver creation and all related
+   * operations are inside the rollback
+   * protected block.
+   */
+  let driver;
 
   try {
+
+    driver =
+      await driverRepository.create(
+        driverData
+      );
+
+
+    /*
+     * Link current vehicle to the
+     * newly created driver.
+     */
+    if (driver.currentVehicle) {
+
+      const linkedVehicle =
+        await vehicleRepository.updateById(
+          driver.currentVehicle,
+          {
+            currentDriver:
+              driver._id,
+
+            status:
+              VEHICLE_STATUS.ASSIGNED,
+
+            updatedBy:
+              userId,
+          }
+        );
+
+      if (!linkedVehicle) {
+        throw new AppError(
+          "Failed to link current vehicle to driver.",
+          500
+        );
+      }
+    }
+
 
     /*
      * Create / link Driver Login User
@@ -134,7 +228,6 @@ const createDriver = async (
         existingUser.role !==
         ROLES.DRIVER
       ) {
-
         throw new AppError(
           "A user with this email or phone already exists with a different role.",
           409
@@ -151,7 +244,6 @@ const createDriver = async (
         existingUser.driver.toString() !==
           driver._id.toString()
       ) {
-
         throw new AppError(
           "This user account is already linked to another driver.",
           409
@@ -160,9 +252,7 @@ const createDriver = async (
 
 
       /*
-       * Preserve the original User state
-       * so it can be restored if a later
-       * operation fails.
+       * Preserve User state for rollback.
        */
       const previousDriver =
         existingUser.driver;
@@ -193,7 +283,6 @@ const createDriver = async (
             existingUser._id
           );
 
-
         return {
           driver,
           passwordSetupToken,
@@ -202,8 +291,7 @@ const createDriver = async (
       } catch (error) {
 
         /*
-         * Restore the User to its
-         * previous state.
+         * Restore User state.
          */
         existingUser.driver =
           previousDriver;
@@ -219,14 +307,16 @@ const createDriver = async (
 
 
         try {
+
           await existingUser.save();
+
         } catch (rollbackError) {
+
           console.error(
             "Failed to restore Driver User during rollback:",
             rollbackError
           );
         }
-
 
         throw error;
       }
@@ -239,13 +329,13 @@ const createDriver = async (
     const crypto =
       require("crypto");
 
-
     const temporaryPassword =
       crypto.randomBytes(24).toString("hex");
 
 
     const user =
       await User.create({
+
         name:
           driverName,
 
@@ -277,7 +367,6 @@ const createDriver = async (
           user._id
         );
 
-
       return {
         driver,
         passwordSetupToken,
@@ -286,10 +375,7 @@ const createDriver = async (
     } catch (error) {
 
       /*
-       * Password setup failed after User
-       * creation. Disable the newly-created
-       * login account before propagating
-       * the error.
+       * Rollback newly created User.
        */
       try {
 
@@ -303,6 +389,7 @@ const createDriver = async (
               status:
                 STATUS.INACTIVE,
             },
+
             $unset: {
               refreshTokens: 1,
             },
@@ -317,33 +404,60 @@ const createDriver = async (
         );
       }
 
-
       throw error;
     }
 
   } catch (error) {
 
     /*
-     * Driver was created but a later
-     * operation failed.
-     *
-     * Soft-delete the Driver so we do
-     * not leave an orphan Driver record.
+     * If the Driver was created and
+     * something afterwards failed,
+     * soft-delete the Driver.
      */
-    try {
+    if (driver?._id) {
 
-      await driverRepository.softDelete(
-        driver._id
-      );
+      try {
 
-    } catch (rollbackError) {
+        /*
+         * If a vehicle was linked,
+         * release it again.
+         */
+        if (driver.currentVehicle) {
 
-      console.error(
-        "Failed to rollback Driver:",
-        rollbackError
-      );
+          await vehicleRepository.updateById(
+            driver.currentVehicle,
+            {
+              currentDriver: null,
+              status:
+                VEHICLE_STATUS.AVAILABLE,
+              updatedBy: userId,
+            }
+          );
+        }
+
+      } catch (rollbackError) {
+
+        console.error(
+          "Failed to rollback Driver Vehicle:",
+          rollbackError
+        );
+      }
+
+
+      try {
+
+        await driverRepository.softDelete(
+          driver._id
+        );
+
+      } catch (rollbackError) {
+
+        console.error(
+          "Failed to rollback Driver:",
+          rollbackError
+        );
+      }
     }
-
 
     throw error;
   }
@@ -405,7 +519,9 @@ const updateDriver = async (
   }
 
 
-  // Vendor Validation
+  /*
+   * Vendor Validation
+   */
   if (updateData.vendor) {
 
     const vendor =
@@ -422,7 +538,113 @@ const updateDriver = async (
   }
 
 
-  // Phone Validation
+  /*
+   * Determine the effective vendor.
+   */
+  const effectiveVendorId =
+    updateData.vendor ||
+    driver.vendor?._id ||
+    driver.vendor;
+
+
+  /*
+   * Determine whether currentVehicle
+   * was explicitly changed.
+   */
+  const vehicleWasUpdated =
+    Object.prototype.hasOwnProperty.call(
+      updateData,
+      "currentVehicle"
+    );
+
+
+  /*
+   * Determine effective vehicle.
+   */
+  const effectiveVehicleId =
+    vehicleWasUpdated
+      ? updateData.currentVehicle
+      : (
+          driver.currentVehicle?._id ||
+          driver.currentVehicle
+        );
+
+
+  /*
+   * Current Vehicle Validation
+   */
+  if (effectiveVehicleId) {
+
+    const vehicle =
+      await vehicleRepository.findById(
+        effectiveVehicleId
+      );
+
+    if (!vehicle) {
+      throw new AppError(
+        "Current vehicle not found.",
+        404
+      );
+    }
+
+
+    const vehicleVendorId =
+      vehicle.vendor?._id ||
+      vehicle.vendor;
+
+
+    if (
+      !effectiveVendorId ||
+      !vehicleVendorId ||
+      effectiveVendorId.toString() !==
+        vehicleVendorId.toString()
+    ) {
+      throw new AppError(
+        "Current vehicle does not belong to the selected vendor.",
+        400
+      );
+    }
+
+
+    /*
+     * Do not allow another driver
+     * to take this vehicle.
+     */
+    if (
+      vehicle.currentDriver &&
+      vehicle.currentDriver.toString() !==
+        driverId.toString()
+    ) {
+      throw new AppError(
+        "Current vehicle is already assigned to another driver.",
+        409
+      );
+    }
+
+
+    /*
+     * A vehicle already assigned to
+     * this driver is allowed.
+     *
+     * Otherwise it must be AVAILABLE.
+     */
+    if (
+      vehicle.currentDriver?.toString() !==
+        driverId.toString() &&
+      vehicle.status !==
+        VEHICLE_STATUS.AVAILABLE
+    ) {
+      throw new AppError(
+        "Current vehicle is not available.",
+        400
+      );
+    }
+  }
+
+
+  /*
+   * Phone Validation
+   */
   if (
     updateData.phone &&
     updateData.phone !==
@@ -439,7 +661,6 @@ const updateDriver = async (
       existingPhone._id.toString() !==
         driver._id.toString()
     ) {
-
       throw new AppError(
         "Phone number already exists.",
         409
@@ -448,7 +669,9 @@ const updateDriver = async (
   }
 
 
-  // Email Validation
+  /*
+   * Email Validation
+   */
   if (
     updateData.email &&
     updateData.email !==
@@ -465,7 +688,6 @@ const updateDriver = async (
       existingEmail._id.toString() !==
         driver._id.toString()
     ) {
-
       throw new AppError(
         "Email already exists.",
         409
@@ -474,7 +696,9 @@ const updateDriver = async (
   }
 
 
-  // License Validation
+  /*
+   * License Validation
+   */
   if (
     updateData.licenseNumber &&
     updateData.licenseNumber !==
@@ -491,7 +715,6 @@ const updateDriver = async (
       existingLicense._id.toString() !==
         driver._id.toString()
     ) {
-
       throw new AppError(
         "License number already exists.",
         409
@@ -500,6 +723,24 @@ const updateDriver = async (
   }
 
 
+  /*
+   * Store old vehicle so we can
+   * synchronize it after the update.
+   */
+  const oldVehicleId =
+    driver.currentVehicle?._id ||
+    driver.currentVehicle;
+
+
+  const newVehicleId =
+    vehicleWasUpdated
+      ? updateData.currentVehicle
+      : oldVehicleId;
+
+
+  /*
+   * Update Driver.
+   */
   const updatedDriver =
     await driverRepository.updateById(
       driverId,
@@ -508,6 +749,81 @@ const updateDriver = async (
         updatedBy: userId,
       }
     );
+
+
+  if (!updatedDriver) {
+    throw new AppError(
+      "Failed to update driver.",
+      500
+    );
+  }
+
+
+  /*
+   * Synchronize Driver ↔ Vehicle
+   */
+  if (vehicleWasUpdated) {
+
+    /*
+     * Release old vehicle when the
+     * driver is moved or unassigned.
+     */
+    if (
+      oldVehicleId &&
+      (
+        !newVehicleId ||
+        oldVehicleId.toString() !==
+          newVehicleId.toString()
+      )
+    ) {
+
+      await vehicleRepository.updateById(
+        oldVehicleId,
+        {
+          currentDriver: null,
+          status:
+            VEHICLE_STATUS.AVAILABLE,
+          updatedBy: userId,
+        }
+      );
+    }
+
+
+    /*
+     * Assign new vehicle.
+     */
+    if (
+      newVehicleId &&
+      (
+        !oldVehicleId ||
+        oldVehicleId.toString() !==
+          newVehicleId.toString()
+      )
+    ) {
+
+      const linkedVehicle =
+        await vehicleRepository.updateById(
+          newVehicleId,
+          {
+            currentDriver:
+              driverId,
+
+            status:
+              VEHICLE_STATUS.ASSIGNED,
+
+            updatedBy:
+              userId,
+          }
+        );
+
+      if (!linkedVehicle) {
+        throw new AppError(
+          "Failed to link vehicle to driver.",
+          500
+        );
+      }
+    }
+  }
 
 
   /*
@@ -596,11 +912,32 @@ const deleteDriver = async (
         status:
           STATUS.INACTIVE,
       },
+
       $unset: {
         refreshTokens: 1,
       },
     }
   );
+
+
+  /*
+   * Release driver's current vehicle.
+   */
+  if (driver.currentVehicle) {
+
+    const vehicleId =
+      driver.currentVehicle?._id ||
+      driver.currentVehicle;
+
+    await vehicleRepository.updateById(
+      vehicleId,
+      {
+        currentDriver: null,
+        status:
+          VEHICLE_STATUS.AVAILABLE,
+      }
+    );
+  }
 
 
   await driverRepository.softDelete(
