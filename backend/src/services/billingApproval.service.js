@@ -133,7 +133,8 @@ const shareVendorBill = async (
  */
 const markVendorBillPaid = async (
     id,
-    paymentData,
+    paymentMode,
+    paymentReference,
     userId
 ) => {
     const bill =
@@ -146,9 +147,7 @@ const markVendorBillPaid = async (
         );
     }
 
-    if (
-        bill.status !== BILL_STATUS.SHARED
-    ) {
+    if (bill.status !== BILL_STATUS.SHARED) {
         throw new AppError(
             "Only shared Vendor Bills can be marked as paid.",
             400
@@ -159,18 +158,13 @@ const markVendorBillPaid = async (
         id,
         {
             status: BILL_STATUS.PAID,
-            paymentDate:
-                paymentData?.paymentDate ||
-                new Date(),
-            paymentMode:
-                paymentData?.paymentMode,
-            paymentReference:
-                paymentData?.paymentReference,
+            paymentDate: new Date(),
+            paymentMode,
+            paymentReference,
             updatedBy: userId,
         }
     );
 };
-
 
 /**
  * Approve Client Invoice
@@ -295,7 +289,8 @@ const shareClientInvoice = async (
  */
 const markClientInvoicePaid = async (
     id,
-    paymentData,
+    paymentMode,
+    paymentReference,
     userId
 ) => {
     const invoice =
@@ -308,9 +303,7 @@ const markClientInvoicePaid = async (
         );
     }
 
-    if (
-        invoice.status !== BILL_STATUS.SHARED
-    ) {
+    if (invoice.status !== BILL_STATUS.SHARED) {
         throw new AppError(
             "Only shared Client Invoices can be marked as paid.",
             400
@@ -321,18 +314,13 @@ const markClientInvoicePaid = async (
         id,
         {
             status: BILL_STATUS.PAID,
-            paymentDate:
-                paymentData?.paymentDate ||
-                new Date(),
-            paymentMode:
-                paymentData?.paymentMode,
-            paymentReference:
-                paymentData?.paymentReference,
+            paymentDate: new Date(),
+            paymentMode,
+            paymentReference,
             updatedBy: userId,
         }
     );
 };
-
 
 module.exports = {
     approveVendorBill,
