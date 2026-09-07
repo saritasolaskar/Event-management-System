@@ -25,6 +25,8 @@ const {
 const authService =
   require("./auth.service");
 
+const vehicleAssignmentRepository =
+  require("../repositories/vehicleAssignment.repository");
 
 /**
  * Create Driver
@@ -896,7 +898,18 @@ const deleteDriver = async (
       404
     );
   }
+  
+  const activeAssignment =
+  await vehicleAssignmentRepository.findActiveByDriver(
+    driverId
+  );
 
+if (activeAssignment) {
+  throw new AppError(
+    "Driver cannot be deleted while assigned to an active duty or event.",
+    409
+  );
+}
 
   /*
    * Disable linked login account
@@ -971,6 +984,32 @@ const updateDriverStatus = async (
       404
     );
   }
+
+  if (
+  status !== STATUS.ACTIVE &&
+  status !== STATUS.INACTIVE &&
+  status !== STATUS.SUSPENDED &&
+  status !== STATUS.BLOCKED
+) {
+  throw new AppError(
+    "Invalid driver status.",
+    400
+  );
+}
+
+if (status !== STATUS.ACTIVE) {
+  const activeAssignment =
+    await vehicleAssignmentRepository.findActiveByDriver(
+      driverId
+    );
+
+  if (activeAssignment) {
+    throw new AppError(
+      "Driver status cannot be changed while the driver has an active assignment or duty.",
+      409
+    );
+  }
+}
 
 
   const updatedDriver =

@@ -160,6 +160,18 @@ const driverIdValidator = [
 
 ];
 
+const driverStatusValidator = [
+    param("id")
+        .isMongoId()
+        .withMessage("Invalid driver ID."),
+
+    body("status")
+        .notEmpty()
+        .withMessage("Driver status is required.")
+        .isIn(Object.values(STATUS))
+        .withMessage("Invalid driver status."),
+];
+
 module.exports = {
 
     createDriverValidator,
@@ -168,4 +180,6 @@ module.exports = {
 
     driverIdValidator,
 
+    driverStatusValidator
 };
+
