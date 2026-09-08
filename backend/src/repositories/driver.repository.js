@@ -66,8 +66,11 @@ const findAll = async (filter = {}) => {
  * Update Driver
  */
 const updateById = async (id, updateData) => {
-  return Driver.findByIdAndUpdate(
-    id,
+  return Driver.findOneAndUpdate(
+    {
+      _id: id,
+      isDeleted: false,
+    },
     updateData,
     {
       new: true,
@@ -82,8 +85,11 @@ const updateById = async (id, updateData) => {
  * Soft Delete Driver
  */
 const softDelete = async (id) => {
-  return Driver.findByIdAndUpdate(
-    id,
+  return Driver.findOneAndUpdate(
+    {
+      _id: id,
+      isDeleted: false,
+    },
     {
       isDeleted: true,
     },
@@ -97,8 +103,11 @@ const softDelete = async (id) => {
  * Update Driver Status
  */
 const updateStatus = async (id, status) => {
-  return Driver.findByIdAndUpdate(
-    id,
+  return Driver.findOneAndUpdate(
+    {
+      _id: id,
+      isDeleted: false,
+    },
     {
       status,
     },

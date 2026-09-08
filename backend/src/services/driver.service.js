@@ -1,3 +1,4 @@
+
 const driverRepository =
   require("../repositories/driver.repository");
 
@@ -28,6 +29,7 @@ const authService =
 const vehicleAssignmentRepository =
   require("../repositories/vehicleAssignment.repository");
 
+
 /**
  * Create Driver
  */
@@ -36,7 +38,9 @@ const createDriver = async (
   userId
 ) => {
 
-  // Check Vendor Exists
+  /*
+   * Check Vendor Exists
+   */
   const vendor =
     await vendorRepository.findById(
       driverData.vendor
@@ -50,7 +54,9 @@ const createDriver = async (
   }
 
 
-  // Check Phone Number
+  /*
+   * Check Phone Number
+   */
   const existingPhone =
     await driverRepository.findByPhone(
       driverData.phone
@@ -64,7 +70,9 @@ const createDriver = async (
   }
 
 
-  // Check Email
+  /*
+   * Check Email
+   */
   if (driverData.email) {
 
     const existingEmail =
@@ -81,7 +89,9 @@ const createDriver = async (
   }
 
 
-  // Check License Number
+  /*
+   * Check License Number
+   */
   const existingLicense =
     await driverRepository.findByLicenseNumber(
       driverData.licenseNumber
@@ -146,8 +156,73 @@ const createDriver = async (
   }
 
 
-  driverData.createdBy = userId;
-  driverData.updatedBy = userId;
+  /*
+   * Whitelist Driver fields.
+   *
+   * Protected fields such as status,
+   * rating, isDeleted and audit fields
+   * are controlled by the server.
+   */
+  const sanitizedDriverData = {
+
+    firstName:
+      driverData.firstName,
+
+    lastName:
+      driverData.lastName,
+
+    phone:
+      driverData.phone,
+
+    email:
+      driverData.email || null,
+
+    dateOfBirth:
+      driverData.dateOfBirth || null,
+
+    gender:
+      driverData.gender || null,
+
+    vendor:
+      driverData.vendor,
+
+    currentVehicle:
+      driverData.currentVehicle || null,
+
+    licenseNumber:
+      driverData.licenseNumber,
+
+    licenseExpiry:
+      driverData.licenseExpiry,
+
+    badgeNumber:
+      driverData.badgeNumber || null,
+
+    policeVerificationExpiry:
+      driverData.policeVerificationExpiry || null,
+
+    medicalCertificateExpiry:
+      driverData.medicalCertificateExpiry || null,
+
+    /*
+     * Server-controlled fields
+     */
+    rating:
+      5,
+
+    status:
+      STATUS.ACTIVE,
+
+    createdBy:
+      userId,
+
+    updatedBy:
+      userId,
+
+    isDeleted:
+      false,
+
+  };
 
 
   /*
@@ -161,7 +236,7 @@ const createDriver = async (
 
     driver =
       await driverRepository.create(
-        driverData
+        sanitizedDriverData
       );
 
 
@@ -206,7 +281,8 @@ const createDriver = async (
       await User.findOne({
         $or: [
           {
-            phone: driver.phone,
+            phone:
+              driver.phone,
           },
           ...(driver.email
             ? [
@@ -383,17 +459,21 @@ const createDriver = async (
 
         await User.updateOne(
           {
-            _id: user._id,
+            _id:
+              user._id,
           },
           {
             $set: {
-              isDeleted: true,
+              isDeleted:
+                true,
+
               status:
                 STATUS.INACTIVE,
             },
 
             $unset: {
-              refreshTokens: 1,
+              refreshTokens:
+                1,
             },
           }
         );
@@ -418,31 +498,35 @@ const createDriver = async (
      */
     if (driver?._id) {
 
-      try {
+      /*
+       * If a vehicle was linked,
+       * release it again.
+       */
+      if (driver.currentVehicle) {
 
-        /*
-         * If a vehicle was linked,
-         * release it again.
-         */
-        if (driver.currentVehicle) {
+        try {
 
           await vehicleRepository.updateById(
             driver.currentVehicle,
             {
-              currentDriver: null,
+              currentDriver:
+                null,
+
               status:
                 VEHICLE_STATUS.AVAILABLE,
-              updatedBy: userId,
+
+              updatedBy:
+                userId,
             }
           );
+
+        } catch (rollbackError) {
+
+          console.error(
+            "Failed to rollback Driver Vehicle:",
+            rollbackError
+          );
         }
-
-      } catch (rollbackError) {
-
-        console.error(
-          "Failed to rollback Driver Vehicle:",
-          rollbackError
-        );
       }
 
 
@@ -508,6 +592,69 @@ const updateDriver = async (
   userId
 ) => {
 
+  /*
+   * Whitelist update fields.
+   */
+  const allowedFields = [
+
+    "firstName",
+    "lastName",
+    "phone",
+    "email",
+    "dateOfBirth",
+    "gender",
+    "address",
+    "city",
+    "state",
+    "pincode",
+    "vendor",
+    "currentVehicle",
+    "licenseNumber",
+    "licenseExpiry",
+    "badgeNumber",
+    "policeVerificationExpiry",
+    "medicalCertificateExpiry",
+
+  ];
+
+
+  const sanitizedUpdateData = {};
+
+
+  for (const field of allowedFields) {
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        updateData,
+        field
+      )
+    ) {
+
+      sanitizedUpdateData[field] =
+        updateData[field];
+
+    }
+  }
+
+
+  if (
+    Object.keys(
+      sanitizedUpdateData
+    ).length === 0
+  ) {
+
+    throw new AppError(
+      "No valid fields provided for update.",
+      400
+    );
+
+  }
+
+
+  updateData =
+    sanitizedUpdateData;
+
+
   const driver =
     await driverRepository.findById(
       driverId
@@ -541,7 +688,7 @@ const updateDriver = async (
 
 
   /*
-   * Determine the effective vendor.
+   * Determine effective vendor.
    */
   const effectiveVendorId =
     updateData.vendor ||
@@ -601,10 +748,12 @@ const updateDriver = async (
       effectiveVendorId.toString() !==
         vehicleVendorId.toString()
     ) {
+
       throw new AppError(
         "Current vehicle does not belong to the selected vendor.",
         400
       );
+
     }
 
 
@@ -617,10 +766,12 @@ const updateDriver = async (
       vehicle.currentDriver.toString() !==
         driverId.toString()
     ) {
+
       throw new AppError(
         "Current vehicle is already assigned to another driver.",
         409
       );
+
     }
 
 
@@ -636,10 +787,12 @@ const updateDriver = async (
       vehicle.status !==
         VEHICLE_STATUS.AVAILABLE
     ) {
+
       throw new AppError(
         "Current vehicle is not available.",
         400
       );
+
     }
   }
 
@@ -663,10 +816,12 @@ const updateDriver = async (
       existingPhone._id.toString() !==
         driver._id.toString()
     ) {
+
       throw new AppError(
         "Phone number already exists.",
         409
       );
+
     }
   }
 
@@ -690,10 +845,12 @@ const updateDriver = async (
       existingEmail._id.toString() !==
         driver._id.toString()
     ) {
+
       throw new AppError(
         "Email already exists.",
         409
       );
+
     }
   }
 
@@ -717,10 +874,12 @@ const updateDriver = async (
       existingLicense._id.toString() !==
         driver._id.toString()
     ) {
+
       throw new AppError(
         "License number already exists.",
         409
       );
+
     }
   }
 
@@ -748,7 +907,9 @@ const updateDriver = async (
       driverId,
       {
         ...updateData,
-        updatedBy: userId,
+
+        updatedBy:
+          userId,
       }
     );
 
@@ -782,10 +943,14 @@ const updateDriver = async (
       await vehicleRepository.updateById(
         oldVehicleId,
         {
-          currentDriver: null,
+          currentDriver:
+            null,
+
           status:
             VEHICLE_STATUS.AVAILABLE,
-          updatedBy: userId,
+
+          updatedBy:
+            userId,
         }
       );
     }
@@ -818,11 +983,14 @@ const updateDriver = async (
           }
         );
 
+
       if (!linkedVehicle) {
+
         throw new AppError(
           "Failed to link vehicle to driver.",
           500
         );
+
       }
     }
   }
@@ -834,14 +1002,18 @@ const updateDriver = async (
    */
   const linkedUser =
     await User.findOne({
-      driver: driverId,
-      isDeleted: false,
+      driver:
+        driverId,
+
+      isDeleted:
+        false,
     });
 
 
   if (linkedUser) {
 
-    let userChanged = false;
+    let userChanged =
+      false;
 
 
     if (
@@ -853,7 +1025,8 @@ const updateDriver = async (
       linkedUser.phone =
         updateData.phone;
 
-      userChanged = true;
+      userChanged =
+        true;
     }
 
 
@@ -866,7 +1039,8 @@ const updateDriver = async (
       linkedUser.email =
         updateData.email.toLowerCase();
 
-      userChanged = true;
+      userChanged =
+        true;
     }
 
 
@@ -898,18 +1072,27 @@ const deleteDriver = async (
       404
     );
   }
-  
-  const activeAssignment =
-  await vehicleAssignmentRepository.findActiveByDriver(
-    driverId
-  );
 
-if (activeAssignment) {
-  throw new AppError(
-    "Driver cannot be deleted while assigned to an active duty or event.",
-    409
-  );
-}
+
+  /*
+   * Prevent deletion while driver
+   * is assigned to an active event/duty.
+   */
+  const activeAssignment =
+    await vehicleAssignmentRepository.findActiveByDriver(
+      driverId
+    );
+
+
+  if (activeAssignment) {
+
+    throw new AppError(
+      "Driver cannot be deleted while assigned to an active duty or event.",
+      409
+    );
+
+  }
+
 
   /*
    * Disable linked login account
@@ -917,8 +1100,11 @@ if (activeAssignment) {
    */
   await User.updateMany(
     {
-      driver: driverId,
-      isDeleted: false,
+      driver:
+        driverId,
+
+      isDeleted:
+        false,
     },
     {
       $set: {
@@ -927,7 +1113,8 @@ if (activeAssignment) {
       },
 
       $unset: {
-        refreshTokens: 1,
+        refreshTokens:
+          1,
       },
     }
   );
@@ -942,10 +1129,13 @@ if (activeAssignment) {
       driver.currentVehicle?._id ||
       driver.currentVehicle;
 
+
     await vehicleRepository.updateById(
       vehicleId,
       {
-        currentDriver: null,
+        currentDriver:
+          null,
+
         status:
           VEHICLE_STATUS.AVAILABLE,
       }
@@ -985,31 +1175,46 @@ const updateDriverStatus = async (
     );
   }
 
+
   if (
-  status !== STATUS.ACTIVE &&
-  status !== STATUS.INACTIVE &&
-  status !== STATUS.SUSPENDED &&
-  status !== STATUS.BLOCKED
-) {
-  throw new AppError(
-    "Invalid driver status.",
-    400
-  );
-}
+    status !== STATUS.ACTIVE &&
+    status !== STATUS.INACTIVE &&
+    status !== STATUS.SUSPENDED &&
+    status !== STATUS.BLOCKED
+  ) {
 
-if (status !== STATUS.ACTIVE) {
-  const activeAssignment =
-    await vehicleAssignmentRepository.findActiveByDriver(
-      driverId
-    );
-
-  if (activeAssignment) {
     throw new AppError(
-      "Driver status cannot be changed while the driver has an active assignment or duty.",
-      409
+      "Invalid driver status.",
+      400
     );
+
   }
-}
+
+
+  /*
+   * A driver with an active assignment
+   * cannot be made inactive, suspended,
+   * or blocked.
+   */
+  if (
+    status !== STATUS.ACTIVE
+  ) {
+
+    const activeAssignment =
+      await vehicleAssignmentRepository.findActiveByDriver(
+        driverId
+      );
+
+
+    if (activeAssignment) {
+
+      throw new AppError(
+        "Driver status cannot be changed while the driver has an active assignment or duty.",
+        409
+      );
+
+    }
+  }
 
 
   const updatedDriver =
@@ -1025,8 +1230,11 @@ if (status !== STATUS.ACTIVE) {
    */
   const linkedUser =
     await User.findOne({
-      driver: driverId,
-      isDeleted: false,
+      driver:
+        driverId,
+
+      isDeleted:
+        false,
     });
 
 
@@ -1056,10 +1264,17 @@ if (status !== STATUS.ACTIVE) {
 
 
 module.exports = {
+
   createDriver,
+
   getAllDrivers,
+
   getDriverById,
+
   updateDriver,
+
   deleteDriver,
+
   updateDriverStatus,
+
 };
