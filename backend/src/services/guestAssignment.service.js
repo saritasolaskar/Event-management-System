@@ -1,3 +1,4 @@
+
 const mongoose =
     require("mongoose");
 
@@ -24,6 +25,21 @@ const {
 
 const AppError =
     require("../utils/AppError");
+
+/**
+ * Get Guest Display Name
+ */
+const getGuestDisplayName =
+    (guest) =>
+        [
+            guest?.firstName,
+            guest?.lastName,
+        ]
+            .filter(Boolean)
+            .join(" ")
+            .trim() ||
+        guest?.guestCode ||
+        "Guest";
 
 /**
  * Validate Vehicle Assignment
@@ -116,6 +132,9 @@ const createGuestAssignment =
                 vehicleAssignment.event
             );
 
+        const guestName =
+            getGuestDisplayName(guest);
+
         const alreadyAssigned =
             await guestAssignmentRepository.findByGuest(
                 data.guest
@@ -163,7 +182,7 @@ const createGuestAssignment =
                     "Guest Assigned",
 
                 message:
-                    `${guest.name} assigned successfully.`,
+                    `${guestName} assigned successfully.`,
 
                 type:
                     "GUEST_ASSIGNED",
@@ -179,13 +198,18 @@ const createGuestAssignment =
         await auditLogService.createLog(
             {
                 user: userId,
-                action: "ASSIGN",
+
+                action:
+                    "ASSIGN",
+
                 module:
                     "GUEST_ASSIGNMENT",
+
                 referenceId:
                     assignment._id,
+
                 description:
-                    `Assigned guest ${guest.name} to vehicle.`,
+                    `Assigned guest ${guestName} to vehicle.`,
             }
         );
 
@@ -260,6 +284,11 @@ const bulkAssignGuests =
                                 vehicleAssignment.event
                             );
 
+                        const guestName =
+                            getGuestDisplayName(
+                                guest
+                            );
+
                         const alreadyAssigned =
                             await guestAssignmentRepository.findByGuest(
                                 guestId
@@ -269,7 +298,7 @@ const bulkAssignGuests =
                             alreadyAssigned
                         ) {
                             throw new AppError(
-                                `Guest ${guest.name} is already assigned.`,
+                                `Guest ${guestName} is already assigned.`,
                                 409
                             );
                         }
@@ -308,7 +337,7 @@ const bulkAssignGuests =
                                 11000
                             ) {
                                 throw new AppError(
-                                    `Guest ${guest.name} is already assigned.`,
+                                    `Guest ${guestName} is already assigned.`,
                                     409
                                 );
                             }
@@ -334,12 +363,16 @@ const bulkAssignGuests =
             await auditLogService.createLog(
                 {
                     user: userId,
+
                     action:
                         "ASSIGN",
+
                     module:
                         "GUEST_ASSIGNMENT",
+
                     referenceId:
                         assignment._id,
+
                     description:
                         "Guest assigned through bulk assignment.",
                 }
@@ -446,17 +479,32 @@ const updateGuestAssignment =
                 targetVehicleAssignmentId
             );
 
+        // IMPORTANT:
+        // currentGuestId must always represent
+        // the guest currently stored in the assignment.
         const currentGuestId =
-            data.guest ||
             assignment.guest?._id ||
             assignment.guest;
 
+        // targetGuestId represents the guest
+        // that will exist after the update.
+        const targetGuestId =
+            data.guest ||
+            currentGuestId;
+
         const guest =
             await validateGuestForEvent(
-                currentGuestId,
+                targetGuestId,
                 vehicleAssignment.event
             );
 
+        const guestName =
+            getGuestDisplayName(guest);
+
+        /**
+         * If changing the guest, make sure the
+         * new guest is not already assigned elsewhere.
+         */
         if (
             data.guest &&
             data.guest.toString() !==
@@ -479,6 +527,11 @@ const updateGuestAssignment =
             }
         }
 
+        /**
+         * If changing the vehicle assignment,
+         * make sure the current guest is not
+         * already assigned somewhere else.
+         */
         if (
             data.vehicleAssignment &&
             data.vehicleAssignment.toString() !==
@@ -486,7 +539,7 @@ const updateGuestAssignment =
         ) {
             const existingAssignment =
                 await guestAssignmentRepository.findByGuest(
-                    currentGuestId
+                    targetGuestId
                 );
 
             if (
@@ -557,14 +610,18 @@ const updateGuestAssignment =
         await auditLogService.createLog(
             {
                 user: userId,
+
                 action:
                     "UPDATE",
+
                 module:
                     "GUEST_ASSIGNMENT",
+
                 referenceId:
                     updatedAssignment._id,
+
                 description:
-                    `Updated guest assignment for ${guest.name}.`,
+                    `Updated guest assignment for ${guestName}.`,
             }
         );
 
@@ -618,12 +675,16 @@ const deleteGuestAssignment =
         await auditLogService.createLog(
             {
                 user: userId,
+
                 action:
                     "DELETE",
+
                 module:
                     "GUEST_ASSIGNMENT",
+
                 referenceId:
                     assignment._id,
+
                 description:
                     "Deleted guest assignment.",
             }
@@ -640,3 +701,4 @@ module.exports = {
     updateGuestAssignment,
     deleteGuestAssignment,
 };
+
