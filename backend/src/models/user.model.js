@@ -171,6 +171,7 @@ userSchema.index({ email: 1 });
 userSchema.index({ phone: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
+userSchema.index({ lockUntil: 1 });
 
 /**
  * Middleware

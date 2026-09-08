@@ -105,18 +105,60 @@ const login = async ({
         );
     }
 
+
+    /**
+     * Check account lock before
+     * performing password authentication.
+     */
+    if (
+        user.lockUntil &&
+        user.lockUntil > new Date()
+    ) {
+        throw new AppError(
+            "Too many failed login attempts. Please try again later.",
+            429
+        );
+    }
+
+
+    /**
+     * Clear expired lock state.
+     */
+    if (
+        user.lockUntil &&
+        user.lockUntil <= new Date()
+    ) {
+        await userRepository.resetLoginAttempts(
+            user._id
+        );
+    }
+
+
     const isPasswordValid =
         await user.comparePassword(
             password
         );
 
+
+    /**
+     * Invalid password
+     */
     if (!isPasswordValid) {
+
+        await userRepository.recordFailedLoginAttempt(
+            user._id
+        );
+
         throw new AppError(
             "Invalid email or password.",
             401
         );
     }
 
+
+    /**
+     * Account must be active.
+     */
     if (
         user.status !== STATUS.ACTIVE ||
         user.isDeleted
@@ -126,6 +168,16 @@ const login = async ({
             403
         );
     }
+
+
+    /**
+     * Successful login:
+     * reset brute-force protection state.
+     */
+    await userRepository.resetLoginAttempts(
+        user._id
+    );
+
 
     const accessToken =
         generateAccessToken(user);
@@ -142,6 +194,7 @@ const login = async ({
     await userRepository.updateLastLogin(
         user._id
     );
+
 
     const userObject =
         user.toObject();
@@ -179,7 +232,9 @@ const createPasswordSetupToken = async (
     }
 
     const rawToken =
-        crypto.randomBytes(32).toString("hex");
+        crypto
+            .randomBytes(32)
+            .toString("hex");
 
     const hashedToken =
         crypto
@@ -189,14 +244,18 @@ const createPasswordSetupToken = async (
 
     const expiresAt =
         new Date(
-            Date.now() + 30 * 60 * 1000
+            Date.now() +
+            30 * 60 * 1000
         );
 
     await userRepository.updateById(
         userId,
         {
-            passwordResetToken: hashedToken,
-            passwordResetExpires: expiresAt,
+            passwordResetToken:
+                hashedToken,
+
+            passwordResetExpires:
+                expiresAt,
         }
     );
 
@@ -251,13 +310,21 @@ const setPassword = async (
     }
 
     user.password = password;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
 
-    /*
-     * Invalidate any existing sessions.
+    user.passwordResetToken =
+        undefined;
+
+    user.passwordResetExpires =
+        undefined;
+
+    /**
+     * Invalidate all existing sessions
+     * after password creation/change.
      */
     user.refreshTokens = [];
+
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
 
     await user.save();
 
@@ -271,7 +338,9 @@ const setPassword = async (
 /**
  * Refresh Access Token
  */
-const refreshToken = async (token) => {
+const refreshToken = async (
+    token
+) => {
 
     verifyRefreshToken(token);
 
@@ -297,6 +366,13 @@ const refreshToken = async (token) => {
         );
     }
 
+
+    /**
+     * Token rotation.
+     *
+     * The old refresh token is removed
+     * before the new one is stored.
+     */
     await userRepository.removeRefreshToken(
         user._id,
         token
@@ -316,7 +392,8 @@ const refreshToken = async (token) => {
 
     return {
         accessToken,
-        refreshToken: newRefreshToken,
+        refreshToken:
+            newRefreshToken,
     };
 };
 

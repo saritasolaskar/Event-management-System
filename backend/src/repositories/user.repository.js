@@ -1,4 +1,22 @@
-const User = require("../models/user.model");
+const crypto = require("crypto");
+
+const User =
+    require("../models/user.model");
+
+
+/**
+ * Hash refresh token before storing/searching it.
+ *
+ * Refresh tokens are secrets and should never be stored
+ * in plaintext inside the database.
+ */
+const hashRefreshToken = (token) => {
+    return crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex");
+};
+
 
 /**
  * Create a new user
@@ -6,6 +24,7 @@ const User = require("../models/user.model");
 const create = async (userData) => {
     return User.create(userData);
 };
+
 
 /**
  * Find user by ID
@@ -17,9 +36,9 @@ const findById = async (userId) => {
     });
 };
 
+
 /**
  * Find user by email
- * Password is excluded by default
  */
 const findByEmail = async (email) => {
     return User.findOne({
@@ -28,9 +47,9 @@ const findByEmail = async (email) => {
     });
 };
 
+
 /**
  * Find user by email with password
- * Used during login
  */
 const findByEmailWithPassword = async (email) => {
     return User.findOne({
@@ -38,6 +57,7 @@ const findByEmailWithPassword = async (email) => {
         isDeleted: false,
     }).select("+password");
 };
+
 
 /**
  * Find user by phone
@@ -49,12 +69,21 @@ const findByPhone = async (phone) => {
     });
 };
 
+
 /**
  * Update user
+ *
+ * Never update a soft-deleted user.
  */
-const updateById = async (userId, updateData) => {
-    return User.findByIdAndUpdate(
-        userId,
+const updateById = async (
+    userId,
+    updateData
+) => {
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         updateData,
         {
             new: true,
@@ -63,12 +92,16 @@ const updateById = async (userId, updateData) => {
     );
 };
 
+
 /**
  * Update Last Login
  */
 const updateLastLogin = async (userId) => {
-    return User.findByIdAndUpdate(
-        userId,
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         {
             lastLogin: new Date(),
         },
@@ -79,15 +112,20 @@ const updateLastLogin = async (userId) => {
     );
 };
 
+
 /**
  * Soft Delete User
  */
 const softDelete = async (userId) => {
-    return User.findByIdAndUpdate(
-        userId,
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         {
             isDeleted: true,
             deletedAt: new Date(),
+            refreshTokens: [],
         },
         {
             new: true,
@@ -96,8 +134,11 @@ const softDelete = async (userId) => {
     );
 };
 
+
 /**
  * Add Refresh Token
+ *
+ * Only the SHA-256 hash is stored.
  */
 const addRefreshToken = async (
     userId,
@@ -107,12 +148,19 @@ const addRefreshToken = async (
     ipAddress = null,
     userAgent = null
 ) => {
-    return User.findByIdAndUpdate(
-        userId,
+
+    const hashedToken =
+        hashRefreshToken(refreshToken);
+
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         {
             $push: {
                 refreshTokens: {
-                    token: refreshToken,
+                    token: hashedToken,
                     expiresAt,
                     device,
                     ipAddress,
@@ -127,26 +175,44 @@ const addRefreshToken = async (
     );
 };
 
+
 /**
  * Find User By Refresh Token
  */
-const findByRefreshToken = async (token) => {
+const findByRefreshToken = async (
+    refreshToken
+) => {
+
+    const hashedToken =
+        hashRefreshToken(refreshToken);
+
     return User.findOne({
         isDeleted: false,
-        "refreshTokens.token": token,
+        "refreshTokens.token": hashedToken,
     });
 };
+
 
 /**
  * Remove Refresh Token
  */
-const removeRefreshToken = async (userId, refreshToken) => {
-    return User.findByIdAndUpdate(
-        userId,
+const removeRefreshToken = async (
+    userId,
+    refreshToken
+) => {
+
+    const hashedToken =
+        hashRefreshToken(refreshToken);
+
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         {
             $pull: {
                 refreshTokens: {
-                    token: refreshToken,
+                    token: hashedToken,
                 },
             },
         },
@@ -157,12 +223,19 @@ const removeRefreshToken = async (userId, refreshToken) => {
     );
 };
 
+
 /**
  * Remove All Refresh Tokens
  */
-const removeAllRefreshTokens = async (userId) => {
-    return User.findByIdAndUpdate(
-        userId,
+const removeAllRefreshTokens = async (
+    userId
+) => {
+
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         {
             $set: {
                 refreshTokens: [],
@@ -175,6 +248,10 @@ const removeAllRefreshTokens = async (userId) => {
     );
 };
 
+
+/**
+ * Find user by password reset token
+ */
 const findByPasswordResetToken = async (
     token
 ) => {
@@ -183,6 +260,94 @@ const findByPasswordResetToken = async (
         passwordResetToken: token,
         isDeleted: false,
     }).select("+password");
+};
+
+
+/**
+ * Record failed login attempt.
+ *
+ * Lock account for 15 minutes after
+ * 5 consecutive failed attempts.
+ */
+const recordFailedLoginAttempt = async (
+    userId
+) => {
+
+    const MAX_ATTEMPTS = 5;
+
+    const LOCK_DURATION_MS =
+        15 * 60 * 1000;
+
+    const user =
+        await User.findOneAndUpdate(
+            {
+                _id: userId,
+                isDeleted: false,
+            },
+            [
+                {
+                    $set: {
+                        failedLoginAttempts: {
+                            $add: [
+                                "$failedLoginAttempts",
+                                1,
+                            ],
+                        },
+                    },
+                },
+                {
+                    $set: {
+                        lockUntil: {
+                            $cond: [
+                                {
+                                    $gte: [
+                                        "$failedLoginAttempts",
+                                        MAX_ATTEMPTS,
+                                    ],
+                                },
+                                new Date(
+                                    Date.now() +
+                                    LOCK_DURATION_MS
+                                ),
+                                "$lockUntil",
+                            ],
+                        },
+                    },
+                },
+            ],
+            {
+                new: true,
+            }
+        );
+
+    return user;
+};
+
+
+/**
+ * Reset login security state after
+ * successful authentication.
+ */
+const resetLoginAttempts = async (
+    userId
+) => {
+
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
+        {
+            $set: {
+                failedLoginAttempts: 0,
+                lockUntil: null,
+            },
+        },
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
 };
 
 
@@ -200,4 +365,6 @@ module.exports = {
     removeRefreshToken,
     removeAllRefreshTokens,
     findByPasswordResetToken,
+    recordFailedLoginAttempt,
+    resetLoginAttempts,
 };
