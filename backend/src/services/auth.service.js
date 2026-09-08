@@ -54,11 +54,23 @@ const register = async (userData) => {
         );
     }
 
-    const user =
-        await userRepository.create({
-            ...userData,
-            role: ROLES.CLIENT,
-        });
+    const user = await userRepository.create({
+    name: userData.name,
+    email: userData.email,
+    phone: userData.phone,
+    password: userData.password,
+    avatar: userData.avatar || null,
+
+    role: ROLES.CLIENT,
+    status: STATUS.ACTIVE,
+
+    isEmailVerified: false,
+
+    failedLoginAttempts: 0,
+    lockUntil: null,
+
+    isDeleted: false,
+});
 
     const accessToken =
         generateAccessToken(user);
