@@ -108,7 +108,7 @@ const validateDriver = async (
     if (
         !driverVendorId ||
         driverVendorId.toString() !==
-            vendorId.toString()
+        vendorId.toString()
     ) {
         throw new AppError(
             "Driver must belong to the selected vendor.",
@@ -121,7 +121,7 @@ const validateDriver = async (
         (
             !vehicleId ||
             getId(driver.currentVehicle).toString() !==
-                vehicleId.toString()
+            vehicleId.toString()
         )
     ) {
         throw new AppError(
@@ -141,7 +141,7 @@ const validateDriver = async (
         (
             !vehicleId ||
             assignedVehicle._id.toString() !==
-                vehicleId.toString()
+            vehicleId.toString()
         )
     ) {
         throw new AppError(
@@ -396,7 +396,7 @@ const updateVehicle = async (
                 if (
                     data.vehicleNumber &&
                     data.vehicleNumber !==
-                        vehicle.vehicleNumber
+                    vehicle.vehicleNumber
                 ) {
 
                     const existingVehicle =
@@ -414,7 +414,6 @@ const updateVehicle = async (
                 }
 
                 if (newDriverId) {
-
                     await validateDriver(
                         newDriverId,
                         effectiveVendorId,
@@ -422,33 +421,47 @@ const updateVehicle = async (
                         session
                     );
 
-                    if (
-                        driverWasUpdated &&
-                        !data.status
-                    ) {
-                        data.status =
-                            VEHICLE_STATUS.ASSIGNED;
+                    const driver =
+                        await driverRepository.findById(
+                            newDriverId,
+                            session
+                        );
+
+                    if (!driver) {
+                        throw new AppError(
+                            "Driver not found.",
+                            404
+                        );
                     }
 
+                    const driverVendorId =
+                        getId(driver.vendor);
+
                     if (
-                        data.status ===
-                        VEHICLE_STATUS.AVAILABLE
+                        !driverVendorId ||
+                        driverVendorId.toString() !==
+                        effectiveVendorId.toString()
                     ) {
                         throw new AppError(
-                            "A vehicle with an assigned driver cannot have AVAILABLE status.",
+                            "Vehicle vendor must match the assigned driver's vendor.",
                             400
                         );
                     }
                 }
 
                 /*
-                 * Status is managed by the dedicated
-                 * status endpoint.
+                 * Driver assignment controls the vehicle's
+                 * operational assignment status.
                  *
-                 * Prevent callers from changing it
-                 * through the normal update endpoint.
+                 * This must happen AFTER the request whitelist
+                 * because status is otherwise not accepted from
+                 * the normal update request.
                  */
-                delete data.status;
+                if (driverWasUpdated) {
+                    data.status = newDriverId
+                        ? VEHICLE_STATUS.ASSIGNED
+                        : VEHICLE_STATUS.AVAILABLE;
+                }
 
                 /*
                  * If the driver is being removed,
@@ -491,7 +504,7 @@ const updateVehicle = async (
                     if (
                         !driverVendorId ||
                         driverVendorId.toString() !==
-                            data.vendor.toString()
+                        data.vendor.toString()
                     ) {
                         throw new AppError(
                             "Vehicle vendor must match the assigned driver's vendor.",
@@ -542,7 +555,7 @@ const updateVehicle = async (
                             getId(
                                 oldDriver.currentVehicle
                             ).toString() ===
-                                vehicleId.toString()
+                            vehicleId.toString()
                         ) {
 
                             await driverRepository.updateById(
@@ -567,7 +580,7 @@ const updateVehicle = async (
                         (
                             !oldDriverId ||
                             oldDriverId.toString() !==
-                                newDriverId.toString()
+                            newDriverId.toString()
                         )
                     ) {
 
@@ -588,7 +601,7 @@ const updateVehicle = async (
                                 getId(
                                     oldDriver.currentVehicle
                                 ).toString() ===
-                                    vehicleId.toString()
+                                vehicleId.toString()
                             ) {
 
                                 await driverRepository.updateById(
@@ -708,11 +721,11 @@ const updateVehicleStatus = async (
         vehicle.currentDriver &&
         (
             status ===
-                VEHICLE_STATUS.AVAILABLE ||
+            VEHICLE_STATUS.AVAILABLE ||
             status ===
-                VEHICLE_STATUS.MAINTENANCE ||
+            VEHICLE_STATUS.MAINTENANCE ||
             status ===
-                VEHICLE_STATUS.INACTIVE
+            VEHICLE_STATUS.INACTIVE
         )
     ) {
         throw new AppError(

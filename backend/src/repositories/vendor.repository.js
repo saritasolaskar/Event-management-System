@@ -59,63 +59,6 @@ const findAll = async (filter = {}) => {
     });
 };
 
-/**
- * Update Vehicle
- */
-const updateById = async (id, updateData) => {
-    return Vehicle.findOneAndUpdate(
-        {
-            _id: id,
-            isDeleted: false,
-        },
-        updateData,
-        {
-            new: true,
-            runValidators: true,
-        }
-    )
-        .populate("vendor", "companyName")
-        .populate("currentDriver", "firstName lastName phone");
-};
-
-/**
- * Soft Delete Vehicle
- */
-const softDelete = async (id) => {
-    return Vehicle.findOneAndUpdate(
-        {
-            _id: id,
-            isDeleted: false,
-        },
-        {
-            isDeleted: true,
-        },
-        {
-            new: true,
-            runValidators: true,
-        }
-    );
-};
-
-/**
- * Update Vehicle Status
- */
-const updateStatus = async (id, status) => {
-    return Vehicle.findOneAndUpdate(
-        {
-            _id: id,
-            isDeleted: false,
-        },
-        {
-            status,
-        },
-        {
-            new: true,
-            runValidators: true,
-        }
-    );
-};
-
 module.exports = {
     create,
     findById,
@@ -123,7 +66,5 @@ module.exports = {
     findByEmail,
     findByGST,
     findAll,
-    updateById,
-    softDelete,
-    updateStatus,
+    
 };
