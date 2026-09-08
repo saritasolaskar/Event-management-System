@@ -60,25 +60,33 @@ const findAll = async (filter = {}) => {
 };
 
 /**
- * Update Vendor
+ * Update Vehicle
  */
 const updateById = async (id, updateData) => {
-    return Vendor.findByIdAndUpdate(
-        id,
+    return Vehicle.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         updateData,
         {
             new: true,
             runValidators: true,
         }
-    );
+    )
+        .populate("vendor", "companyName")
+        .populate("currentDriver", "firstName lastName phone");
 };
 
 /**
- * Soft Delete Vendor
+ * Soft Delete Vehicle
  */
 const softDelete = async (id) => {
-    return Vendor.findByIdAndUpdate(
-        id,
+    return Vehicle.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         {
             isDeleted: true,
         },
@@ -90,11 +98,14 @@ const softDelete = async (id) => {
 };
 
 /**
- * Update Vendor Status
+ * Update Vehicle Status
  */
 const updateStatus = async (id, status) => {
-    return Vendor.findByIdAndUpdate(
-        id,
+    return Vehicle.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         {
             status,
         },
