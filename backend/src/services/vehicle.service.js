@@ -1,3 +1,5 @@
+const mongoose = require("mongoose");
+
 const vehicleRepository =
     require("../repositories/vehicle.repository");
 
@@ -15,6 +17,143 @@ const {
 } = require("../constants/status");
 
 
+const CREATE_FIELDS = [
+    "vehicleNumber",
+    "vehicleType",
+    "brand",
+    "model",
+    "manufactureYear",
+    "fuelType",
+    "seatingCapacity",
+    "vendor",
+    "currentDriver",
+    "rcExpiry",
+    "insuranceExpiry",
+    "permitExpiry",
+    "fitnessExpiry",
+    "pucExpiry",
+    "gpsEnabled",
+];
+
+
+const UPDATE_FIELDS = [
+    "vehicleNumber",
+    "vehicleType",
+    "brand",
+    "model",
+    "manufactureYear",
+    "fuelType",
+    "seatingCapacity",
+    "vendor",
+    "currentDriver",
+    "rcExpiry",
+    "insuranceExpiry",
+    "permitExpiry",
+    "fitnessExpiry",
+    "pucExpiry",
+    "gpsEnabled",
+];
+
+
+const pickFields = (data, fields) => {
+    return fields.reduce((result, field) => {
+        if (
+            Object.prototype.hasOwnProperty.call(
+                data,
+                field
+            )
+        ) {
+            result[field] = data[field];
+        }
+
+        return result;
+    }, {});
+};
+
+
+const getId = (value) => {
+    return value?._id || value || null;
+};
+
+
+/**
+ * Validate driver against vehicle/vendor.
+ */
+const validateDriver = async (
+    driverId,
+    vendorId,
+    vehicleId = null,
+    session = null
+) => {
+    if (!driverId) {
+        return null;
+    }
+
+    const driver =
+        await driverRepository.findById(
+            driverId,
+            session
+        );
+
+    if (!driver) {
+        throw new AppError(
+            "Driver not found.",
+            404
+        );
+    }
+
+    const driverVendorId =
+        getId(driver.vendor);
+
+    if (
+        !driverVendorId ||
+        driverVendorId.toString() !==
+            vendorId.toString()
+    ) {
+        throw new AppError(
+            "Driver must belong to the selected vendor.",
+            400
+        );
+    }
+
+    if (
+        driver.currentVehicle &&
+        (
+            !vehicleId ||
+            getId(driver.currentVehicle).toString() !==
+                vehicleId.toString()
+        )
+    ) {
+        throw new AppError(
+            "Driver is already assigned to another vehicle.",
+            409
+        );
+    }
+
+    const assignedVehicle =
+        await vehicleRepository.findByCurrentDriver(
+            driverId,
+            session
+        );
+
+    if (
+        assignedVehicle &&
+        (
+            !vehicleId ||
+            assignedVehicle._id.toString() !==
+                vehicleId.toString()
+        )
+    ) {
+        throw new AppError(
+            "Driver is already assigned to another vehicle.",
+            409
+        );
+    }
+
+    return driver;
+};
+
+
 /**
  * Create Vehicle
  */
@@ -23,185 +162,112 @@ const createVehicle = async (
     userId
 ) => {
 
-    const vendor =
-        await vendorRepository.findById(
-            vehicleData.vendor
+    const data =
+        pickFields(
+            vehicleData,
+            CREATE_FIELDS
         );
 
-    if (!vendor) {
+    if (!data.vendor) {
         throw new AppError(
-            "Vendor not found.",
-            404
+            "Vendor is required.",
+            400
         );
     }
 
+    const session =
+        await mongoose.startSession();
 
-    const existingVehicle =
-        await vehicleRepository.findByVehicleNumber(
-            vehicleData.vehicleNumber
-        );
+    let vehicle;
 
-    if (existingVehicle) {
-        throw new AppError(
-            "Vehicle number already exists.",
-            409
-        );
-    }
+    try {
 
+        await session.withTransaction(
+            async () => {
 
-    /*
-     * Validate Driver if vehicle is
-     * being assigned during creation.
-     */
-    if (vehicleData.currentDriver) {
+                const vendor =
+                    await vendorRepository.findById(
+                        data.vendor
+                    );
 
-        const driver =
-            await driverRepository.findById(
-                vehicleData.currentDriver
-            );
-
-        if (!driver) {
-            throw new AppError(
-                "Driver not found.",
-                404
-            );
-        }
-
-
-        const driverVendorId =
-            driver.vendor?._id ||
-            driver.vendor;
-
-
-        if (
-            !driverVendorId ||
-            driverVendorId.toString() !==
-                vehicleData.vendor.toString()
-        ) {
-            throw new AppError(
-                "Driver must belong to the selected vendor.",
-                400
-            );
-        }
-
-
-        /*
-         * A driver can only have one
-         * current vehicle.
-         */
-        if (driver.currentVehicle) {
-
-            throw new AppError(
-                "Driver is already assigned to another vehicle.",
-                409
-            );
-        }
-
-
-        const assignedVehicle =
-            await vehicleRepository.findByCurrentDriver(
-                vehicleData.currentDriver
-            );
-
-        if (assignedVehicle) {
-            throw new AppError(
-                "Driver is already assigned to another vehicle.",
-                409
-            );
-        }
-
-
-        /*
-         * New vehicle with a driver must
-         * start as ASSIGNED.
-         */
-        vehicleData.status =
-            VEHICLE_STATUS.ASSIGNED;
-    }
-
-
-    vehicleData.createdBy =
-        userId;
-
-    vehicleData.updatedBy =
-        userId;
-
-
-    /*
-     * Create Vehicle.
-     */
-    const vehicle =
-        await vehicleRepository.create(
-            vehicleData
-        );
-
-
-    /*
-     * Synchronize Driver → Vehicle.
-     */
-    if (vehicle.currentDriver) {
-
-        const driver =
-            await driverRepository.findById(
-                vehicle.currentDriver
-            );
-
-        if (!driver) {
-
-            /*
-             * Defensive rollback.
-             */
-            await vehicleRepository.softDelete(
-                vehicle._id
-            );
-
-            throw new AppError(
-                "Driver could not be linked to vehicle.",
-                500
-            );
-        }
-
-
-        const updatedDriver =
-            await driverRepository.updateById(
-                driver._id,
-                {
-                    currentVehicle:
-                        vehicle._id,
-
-                    updatedBy:
-                        userId,
+                if (!vendor) {
+                    throw new AppError(
+                        "Vendor not found.",
+                        404
+                    );
                 }
-            );
 
+                if (data.vehicleNumber) {
+                    const existingVehicle =
+                        await vehicleRepository.findByVehicleNumber(
+                            data.vehicleNumber,
+                            session
+                        );
 
-        if (!updatedDriver) {
-
-            /*
-             * Defensive rollback.
-             */
-            await vehicleRepository.updateById(
-                vehicle._id,
-                {
-                    currentDriver: null,
-                    status:
-                        VEHICLE_STATUS.AVAILABLE,
-                    updatedBy:
-                        userId,
+                    if (existingVehicle) {
+                        throw new AppError(
+                            "Vehicle number already exists.",
+                            409
+                        );
+                    }
                 }
-            );
 
-            await vehicleRepository.softDelete(
-                vehicle._id
-            );
+                const driver =
+                    await validateDriver(
+                        data.currentDriver,
+                        data.vendor,
+                        null,
+                        session
+                    );
 
-            throw new AppError(
-                "Failed to synchronize driver with vehicle.",
-                500
-            );
-        }
+                data.status =
+                    driver
+                        ? VEHICLE_STATUS.ASSIGNED
+                        : VEHICLE_STATUS.AVAILABLE;
+
+                data.createdBy =
+                    userId;
+
+                data.updatedBy =
+                    userId;
+
+                data.isDeleted =
+                    false;
+
+                vehicle =
+                    await vehicleRepository.create(
+                        data,
+                        session
+                    );
+
+                if (driver) {
+
+                    const updatedDriver =
+                        await driverRepository.updateById(
+                            driver._id,
+                            {
+                                currentVehicle:
+                                    vehicle._id,
+
+                                updatedBy:
+                                    userId,
+                            },
+                            session
+                        );
+
+                    if (!updatedDriver) {
+                        throw new AppError(
+                            "Failed to synchronize driver with vehicle.",
+                            500
+                        );
+                    }
+                }
+            }
+        );
+
+    } finally {
+        await session.endSession();
     }
-
 
     return vehicle;
 };
@@ -211,9 +277,7 @@ const createVehicle = async (
  * Get All Vehicles
  */
 const getAllVehicles = async () => {
-
     return vehicleRepository.findAll();
-
 };
 
 
@@ -249,416 +313,328 @@ const updateVehicle = async (
     userId
 ) => {
 
-    const vehicle =
-        await vehicleRepository.findById(
-            vehicleId
+    const data =
+        pickFields(
+            updateData,
+            UPDATE_FIELDS
         );
 
-    if (!vehicle) {
-        throw new AppError(
-            "Vehicle not found.",
-            404
-        );
-    }
-
-
-    /*
-     * Vendor Validation
-     */
-    if (updateData.vendor) {
-
-        const vendor =
-            await vendorRepository.findById(
-                updateData.vendor
-            );
-
-        if (!vendor) {
-            throw new AppError(
-                "Vendor not found.",
-                404
-            );
-        }
-    }
-
-
-    /*
-     * Vehicle Number Validation
-     */
     if (
-        updateData.vehicleNumber &&
-        updateData.vehicleNumber !==
-            vehicle.vehicleNumber
+        Object.keys(data).length === 0
     ) {
-
-        const existingVehicle =
-            await vehicleRepository.findByVehicleNumber(
-                updateData.vehicleNumber
-            );
-
-        if (existingVehicle) {
-            throw new AppError(
-                "Vehicle number already exists.",
-                409
-            );
-        }
+        throw new AppError(
+            "No valid vehicle fields were provided for update.",
+            400
+        );
     }
 
-
-    /*
-     * Detect whether currentDriver
-     * was explicitly changed.
-     *
-     * This also handles:
-     *
-     * currentDriver: null
-     */
     const driverWasUpdated =
         Object.prototype.hasOwnProperty.call(
-            updateData,
+            data,
             "currentDriver"
         );
 
+    const session =
+        await mongoose.startSession();
 
-    const oldDriverId =
-        vehicle.currentDriver?._id ||
-        vehicle.currentDriver ||
-        null;
+    let updatedVehicle;
 
+    try {
 
-    const newDriverId =
-        driverWasUpdated
-            ? updateData.currentDriver
-            : oldDriverId;
+        await session.withTransaction(
+            async () => {
 
-
-    /*
-     * Determine effective vendor.
-     */
-    const effectiveVendorId =
-        updateData.vendor ||
-        vehicle.vendor?._id ||
-        vehicle.vendor;
-
-
-    /*
-     * Validate new Driver.
-     */
-    if (newDriverId) {
-
-        const driver =
-            await driverRepository.findById(
-                newDriverId
-            );
-
-        if (!driver) {
-            throw new AppError(
-                "Driver not found.",
-                404
-            );
-        }
-
-
-        const driverVendorId =
-            driver.vendor?._id ||
-            driver.vendor;
-
-
-        if (
-            !effectiveVendorId ||
-            !driverVendorId ||
-            effectiveVendorId.toString() !==
-                driverVendorId.toString()
-        ) {
-            throw new AppError(
-                "Driver must belong to the selected vendor.",
-                400
-            );
-        }
-
-
-        /*
-         * Prevent assigning a driver that
-         * already belongs to another vehicle.
-         */
-        if (
-            driver.currentVehicle &&
-            driver.currentVehicle.toString() !==
-                vehicleId.toString()
-        ) {
-
-            throw new AppError(
-                "Driver is already assigned to another vehicle.",
-                409
-            );
-        }
-
-
-        const assignedVehicle =
-            await vehicleRepository.findByCurrentDriver(
-                newDriverId
-            );
-
-        if (
-            assignedVehicle &&
-            assignedVehicle._id.toString() !==
-                vehicleId.toString()
-        ) {
-
-            throw new AppError(
-                "Driver is already assigned to another vehicle.",
-                409
-            );
-        }
-
-
-        /*
-         * Vehicle with a driver must be
-         * ASSIGNED or ON_DUTY.
-         *
-         * Do not silently allow AVAILABLE.
-         */
-        if (
-            updateData.status ===
-                VEHICLE_STATUS.AVAILABLE
-        ) {
-
-            throw new AppError(
-                "A vehicle with an assigned driver cannot have AVAILABLE status.",
-                400
-            );
-        }
-
-
-        /*
-         * If no status was supplied while
-         * assigning a driver, use ASSIGNED.
-         */
-        if (
-            driverWasUpdated &&
-            !Object.prototype.hasOwnProperty.call(
-                updateData,
-                "status"
-            )
-        ) {
-
-            updateData.status =
-                VEHICLE_STATUS.ASSIGNED;
-        }
-    }
-
-
-    /*
-     * Do not allow changing vendor while
-     * keeping a driver belonging to the
-     * old vendor.
-     */
-    if (
-        updateData.vendor &&
-        newDriverId
-    ) {
-
-        const driver =
-            await driverRepository.findById(
-                newDriverId
-            );
-
-        const driverVendorId =
-            driver?.vendor?._id ||
-            driver?.vendor;
-
-
-        if (
-            !driverVendorId ||
-            driverVendorId.toString() !==
-                updateData.vendor.toString()
-        ) {
-
-            throw new AppError(
-                "Vehicle vendor must match the assigned driver's vendor.",
-                400
-            );
-        }
-    }
-
-
-    /*
-     * Do not allow AVAILABLE status while
-     * a driver remains assigned.
-     */
-    if (
-        updateData.status ===
-            VEHICLE_STATUS.AVAILABLE &&
-        newDriverId
-    ) {
-
-        throw new AppError(
-            "Cannot mark a vehicle AVAILABLE while a driver is assigned.",
-            400
-        );
-    }
-
-
-    /*
-     * If vehicle has an active driver,
-     * prevent manually changing it to
-     * MAINTENANCE/INACTIVE.
-     *
-     * Driver must first be unassigned.
-     */
-    if (
-        oldDriverId &&
-        !driverWasUpdated &&
-        updateData.status &&
-        (
-            updateData.status ===
-                VEHICLE_STATUS.MAINTENANCE ||
-            updateData.status ===
-                VEHICLE_STATUS.INACTIVE
-        )
-    ) {
-
-        throw new AppError(
-            "Cannot change an assigned vehicle to maintenance or inactive status. Unassign the driver first.",
-            400
-        );
-    }
-
-
-    updateData.updatedBy =
-        userId;
-
-
-    /*
-     * Update Vehicle.
-     */
-    const updatedVehicle =
-        await vehicleRepository.updateById(
-            vehicleId,
-            updateData
-        );
-
-
-    if (!updatedVehicle) {
-        throw new AppError(
-            "Failed to update vehicle.",
-            500
-        );
-    }
-
-
-    /*
-     * Synchronize Driver ↔ Vehicle
-     */
-    if (driverWasUpdated) {
-
-        /*
-         * Driver was removed from vehicle.
-         */
-        if (
-            oldDriverId &&
-            !newDriverId
-        ) {
-
-            const oldDriver =
-                await driverRepository.findById(
-                    oldDriverId
-                );
-
-            if (
-                oldDriver &&
-                oldDriver.currentVehicle &&
-                oldDriver.currentVehicle.toString() ===
-                    vehicleId.toString()
-            ) {
-
-                await driverRepository.updateById(
-                    oldDriverId,
-                    {
-                        currentVehicle:
-                            null,
-
-                        updatedBy:
-                            userId,
-                    }
-                );
-            }
-        }
-
-
-        /*
-         * Driver changed from one vehicle
-         * to another.
-         */
-        if (
-            newDriverId &&
-            (
-                !oldDriverId ||
-                oldDriverId.toString() !==
-                    newDriverId.toString()
-            )
-        ) {
-
-            /*
-             * Clear old driver's vehicle.
-             */
-            if (oldDriverId) {
-
-                const oldDriver =
-                    await driverRepository.findById(
-                        oldDriverId
+                const vehicle =
+                    await vehicleRepository.findById(
+                        vehicleId,
+                        session
                     );
+
+                if (!vehicle) {
+                    throw new AppError(
+                        "Vehicle not found.",
+                        404
+                    );
+                }
+
+                const oldDriverId =
+                    getId(
+                        vehicle.currentDriver
+                    );
+
+                const newDriverId =
+                    driverWasUpdated
+                        ? data.currentDriver
+                        : oldDriverId;
+
+                const effectiveVendorId =
+                    data.vendor ||
+                    getId(vehicle.vendor);
+
+                if (!effectiveVendorId) {
+                    throw new AppError(
+                        "Vehicle vendor not found.",
+                        400
+                    );
+                }
+
+                if (data.vendor) {
+
+                    const vendor =
+                        await vendorRepository.findById(
+                            data.vendor
+                        );
+
+                    if (!vendor) {
+                        throw new AppError(
+                            "Vendor not found.",
+                            404
+                        );
+                    }
+                }
 
                 if (
-                    oldDriver &&
-                    oldDriver.currentVehicle &&
-                    oldDriver.currentVehicle.toString() ===
-                        vehicleId.toString()
+                    data.vehicleNumber &&
+                    data.vehicleNumber !==
+                        vehicle.vehicleNumber
                 ) {
 
-                    await driverRepository.updateById(
-                        oldDriverId,
-                        {
-                            currentVehicle:
-                                null,
+                    const existingVehicle =
+                        await vehicleRepository.findByVehicleNumber(
+                            data.vehicleNumber,
+                            session
+                        );
 
-                            updatedBy:
-                                userId,
-                        }
+                    if (existingVehicle) {
+                        throw new AppError(
+                            "Vehicle number already exists.",
+                            409
+                        );
+                    }
+                }
+
+                if (newDriverId) {
+
+                    await validateDriver(
+                        newDriverId,
+                        effectiveVendorId,
+                        vehicleId,
+                        session
+                    );
+
+                    if (
+                        driverWasUpdated &&
+                        !data.status
+                    ) {
+                        data.status =
+                            VEHICLE_STATUS.ASSIGNED;
+                    }
+
+                    if (
+                        data.status ===
+                        VEHICLE_STATUS.AVAILABLE
+                    ) {
+                        throw new AppError(
+                            "A vehicle with an assigned driver cannot have AVAILABLE status.",
+                            400
+                        );
+                    }
+                }
+
+                /*
+                 * Status is managed by the dedicated
+                 * status endpoint.
+                 *
+                 * Prevent callers from changing it
+                 * through the normal update endpoint.
+                 */
+                delete data.status;
+
+                /*
+                 * If the driver is being removed,
+                 * the vehicle becomes AVAILABLE.
+                 */
+                if (
+                    driverWasUpdated &&
+                    !newDriverId
+                ) {
+                    data.status =
+                        VEHICLE_STATUS.AVAILABLE;
+                }
+
+                /*
+                 * If vendor changes while retaining
+                 * the existing driver, the driver must
+                 * belong to the new vendor.
+                 */
+                if (
+                    data.vendor &&
+                    newDriverId
+                ) {
+
+                    const driver =
+                        await driverRepository.findById(
+                            newDriverId,
+                            session
+                        );
+
+                    if (!driver) {
+                        throw new AppError(
+                            "Driver not found.",
+                            404
+                        );
+                    }
+
+                    const driverVendorId =
+                        getId(driver.vendor);
+
+                    if (
+                        !driverVendorId ||
+                        driverVendorId.toString() !==
+                            data.vendor.toString()
+                    ) {
+                        throw new AppError(
+                            "Vehicle vendor must match the assigned driver's vendor.",
+                            400
+                        );
+                    }
+                }
+
+                data.updatedBy =
+                    userId;
+
+                updatedVehicle =
+                    await vehicleRepository.updateById(
+                        vehicleId,
+                        data,
+                        session
+                    );
+
+                if (!updatedVehicle) {
+                    throw new AppError(
+                        "Failed to update vehicle.",
+                        500
                     );
                 }
-            }
 
+                /*
+                 * Driver synchronization.
+                 */
+                if (driverWasUpdated) {
 
-            /*
-             * Assign new driver's vehicle.
-             */
-            const newDriver =
-                await driverRepository.findById(
-                    newDriverId
-                );
+                    /*
+                     * Remove old driver.
+                     */
+                    if (
+                        oldDriverId &&
+                        !newDriverId
+                    ) {
 
-            if (!newDriver) {
+                        const oldDriver =
+                            await driverRepository.findById(
+                                oldDriverId,
+                                session
+                            );
 
-                throw new AppError(
-                    "Driver synchronization failed after vehicle update.",
-                    500
-                );
-            }
+                        if (
+                            oldDriver &&
+                            oldDriver.currentVehicle &&
+                            getId(
+                                oldDriver.currentVehicle
+                            ).toString() ===
+                                vehicleId.toString()
+                        ) {
 
+                            await driverRepository.updateById(
+                                oldDriverId,
+                                {
+                                    currentVehicle:
+                                        null,
 
-            await driverRepository.updateById(
-                newDriverId,
-                {
-                    currentVehicle:
-                        vehicleId,
+                                    updatedBy:
+                                        userId,
+                                },
+                                session
+                            );
+                        }
+                    }
 
-                    updatedBy:
-                        userId,
+                    /*
+                     * Driver changed.
+                     */
+                    if (
+                        newDriverId &&
+                        (
+                            !oldDriverId ||
+                            oldDriverId.toString() !==
+                                newDriverId.toString()
+                        )
+                    ) {
+
+                        /*
+                         * Clear old driver.
+                         */
+                        if (oldDriverId) {
+
+                            const oldDriver =
+                                await driverRepository.findById(
+                                    oldDriverId,
+                                    session
+                                );
+
+                            if (
+                                oldDriver &&
+                                oldDriver.currentVehicle &&
+                                getId(
+                                    oldDriver.currentVehicle
+                                ).toString() ===
+                                    vehicleId.toString()
+                            ) {
+
+                                await driverRepository.updateById(
+                                    oldDriverId,
+                                    {
+                                        currentVehicle:
+                                            null,
+
+                                        updatedBy:
+                                            userId,
+                                    },
+                                    session
+                                );
+                            }
+                        }
+
+                        /*
+                         * Assign new driver.
+                         */
+                        const newDriver =
+                            await driverRepository.updateById(
+                                newDriverId,
+                                {
+                                    currentVehicle:
+                                        vehicleId,
+
+                                    updatedBy:
+                                        userId,
+                                },
+                                session
+                            );
+
+                        if (!newDriver) {
+                            throw new AppError(
+                                "Failed to synchronize new driver with vehicle.",
+                                500
+                            );
+                        }
+                    }
                 }
-            );
-        }
-    }
+            }
+        );
 
+    } finally {
+        await session.endSession();
+    }
 
     return updatedVehicle;
 };
@@ -684,29 +660,26 @@ const deleteVehicle = async (
         );
     }
 
-
-    /*
-     * Do not delete a vehicle while
-     * it is assigned to a driver.
-     */
     if (vehicle.currentDriver) {
-
         throw new AppError(
             "Cannot delete a vehicle while a driver is assigned. Unassign the driver first.",
             400
         );
     }
 
+    const deletedVehicle =
+        await vehicleRepository.softDelete(
+            vehicleId
+        );
 
-    await vehicleRepository.softDelete(
-        vehicleId
-    );
+    if (!deletedVehicle) {
+        throw new AppError(
+            "Failed to delete vehicle.",
+            500
+        );
+    }
 
-
-    return {
-        message:
-            "Vehicle deleted successfully."
-    };
+    return deletedVehicle;
 };
 
 
@@ -731,11 +704,6 @@ const updateVehicleStatus = async (
         );
     }
 
-
-    /*
-     * Prevent invalid status transitions
-     * while a driver is assigned.
-     */
     if (
         vehicle.currentDriver &&
         (
@@ -747,21 +715,27 @@ const updateVehicleStatus = async (
                 VEHICLE_STATUS.INACTIVE
         )
     ) {
-
         throw new AppError(
             "Cannot set an assigned vehicle to this status. Unassign the driver first.",
             400
         );
     }
 
-
-    return vehicleRepository.updateById(
-        vehicleId,
-        {
+    const updatedVehicle =
+        await vehicleRepository.updateStatus(
+            vehicleId,
             status,
-            updatedBy: userId,
-        }
-    );
+            userId
+        );
+
+    if (!updatedVehicle) {
+        throw new AppError(
+            "Failed to update vehicle status.",
+            500
+        );
+    }
+
+    return updatedVehicle;
 };
 
 
