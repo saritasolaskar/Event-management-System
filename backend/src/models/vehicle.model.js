@@ -122,7 +122,16 @@ const vehicleSchema = new mongoose.Schema(
 // Indexes
 vehicleSchema.index({ vehicleNumber: 1 });
 vehicleSchema.index({ vendor: 1 });
-vehicleSchema.index({ currentDriver: 1 });
+vehicleSchema.index(
+    { currentDriver: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            currentDriver: { $type: "objectId" },
+            isDeleted: false,
+        },
+    }
+);
 vehicleSchema.index({ status: 1 });
 vehicleSchema.index({ insuranceExpiry: 1 });
 vehicleSchema.index({ fitnessExpiry: 1 });
