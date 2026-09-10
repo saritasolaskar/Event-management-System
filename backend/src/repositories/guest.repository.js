@@ -145,6 +145,22 @@ const updateStatus = async (
     );
 };
 
+const findByEventWithAssignment = async (eventId) => {
+    return findByEvent(eventId);
+};
+
+module.exports = {
+    create,
+    findById,
+    findByGuestCode,
+    findByEvent,
+    findByEventWithAssignment,
+    findAll,
+    updateById,
+    softDelete,
+    updateStatus,
+};
+
 module.exports = {
     create,
     findById,
@@ -154,4 +170,5 @@ module.exports = {
     updateById,
     softDelete,
     updateStatus,
+    findByEventWithAssignment
 };

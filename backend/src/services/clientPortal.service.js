@@ -13,6 +13,7 @@ const {
     EVENT_STATUS,
     PICKUP_STATUS,
     RETURN_STATUS,
+    DUTY_STATUS,
 } = require("../constants/status");
 
 /**
@@ -64,12 +65,54 @@ const getEventDetails = async (eventId, clientId) => {
 };
 
 /**
- * Get Guests
+ * Get Guests with their Assignment Details
  */
 const getGuests = async (eventId, clientId) => {
     await getEventDetails(eventId, clientId);
 
-    return guestRepository.findByEventWithAssignment(eventId);
+    const guests = await guestRepository.findByEvent(eventId);
+    const guestAssignments =
+        await guestAssignmentRepository.findByEvent(eventId);
+
+    const assignmentMap = new Map();
+    for (const assignment of guestAssignments) {
+        if (assignment.guest) {
+            const gId = assignment.guest._id
+                ? assignment.guest._id.toString()
+                : assignment.guest.toString();
+            assignmentMap.set(gId, assignment);
+        }
+    }
+
+    return guests.map((guest) => {
+        const guestDoc = guest.toObject ? guest.toObject() : guest;
+        const assignment = assignmentMap.get(guest._id.toString());
+
+        return {
+            ...guestDoc,
+            assignment: assignment
+                ? {
+                      _id: assignment._id,
+                      vehicleAssignment:
+                          assignment.vehicleAssignment?._id ||
+                          assignment.vehicleAssignment,
+                      vehicle:
+                          assignment.vehicleAssignment?.vehicle || null,
+                      driver:
+                          assignment.vehicleAssignment?.driver || null,
+                      pickupSequence: assignment.pickupSequence,
+                      dropSequence: assignment.dropSequence,
+                      pickupStatus: assignment.pickupStatus,
+                      returnStatus: assignment.returnStatus,
+                      pickupTime: assignment.pickupTime,
+                      venueArrivalTime: assignment.venueArrivalTime,
+                      returnPickupTime: assignment.returnPickupTime,
+                      dropTime: assignment.dropTime,
+                      remarks: assignment.remarks,
+                  }
+                : null,
+        };
+    });
 };
 
 /**
@@ -78,7 +121,23 @@ const getGuests = async (eventId, clientId) => {
 const getVehicles = async (eventId, clientId) => {
     await getEventDetails(eventId, clientId);
 
-    return vehicleAssignmentRepository.findByEvent(eventId);
+    const assignments =
+        await vehicleAssignmentRepository.findByEvent(eventId);
+
+    return assignments.map((assignment) => ({
+        assignmentId: assignment._id,
+        status: assignment.status,
+        vehicle: assignment.vehicle,
+        driver: assignment.driver
+            ? {
+                  _id: assignment.driver._id,
+                  name: assignment.driver.name,
+                  phone: assignment.driver.phone,
+              }
+            : null,
+        startDate: assignment.startDate,
+        endDate: assignment.endDate,
+    }));
 };
 
 /**
@@ -111,18 +170,66 @@ const getInvoice = async (invoiceId, clientId) => {
 };
 
 /**
- * Event Overview
+ * Event Overview - Comprehensive Transport Manifest
  */
 const getEventOverview = async (eventId, clientId) => {
     const event = await getEventDetails(eventId, clientId);
 
     const guests = await guestRepository.findByEvent(eventId);
-
     const vehicleAssignments =
         await vehicleAssignmentRepository.findByEvent(eventId);
-
     const guestAssignments =
         await guestAssignmentRepository.findByEvent(eventId);
+
+    const assignmentMap = new Map();
+    for (const ga of guestAssignments) {
+        if (ga.guest) {
+            const gId = ga.guest._id
+                ? ga.guest._id.toString()
+                : ga.guest.toString();
+            assignmentMap.set(gId, ga);
+        }
+    }
+
+    const manifest = guests.map((guest) => {
+        const ga = assignmentMap.get(guest._id.toString());
+        const va = ga?.vehicleAssignment;
+
+        return {
+            guest: {
+                id: guest._id,
+                name: `${guest.firstName} ${guest.lastName || ""}`.trim(),
+                phone: guest.phone,
+                email: guest.email,
+                guestCode: guest.guestCode,
+            },
+            pickupLocation: guest.pickupLocation,
+            dropLocation: guest.dropLocation,
+            assignmentStatus: va ? va.status : "UNASSIGNED",
+            cab: va?.vehicle
+                ? {
+                      id: va.vehicle._id,
+                      vehicleNumber: va.vehicle.vehicleNumber,
+                      model: va.vehicle.model,
+                      vehicleType: va.vehicle.vehicleType,
+                  }
+                : null,
+            driver: va?.driver
+                ? {
+                      id: va.driver._id,
+                      name: va.driver.name,
+                      phone: va.driver.phone,
+                  }
+                : null,
+            pickupSequence: ga?.pickupSequence || null,
+            dropSequence: ga?.dropSequence || null,
+            pickupStatus: ga?.pickupStatus || PICKUP_STATUS.PENDING,
+            returnStatus: ga?.returnStatus || RETURN_STATUS.NOT_STARTED,
+            pickupTime: ga?.pickupTime || null,
+            dropTime: ga?.dropTime || null,
+            remarks: ga?.remarks || null,
+        };
+    });
 
     const totalGuests = guests.length;
     const assignedGuests = guestAssignments.length;
@@ -147,17 +254,16 @@ const getEventOverview = async (eventId, clientId) => {
 
     return {
         event,
-        guests,
-        vehicleAssignments,
-        guestAssignments,
-        liveStatus,
         statistics: {
             totalGuests,
             assignedGuests,
             pickedUpGuests,
             droppedGuests,
             pendingGuests,
+            totalCabs: vehicleAssignments.length,
         },
+        manifest,
+        liveStatus,
     };
 };
 
@@ -178,7 +284,7 @@ const getLiveTracking = async (eventId, clientId) => {
                 assignment._id
             );
 
-        if (!duty || duty.status !== "STARTED") {
+        if (!duty || duty.status !== DUTY_STATUS.STARTED) {
             continue;
         }
 
@@ -193,9 +299,20 @@ const getLiveTracking = async (eventId, clientId) => {
 
         tracking.push({
             duty: duty._id,
-            driver: assignment.driver,
-            vehicle: assignment.vehicle,
-            vendor: assignment.vendor,
+            driver: assignment.driver
+                ? {
+                      _id: assignment.driver._id,
+                      name: assignment.driver.name,
+                      phone: assignment.driver.phone,
+                  }
+                : null,
+            vehicle: assignment.vehicle
+                ? {
+                      _id: assignment.vehicle._id,
+                      vehicleNumber: assignment.vehicle.vehicleNumber,
+                      model: assignment.vehicle.model,
+                  }
+                : null,
             location: latest,
         });
     }
@@ -213,9 +330,28 @@ const getDrivers = async (eventId, clientId) => {
         await vehicleAssignmentRepository.findByEvent(eventId);
 
     return assignments.map((assignment) => ({
-        driver: assignment.driver,
-        vehicle: assignment.vehicle,
-        vendor: assignment.vendor,
+        assignmentId: assignment._id,
+        status: assignment.status,
+        driver: assignment.driver
+            ? {
+                  _id: assignment.driver._id,
+                  name: assignment.driver.name,
+                  phone: assignment.driver.phone,
+                  licenseNumber: assignment.driver.licenseNumber,
+                  status: assignment.driver.status,
+              }
+            : null,
+        vehicle: assignment.vehicle
+            ? {
+                  _id: assignment.vehicle._id,
+                  vehicleNumber: assignment.vehicle.vehicleNumber,
+                  model: assignment.vehicle.model,
+                  vehicleType: assignment.vehicle.vehicleType,
+                  capacity:
+                      assignment.vehicle.seatingCapacity ||
+                      assignment.vehicle.capacity,
+              }
+            : null,
     }));
 };
 

@@ -1,4 +1,5 @@
 const clientPortalService = require("../services/clientPortal.service");
+const clientInvoicePdfService = require("../services/pdf/clientInvoicePdf.service");
 
 const asyncHandler = require("../utils/asyncHandler");
 
@@ -59,9 +60,9 @@ const getGuests = asyncHandler(async (req, res) => {
 
     const guests =
         await clientPortalService.getGuests(
-    req.params.id,
-    req.user.client
-);
+            req.params.id,
+            req.user.client
+        );
 
     return successResponse(
         res,
@@ -76,9 +77,9 @@ const getVehicles = asyncHandler(async (req, res) => {
 
     const vehicles =
         await clientPortalService.getVehicles(
-    req.params.id,
-    req.user.client
-);
+            req.params.id,
+            req.user.client
+        );
 
     return successResponse(
         res,
@@ -106,16 +107,13 @@ const getInvoices = asyncHandler(async (req, res) => {
 });
 
 const getEventOverview =
-asyncHandler(async(req,res)=>{
+asyncHandler(async (req, res) => {
 
     const data =
-    await clientPortalService.getEventOverview(
-
-        req.params.id,
-
-        req.user.client
-
-    );
+        await clientPortalService.getEventOverview(
+            req.params.id,
+            req.user.client
+        );
 
     return successResponse(
         res,
@@ -126,83 +124,73 @@ asyncHandler(async(req,res)=>{
 
 });
 
-
 const getLiveTracking =
-asyncHandler(async(req,res)=>{
+asyncHandler(async (req, res) => {
 
     const tracking =
-        await clientPortalService
-            .getLiveTracking(
-    req.params.id,
-    req.user.client
-);
+        await clientPortalService.getLiveTracking(
+            req.params.id,
+            req.user.client
+        );
 
     return successResponse(
-
         res,
-
         200,
-
         "Live tracking fetched successfully.",
-
         tracking
-
     );
 
 });
 
 const getInvoice =
-asyncHandler(async(req,res)=>{
+asyncHandler(async (req, res) => {
 
     const invoice =
-        await clientPortalService
-            .getInvoice(
-
-                req.params.id,
-
-                req.user.client
-
-            );
+        await clientPortalService.getInvoice(
+            req.params.id,
+            req.user.client
+        );
 
     return successResponse(
-
         res,
-
         200,
-
         "Invoice fetched successfully.",
-
         invoice
-
     );
 
 });
 
-
 const getDrivers =
-asyncHandler(async(req,res)=>{
+asyncHandler(async (req, res) => {
 
     const drivers =
         await clientPortalService.getDrivers(
-    req.params.id,
-    req.user.client
-);
+            req.params.id,
+            req.user.client
+        );
 
     return successResponse(
-
         res,
-
         200,
-
         "Drivers fetched successfully.",
-
         drivers
-
     );
 
 });
 
+const downloadInvoice = asyncHandler(async (req, res) => {
+    const pdf = await clientInvoicePdfService.generateClientInvoicePdf(
+        req.params.id,
+        req.user
+    );
 
+    res.set({
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename=invoice-${req.params.id}.pdf`,
+    });
+
+    return res.send(pdf);
+});
 
 module.exports = {
     getDashboard,
@@ -215,4 +203,5 @@ module.exports = {
     getDrivers,
     getLiveTracking,
     getInvoice,
+    downloadInvoice,
 };
