@@ -1,3 +1,4 @@
+// vecdor services
 const vendorRepository =
     require("../repositories/vendor.repository");
 const mongoose = require("mongoose");
