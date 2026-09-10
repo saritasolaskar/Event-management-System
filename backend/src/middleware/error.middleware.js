@@ -4,6 +4,13 @@ const errorMiddleware = (err, req, res, next) => {
 
     let error = err;
 
+    if (error.code === 11000) {
+  error = new AppError(
+    "A client with one of these unique fields already exists.",
+    409
+  );
+}
+
     // Convert unknown errors into AppError
     if (!(error instanceof AppError)) {
         error = new AppError(

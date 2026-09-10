@@ -1,7 +1,7 @@
 const dutyRepository = require("../../repositories/duty.repository");
 const guestAssignmentRepository = require("../../repositories/guestAssignment.repository");
 
-const pdfGenerator = require("./pdfGenerator");
+const pdfGenerator = require("../pdfGenerator");
 
 const config = require("../../config/env");
 const AppError = require("../../utils/appError");

@@ -1,17 +1,24 @@
-const VendorBill = require("../models/vendorBill.model");
+const VendorBill =
+    require("../models/vendorBill.model");
 
 /**
  * Create Vendor Bill
  */
 const create = async (data) => {
+
     return VendorBill.create(data);
+
 };
 
 /**
  * Get Vendor Bill By ID
  */
 const findById = async (id) => {
-    return VendorBill.findById(id)
+
+    return VendorBill.findOne({
+        _id: id,
+        isDeleted: false,
+    })
         .populate("vendor")
         .populate({
             path: "vehicleAssignment",
@@ -34,12 +41,14 @@ const findById = async (id) => {
             },
         })
         .populate("approvedBy");
+
 };
 
 /**
  * Get All Vendor Bills
  */
 const findAll = async () => {
+
     return VendorBill.find({
         isDeleted: false,
     })
@@ -49,26 +58,38 @@ const findAll = async () => {
         .sort({
             createdAt: -1,
         });
+
 };
 
 /**
  * Update Vendor Bill
  */
-const updateById = async (id, data) => {
-    return VendorBill.findByIdAndUpdate(
-        id,
+const updateById = async (
+    id,
+    data
+) => {
+
+    return VendorBill.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         data,
         {
             new: true,
             runValidators: true,
         }
     );
+
 };
 
 /**
  * Get Vendor Bills By Vendor
  */
-const findByVendor = async (vendorId) => {
+const findByVendor = async (
+    vendorId
+) => {
+
     return VendorBill.find({
         vendor: vendorId,
         isDeleted: false,
@@ -77,6 +98,21 @@ const findByVendor = async (vendorId) => {
         .sort({
             createdAt: -1,
         });
+
+};
+
+/**
+ * Get Vendor Bill By Duty
+ */
+const findByDuty = async (
+    dutyId
+) => {
+
+    return VendorBill.findOne({
+        duty: dutyId,
+        isDeleted: false,
+    });
+
 };
 
 module.exports = {
@@ -85,4 +121,5 @@ module.exports = {
     findAll,
     updateById,
     findByVendor,
+    findByDuty,
 };

@@ -18,4 +18,4 @@ const ROLES = {
     SUPPORT: "SUPPORT",
 };
 
-module.exports = ROLES;
+module.exports = { ROLES };

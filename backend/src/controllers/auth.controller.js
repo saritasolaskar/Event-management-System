@@ -48,8 +48,49 @@ const logout = asyncHandler(async (req, res) => {
   );
 });
 
+const refreshToken = asyncHandler(async (req, res) => {
+  const result = await authService.refreshToken(req.body.refreshToken);
+
+  return successResponse(
+    res,
+    200,
+    "Token refreshed successfully.",
+    result
+  );
+});
+
+const logoutAllDevices = asyncHandler(async (req, res) => {
+  const result = await authService.logoutAllDevices(req.user._id);
+
+  return successResponse(
+    res,
+    200,
+    result.message
+  );
+});
+
+const setPassword = asyncHandler(
+    async (req, res) => {
+
+        const result =
+            await authService.setPassword(
+                req.body.token,
+                req.body.password
+            );
+
+        return successResponse(
+            res,
+            200,
+            result.message
+        );
+    }
+);
+
 module.exports = {
   register,
   login,
   logout,
+  logoutAllDevices,
+  refreshToken,
+  setPassword,
 };

@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html>
 
 <head>
@@ -7,60 +8,64 @@
 
 <style>
 
-body{
+body {
     font-family: Arial, sans-serif;
     margin: 40px;
     color: #222;
 }
 
-.header{
+.header {
     display: flex;
     justify-content: space-between;
     border-bottom: 2px solid #000;
     padding-bottom: 15px;
 }
 
-.company h1{
+.company h1 {
     margin: 0;
 }
 
-.company p{
+.company p {
     margin: 2px 0;
 }
 
-.invoice{
+.invoice {
     text-align: right;
 }
 
-.section{
+.section {
     margin-top: 25px;
 }
 
-.section h3{
+.section h3 {
     margin-bottom: 8px;
 }
 
-table{
+table {
     width: 100%;
     border-collapse: collapse;
 }
 
-thead{
+thead {
     background: #f5f5f5;
 }
 
 th,
-td{
+td {
     border: 1px solid #ccc;
     padding: 8px;
     text-align: left;
 }
 
-.footer{
-    margin-top: 80px;
+.footer {
+    margin-top: 60px;
     text-align: center;
     font-size: 12px;
     color: #666;
+}
+
+.approval {
+    margin-top: 40px;
 }
 
 </style>
@@ -71,212 +76,290 @@ td{
 
 <div class="header">
 
-    <div class="company">
+```
+<div class="company">
 
-        <h1>Transit Fleets</h1>
+    <h1>{{company.name}}</h1>
 
-        <p>{{company.address}}</p>
+    <p>{{company.address}}</p>
 
-        <p>{{company.phone}}</p>
+    <p>{{company.phone}}</p>
 
-        <p>{{company.email}}</p>
+    <p>{{company.email}}</p>
 
-        <p><strong>GST :</strong> {{company.gst}}</p>
-
-    </div>
-
-    <div class="invoice">
-
-        <h2>CLIENT INVOICE</h2>
-
-        <p><strong>Invoice No :</strong> {{invoice.invoiceNumber}}</p>
-
-        <p><strong>Date :</strong> {{invoice.invoiceDate}}</p>
-
-        <p><strong>Status :</strong> {{invoice.status}}</p>
-
-    </div>
+    {{#if company.gst}}
+    <p>
+        <strong>GST :</strong>
+        {{company.gst}}
+    </p>
+    {{/if}}
 
 </div>
 
-<div class="section">
+<div class="invoice">
 
-    <h3>Client Details</h3>
+    <h2>CLIENT INVOICE</h2>
 
     <p>
+        <strong>Invoice No :</strong>
+        {{invoice.invoiceNumber}}
+    </p>
 
-        <strong>{{client.companyName}}</strong>
+    <p>
+        <strong>Date :</strong>
+        {{invoice.invoiceDate}}
+    </p>
 
-        <br>
-
-        {{client.address}}
-
+    <p>
+        <strong>Status :</strong>
+        {{invoice.status}}
     </p>
 
 </div>
-
-<div class="section">
-
-    <h3>Event Details</h3>
-
-    <table>
-
-        <tbody>
-
-            <tr>
-                <td>Event</td>
-                <td>{{event.eventName}}</td>
-            </tr>
-
-            <tr>
-                <td>Venue</td>
-                <td>{{event.venue.name}}</td>
-            </tr>
-
-            <tr>
-                <td>Start Date</td>
-                <td>{{event.startDate}}</td>
-            </tr>
-
-            <tr>
-                <td>End Date</td>
-                <td>{{event.endDate}}</td>
-            </tr>
-
-        </tbody>
-
-    </table>
+```
 
 </div>
 
 <div class="section">
 
-    <h3>Vehicle Details</h3>
+```
+<h3>Client Details</h3>
 
-    <table>
+<p>
 
-        <tbody>
+    <strong>{{client.companyName}}</strong>
 
-            <tr>
-                <td>Vehicle Number</td>
-                <td>{{vehicle.vehicleNumber}}</td>
-            </tr>
+    <br>
 
-            <tr>
-                <td>Driver</td>
-                <td>{{driver.name}}</td>
-            </tr>
+    {{client.address}}
 
-            <tr>
-                <td>Driver Contact</td>
-                <td>{{driver.phone}}</td>
-            </tr>
-
-        </tbody>
-
-    </table>
+</p>
+```
 
 </div>
 
 <div class="section">
 
-    <h3>Billing Summary</h3>
+```
+<h3>Event Details</h3>
 
-    <table>
+<table>
 
-        <thead>
+    <tbody>
 
-            <tr>
+        <tr>
+            <td>Event</td>
+            <td>{{event.name}}</td>
+        </tr>
 
-                <th>Description</th>
+        <tr>
+            <td>Venue</td>
+            <td>{{event.venue.name}}</td>
+        </tr>
 
-                <th>Amount</th>
+        <tr>
+            <td>Start Date</td>
+            <td>{{event.startDate}}</td>
+        </tr>
 
-            </tr>
+        <tr>
+            <td>End Date</td>
+            <td>{{event.endDate}}</td>
+        </tr>
 
-        </thead>
+    </tbody>
 
-        <tbody>
-
-            <tr>
-                <td>Client Rate</td>
-                <td>₹ {{invoice.clientRate}}</td>
-            </tr>
-
-            <tr>
-                <td>Total KM</td>
-                <td>{{invoice.totalKm}}</td>
-            </tr>
-
-            <tr>
-                <td>Total Hours</td>
-                <td>{{invoice.totalHours}}</td>
-            </tr>
-
-            <tr>
-                <td>Extra KM</td>
-                <td>{{invoice.extraKm}}</td>
-            </tr>
-
-            <tr>
-                <td>Extra Hour</td>
-                <td>{{invoice.extraHour}}</td>
-            </tr>
-
-            <tr>
-                <td>Parking Charges</td>
-                <td>₹ {{invoice.parkingCharges}}</td>
-            </tr>
-
-            <tr>
-                <td>Toll Charges</td>
-                <td>₹ {{invoice.tollCharges}}</td>
-            </tr>
-
-            <tr>
-                <td>Entry Charges</td>
-                <td>₹ {{invoice.entryCharges}}</td>
-            </tr>
-
-            <tr>
-                <td>DA Charges</td>
-                <td>₹ {{invoice.daCharges}}</td>
-            </tr>
-
-            <tr>
-                <td>Subtotal</td>
-                <td>₹ {{invoice.subtotal}}</td>
-            </tr>
-
-            <tr>
-                <td>Discount</td>
-                <td>₹ {{invoice.discount}}</td>
-            </tr>
-
-            <tr>
-                <td>GST</td>
-                <td>₹ {{invoice.gstAmount}}</td>
-            </tr>
-
-            <tr>
-
-                <td><strong>Grand Total</strong></td>
-
-                <td><strong>₹ {{invoice.totalAmount}}</strong></td>
-
-            </tr>
-
-        </tbody>
-
-    </table>
+</table>
+```
 
 </div>
+
+<div class="section">
+
+```
+<h3>Vehicle Details</h3>
+
+<table>
+
+    <tbody>
+
+        <tr>
+            <td>Vehicle Number</td>
+            <td>{{vehicle.vehicleNumber}}</td>
+        </tr>
+
+        <tr>
+            <td>Driver</td>
+            <td>{{driver.name}}</td>
+        </tr>
+
+        <tr>
+            <td>Driver Contact</td>
+            <td>{{driver.phone}}</td>
+        </tr>
+
+    </tbody>
+
+</table>
+```
+
+</div>
+
+<div class="section">
+
+```
+<h3>Billing Summary</h3>
+
+<table>
+
+    <thead>
+
+        <tr>
+
+            <th>Description</th>
+
+            <th>Amount / Value</th>
+
+        </tr>
+
+    </thead>
+
+    <tbody>
+
+        <tr>
+            <td>Package</td>
+            <td>{{invoice.packageName}}</td>
+        </tr>
+
+        <tr>
+            <td>Included KM</td>
+            <td>{{invoice.packageKm}}</td>
+        </tr>
+
+        <tr>
+            <td>Included Hours</td>
+            <td>{{invoice.packageHours}}</td>
+        </tr>
+
+        <tr>
+            <td>Client Rate</td>
+            <td>₹ {{invoice.clientRate}}</td>
+        </tr>
+
+        <tr>
+            <td>Total KM</td>
+            <td>{{invoice.totalKm}}</td>
+        </tr>
+
+        <tr>
+            <td>Total Hours</td>
+            <td>{{invoice.totalHours}}</td>
+        </tr>
+
+        <tr>
+            <td>Extra KM</td>
+            <td>{{invoice.extraKm}}</td>
+        </tr>
+
+        <tr>
+            <td>Extra Hour</td>
+            <td>{{invoice.extraHour}}</td>
+        </tr>
+
+        <tr>
+            <td>Parking Charges</td>
+            <td>₹ {{invoice.parkingCharges}}</td>
+        </tr>
+
+        <tr>
+            <td>Toll Charges</td>
+            <td>₹ {{invoice.tollCharges}}</td>
+        </tr>
+
+        <tr>
+            <td>Entry Charges</td>
+            <td>₹ {{invoice.entryCharges}}</td>
+        </tr>
+
+        <tr>
+            <td>DA Charges</td>
+            <td>₹ {{invoice.daCharges}}</td>
+        </tr>
+
+        <tr>
+            <td>Subtotal</td>
+            <td>₹ {{invoice.subtotal}}</td>
+        </tr>
+
+        <tr>
+            <td>Discount</td>
+            <td>₹ {{invoice.discount}}</td>
+        </tr>
+
+        <tr>
+            <td>
+                GST ({{invoice.gstPercentage}}%)
+            </td>
+
+            <td>
+                ₹ {{invoice.gstAmount}}
+            </td>
+        </tr>
+
+        <tr>
+
+            <td>
+                <strong>Grand Total</strong>
+            </td>
+
+            <td>
+                <strong>
+                    ₹ {{invoice.totalAmount}}
+                </strong>
+            </td>
+
+        </tr>
+
+    </tbody>
+
+</table>
+```
+
+</div>
+
+{{#if approvedBy}}
+
+<div class="approval">
+
+```
+<p>
+    <strong>Approved By :</strong>
+    {{approvedBy.name}}
+</p>
+
+{{#if invoice.approvedAtFormatted}}
+<p>
+    <strong>Approved At :</strong>
+    {{invoice.approvedAtFormatted}}
+</p>
+{{/if}}
+```
+
+</div>
+
+{{/if}}
 
 <div class="footer">
 
-    <p>Generated by Transit Fleets ERP</p>
+```
+<p>
+    Generated by Transit Fleets ERP
+</p>
 
-    <p>This is a computer-generated invoice and does not require a signature.</p>
+<p>
+    This is a computer-generated invoice and does not require a signature.
+</p>
+```
 
 </div>
 

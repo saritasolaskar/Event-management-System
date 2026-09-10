@@ -88,7 +88,7 @@ const updateGuest = asyncHandler(async (req, res) => {
  * Delete Guest
  */
 const deleteGuest = asyncHandler(async (req, res) => {
-  await guestService.deleteGuest(req.params.id);
+  await guestService.deleteGuest(req.params.id,req.user._id);
 
   return successResponse(
     res,

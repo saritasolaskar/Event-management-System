@@ -57,6 +57,11 @@ const clientInvoiceSchema = new mongoose.Schema(
             ],
         },
 
+        paymentReference: {
+            type: String,
+            trim: true,
+            maxlength: 100,
+        },
 
 
         totalKm: {
@@ -149,6 +154,13 @@ const clientInvoiceSchema = new mongoose.Schema(
         },
 
         approvedAt: Date,
+
+        rejectedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
+
+        rejectedAt: Date,
 
         remarks: {
             type: String,
