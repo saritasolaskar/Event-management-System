@@ -101,7 +101,10 @@ const clientSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
-
+        deletedAt: {
+            type: Date,
+            default: null,
+        },
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",

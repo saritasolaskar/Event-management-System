@@ -1,6 +1,7 @@
 const clientRepository = require("../repositories/client.repository");
 const AppError = require("../utils/AppError");
-
+const eventRepository =
+  require("../repositories/event.repository");
 const CLIENT_FIELDS = [
   "companyName",
   "email",
@@ -17,7 +18,7 @@ const CLIENT_FIELDS = [
   "agreementEndDate",
   "paymentTerms",
   "creditLimit",
-  "status",
+  
 ];
 
 const pickClientFields = (data = {}) =>
@@ -73,10 +74,13 @@ const createClient = async (clientData, userId) => {
   }
 
   return clientRepository.create({
-    ...data,
-    createdBy: userId,
-    updatedBy: userId,
-  });
+  ...data,
+  status: "ACTIVE",
+  createdBy: userId,
+  updatedBy: userId,
+  isDeleted: false,
+  deletedAt: null,
+});
 };
 
 const getAllClients = async (filter = {}) => {
@@ -95,7 +99,17 @@ const getClientById = async (clientId) => {
 
 const updateClient = async (clientId, updateData, userId) => {
   const client = await clientRepository.findById(clientId);
-
+  if (
+  Object.prototype.hasOwnProperty.call(
+    updateData,
+    "status"
+  )
+) {
+  throw new AppError(
+    "Client status must be changed using the status endpoint.",
+    400
+  );
+}
   if (!client) {
     throw new AppError("Client not found.", 404);
   }
@@ -152,33 +166,101 @@ const updateClient = async (clientId, updateData, userId) => {
     updatedBy: userId,
   });
 };
+ 
 
-const deleteClient = async (clientId) => {
-  const client = await clientRepository.findById(clientId);
+// delete client
+
+
+const deleteClient = async (
+  clientId,
+  userId
+) => {
+  const client =
+    await clientRepository.findById(
+      clientId
+    );
 
   if (!client) {
-    throw new AppError("Client not found.", 404);
+    throw new AppError(
+      "Client not found.",
+      404
+    );
   }
 
-  await clientRepository.softDelete(clientId);
+  const events =
+    await eventRepository.findByClient(
+      clientId
+    );
+
+  if (events.length > 0) {
+    throw new AppError(
+      "Client cannot be deleted because events already exist for this client.",
+      409
+    );
+  }
+
+  const deleted =
+    await clientRepository.softDelete(
+      clientId,
+      userId
+    );
+
+  if (!deleted) {
+    throw new AppError(
+      "Client could not be deleted.",
+      409
+    );
+  }
 
   return {
-    message: "Client deleted successfully.",
+    message:
+      "Client deleted successfully.",
   };
 };
 
-const updateClientStatus = async (clientId, status) => {
-  const client = await clientRepository.findById(clientId);
+
+// update client status
+
+
+const updateClientStatus = async (
+  clientId,
+  status,
+  userId
+) => {
+  const client =
+    await clientRepository.findById(
+      clientId
+    );
 
   if (!client) {
-    throw new AppError("Client not found.", 404);
+    throw new AppError(
+      "Client not found.",
+      404
+    );
   }
 
   if (client.status === status) {
-    throw new AppError(`Client is already ${status}.`, 400);
+    throw new AppError(
+      `Client is already ${status}.`,
+      400
+    );
   }
 
-  return clientRepository.updateStatus(clientId, status);
+  const updatedClient =
+    await clientRepository.updateStatus(
+      clientId,
+      status,
+      userId
+    );
+
+  if (!updatedClient) {
+    throw new AppError(
+      "Client status could not be updated.",
+      409
+    );
+  }
+
+  return updatedClient;
 };
 
 module.exports = {

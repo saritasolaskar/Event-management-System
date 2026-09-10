@@ -72,7 +72,10 @@ const updateClient = asyncHandler(async (req, res) => {
  * Delete Client
  */
 const deleteClient = asyncHandler(async (req, res) => {
-  await clientService.deleteClient(req.params.id);
+  await clientService.deleteClient(
+  req.params.id,
+  req.user._id
+);
 
   return successResponse(
     res,
@@ -85,9 +88,11 @@ const deleteClient = asyncHandler(async (req, res) => {
  * Update Client Status
  */
 const updateClientStatus = asyncHandler(async (req, res) => {
-  const client = await clientService.updateClientStatus(
+  const client =
+  await clientService.updateClientStatus(
     req.params.id,
-    req.body.status
+    req.body.status,
+    req.user._id
   );
 
   return successResponse(

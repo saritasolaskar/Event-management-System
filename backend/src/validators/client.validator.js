@@ -51,10 +51,7 @@ const createClientValidator = [
         .isFloat({ min: 0 })
         .withMessage("Credit limit cannot be negative."),
 
-    body("status")
-        .optional()
-        .isIn(Object.values(STATUS))
-        .withMessage("Invalid client status."),
+    
 
 ];
 
@@ -108,10 +105,7 @@ const updateClientValidator = [
         .isFloat({ min: 0 })
         .withMessage("Credit limit cannot be negative."),
 
-    body("status")
-        .optional()
-        .isIn(Object.values(STATUS))
-        .withMessage("Invalid client status."),
+    
 
 ];
 
