@@ -208,6 +208,25 @@ const updateStatus = async (
     return query;
 };
 
+/**
+ * Find Drivers By Vendor
+ */
+const findByVendor = async (
+    vendorId,
+    session = null
+) => {
+    const query = Driver.find({
+        vendor: vendorId,
+        isDeleted: false,
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
 module.exports = {
     create,
     findById,
@@ -218,4 +237,5 @@ module.exports = {
     updateById,
     softDelete,
     updateStatus,
+    findByVendor,
 };

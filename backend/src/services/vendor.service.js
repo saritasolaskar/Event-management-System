@@ -1,12 +1,17 @@
 const vendorRepository =
     require("../repositories/vendor.repository");
+const mongoose = require("mongoose");
 
 const AppError =
     require("../utils/AppError");
 
 const { STATUS } =
     require("../constants/status");
+const vehicleRepository =
+    require("../repositories/vehicle.repository");
 
+const driverRepository =
+    require("../repositories/driver.repository");
 /**
  * Fields allowed when creating a Vendor.
  */
@@ -259,34 +264,94 @@ const deleteVendor = async (
     vendorId
 ) => {
 
-    const vendor =
-        await vendorRepository.findById(
-            vendorId
+    const session =
+        await mongoose.startSession();
+
+    try {
+
+        let deleted;
+
+        await session.withTransaction(
+            async () => {
+
+                const vendor =
+                    await vendorRepository.findById(
+                        vendorId,
+                        session
+                    );
+
+                if (!vendor) {
+                    throw new AppError(
+                        "Vendor not found.",
+                        404
+                    );
+                }
+
+                /*
+                 * Prevent deletion if active vehicles
+                 * still reference this vendor.
+                 */
+                const activeVehicles =
+                    await vehicleRepository.findByVendor(
+                        vendorId,
+                        session
+                    );
+
+                if (
+                    activeVehicles &&
+                    activeVehicles.length > 0
+                ) {
+                    throw new AppError(
+                        "Cannot delete vendor. Active vehicles are still assigned to this vendor.",
+                        409
+                    );
+                }
+
+                /*
+                 * Prevent deletion if active drivers
+                 * still reference this vendor.
+                 */
+                const activeDrivers =
+                    await driverRepository.findByVendor(
+                        vendorId,
+                        session
+                    );
+
+                if (
+                    activeDrivers &&
+                    activeDrivers.length > 0
+                ) {
+                    throw new AppError(
+                        "Cannot delete vendor. Active drivers are still assigned to this vendor.",
+                        409
+                    );
+                }
+
+                deleted =
+                    await vendorRepository.softDelete(
+                        vendorId,
+                        session
+                    );
+
+                if (!deleted) {
+                    throw new AppError(
+                        "Vendor could not be deleted.",
+                        500
+                    );
+                }
+            }
         );
 
-    if (!vendor) {
-        throw new AppError(
-            "Vendor not found.",
-            404
-        );
+        return {
+            message:
+                "Vendor deleted successfully.",
+        };
+
+    } finally {
+
+        await session.endSession();
+
     }
-
-    const deleted =
-        await vendorRepository.softDelete(
-            vendorId
-        );
-
-    if (!deleted) {
-        throw new AppError(
-            "Vendor could not be deleted.",
-            500
-        );
-    }
-
-    return {
-        message:
-            "Vendor deleted successfully.",
-    };
 };
 
 /**

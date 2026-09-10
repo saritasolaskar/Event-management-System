@@ -173,6 +173,25 @@ const findByCurrentDriver = async (
     return query;
 };
 
+/**
+ * Find Vehicles By Vendor
+ */
+const findByVendor = async (
+    vendorId,
+    session = null
+) => {
+    const query = Vehicle.find({
+        vendor: vendorId,
+        isDeleted: false,
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
 module.exports = {
     create,
     findById,
@@ -182,4 +201,5 @@ module.exports = {
     softDelete,
     updateStatus,
     findByCurrentDriver,
+    findByVendor,
 };
