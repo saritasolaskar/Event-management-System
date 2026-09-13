@@ -53,11 +53,24 @@ const findByCity = async (city) => {
 };
 
 /**
+ * Count active locations by filter
+ */
+const count = async (filter = {}) => {
+  return Location.countDocuments({
+    isDeleted: false,
+    ...filter,
+  });
+};
+
+/**
  * Update Location
  */
 const updateById = async (id, updateData) => {
-  return Location.findByIdAndUpdate(
-    id,
+  return Location.findOneAndUpdate(
+    {
+      _id: id,
+      isDeleted: false,
+    },
     updateData,
     {
       new: true,
@@ -69,14 +82,19 @@ const updateById = async (id, updateData) => {
 /**
  * Soft Delete Location
  */
-const softDelete = async (id) => {
-  return Location.findByIdAndUpdate(
-    id,
+const softDelete = async (id, userId) => {
+  return Location.findOneAndUpdate(
+    {
+      _id: id,
+      isDeleted: false,
+    },
     {
       isDeleted: true,
+      updatedBy: userId,
     },
     {
       new: true,
+      runValidators: true,
     }
   );
 };
@@ -84,11 +102,15 @@ const softDelete = async (id) => {
 /**
  * Update Location Status
  */
-const updateStatus = async (id, status) => {
-  return Location.findByIdAndUpdate(
-    id,
+const updateStatus = async (id, status, userId) => {
+  return Location.findOneAndUpdate(
+    {
+      _id: id,
+      isDeleted: false,
+    },
     {
       status,
+      updatedBy: userId,
     },
     {
       new: true,
@@ -103,6 +125,7 @@ module.exports = {
   findByLocationCode,
   findAll,
   findByCity,
+  count,
   updateById,
   softDelete,
   updateStatus,
