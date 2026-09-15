@@ -22,6 +22,8 @@ const guestManifestPdfRoutes = require("./guestManifestPdf.routes");
 const userRoutes = require("./user.routes");
 const router = express.Router();
 const commercialPackageRoutes = require("./commercialPackage.routes");
+const billingRoutes = require("./billing.routes");
+const notificationRoutes = require("./notification.routes");
 
 router.use("/commercial-packages", commercialPackageRoutes );
 router.use("/auth", authRoutes);
@@ -39,11 +41,11 @@ router.use("/guest-assignments", guestAssignmentRoutes);
 
 router.use("/duties", dutyRoutes);
 
-// router.use("/billing", billingRoutes);
+router.use("/billing", billingRoutes);
 router.use("/vendor-bills", vendorBillRoutes);
 router.use("/client-invoices", clientInvoiceRoutes);
 router.use("/billing-approval", billingApprovalRoutes);
-
+router.use("/notifications", notificationRoutes);
 router.use("/client-portal", clientPortalRoutes);
 router.use("/driver", driverApiRoutes);
 
