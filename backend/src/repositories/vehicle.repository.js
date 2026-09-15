@@ -3,30 +3,50 @@ const Vehicle = require("../models/vehicle.model");
 /**
  * Create Vehicle
  */
-const create = async (vehicleData) => {
-    return Vehicle.create(vehicleData);
+const create = async (vehicleData, session = null) => {
+    const [vehicle] = await Vehicle.create(
+        [vehicleData],
+        session ? { session } : {}
+    );
+
+    return vehicle;
 };
 
 /**
  * Find Vehicle By ID
  */
-const findById = async (id) => {
-    return Vehicle.findOne({
+const findById = async (id, session = null) => {
+    const query = Vehicle.findOne({
         _id: id,
         isDeleted: false,
     })
         .populate("vendor", "companyName ownerName phone")
         .populate("currentDriver", "firstName lastName phone");
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Find Vehicle By Number
  */
-const findByVehicleNumber = async (vehicleNumber) => {
-    return Vehicle.findOne({
+const findByVehicleNumber = async (
+    vehicleNumber,
+    session = null
+) => {
+    const query = Vehicle.findOne({
         vehicleNumber,
         isDeleted: false,
     });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
@@ -47,9 +67,16 @@ const findAll = async (filter = {}) => {
 /**
  * Update Vehicle
  */
-const updateById = async (id, updateData) => {
-    return Vehicle.findByIdAndUpdate(
-        id,
+const updateById = async (
+    id,
+    updateData,
+    session = null
+) => {
+    const query = Vehicle.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         updateData,
         {
             new: true,
@@ -58,14 +85,26 @@ const updateById = async (id, updateData) => {
     )
         .populate("vendor", "companyName")
         .populate("currentDriver", "firstName lastName phone");
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Soft Delete Vehicle
  */
-const softDelete = async (id) => {
-    return Vehicle.findByIdAndUpdate(
-        id,
+const softDelete = async (
+    id,
+    session = null
+) => {
+    const query = Vehicle.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         {
             isDeleted: true,
         },
@@ -74,32 +113,83 @@ const softDelete = async (id) => {
             runValidators: true,
         }
     );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Update Vehicle Status
  */
-const updateStatus = async (id, status) => {
-    return Vehicle.findByIdAndUpdate(
-        id,
+const updateStatus = async (
+    id,
+    status,
+    updatedBy,
+    session = null
+) => {
+    const query = Vehicle.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         {
             status,
+            updatedBy,
         },
         {
             new: true,
             runValidators: true,
         }
-    );
+    )
+        .populate("vendor", "companyName")
+        .populate("currentDriver", "firstName lastName phone");
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Find Vehicle By Driver
  */
-const findByCurrentDriver = async (driverId) => {
-    return Vehicle.findOne({
+const findByCurrentDriver = async (
+    driverId,
+    session = null
+) => {
+    const query = Vehicle.findOne({
         currentDriver: driverId,
         isDeleted: false,
     });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+/**
+ * Find Vehicles By Vendor
+ */
+const findByVendor = async (
+    vendorId,
+    session = null
+) => {
+    const query = Vehicle.find({
+        vendor: vendorId,
+        isDeleted: false,
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 module.exports = {
@@ -111,4 +201,5 @@ module.exports = {
     softDelete,
     updateStatus,
     findByCurrentDriver,
+    findByVendor,
 };

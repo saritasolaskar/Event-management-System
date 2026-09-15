@@ -1,20 +1,18 @@
 const clientInvoiceRepository =
-require("../../repositories/clientInvoice.repository");
+    require("../../repositories/clientInvoice.repository");
 
 const pdfGenerator =
-require("./pdfGenerator");
+    require("../pdfGenerator");
 
 const config =
-require("../../config/env");
+    require("../../config/env");
 
 const AppError =
-require("../../utils/appError");
+    require("../../utils/AppError");
 
-/**
- * Generate Client Invoice PDF
- */
 const generateClientInvoicePdf = async (
-    invoiceId
+    invoiceId,
+    user
 ) => {
 
     const invoice =
@@ -36,6 +34,20 @@ const generateClientInvoicePdf = async (
         );
     }
 
+    if (
+        user.role === "CLIENT" &&
+        (
+            !user.client ||
+            invoice.client._id.toString() !==
+                user.client.toString()
+        )
+    ) {
+        throw new AppError(
+            "Unauthorized.",
+            403
+        );
+    }
+
     if (!invoice.event) {
         throw new AppError(
             "Event not found.",
@@ -43,23 +55,34 @@ const generateClientInvoicePdf = async (
         );
     }
 
+    if (!invoice.vehicleAssignment) {
+        throw new AppError(
+            "Vehicle Assignment not found.",
+            404
+        );
+    }
+
     const company = {
 
         name:
-            config.COMPANY_NAME || "Transit Fleets",
+            config.COMPANY_NAME ||
+            "Transit Fleets",
 
         address:
-            config.COMPANY_ADDRESS || "",
+            config.COMPANY_ADDRESS ||
+            "",
 
         phone:
-            config.COMPANY_PHONE || "",
+            config.COMPANY_PHONE ||
+            "",
 
         email:
-            config.COMPANY_EMAIL || "",
+            config.COMPANY_EMAIL ||
+            "",
 
         gst:
-            config.COMPANY_GST || "",
-
+            config.COMPANY_GST ||
+            "",
     };
 
     const data = {
@@ -72,19 +95,30 @@ const generateClientInvoicePdf = async (
                 invoice.invoiceNumber,
 
             invoiceDate:
-                invoice.createdAt.toLocaleDateString(),
+                invoice.invoiceDate
+                    ? invoice.invoiceDate.toLocaleDateString()
+                    : "",
 
-            packageType:
-                invoice.packageType,
+            status:
+                invoice.status,
 
-            packageRate:
-                invoice.packageRate,
+            packageName:
+                invoice.packageName || "",
+
+            packageKm:
+                invoice.packageKm || 0,
+
+            packageHours:
+                invoice.packageHours || 0,
 
             totalKm:
                 invoice.totalKm,
 
             totalHours:
                 invoice.totalHours,
+
+            clientRate:
+                invoice.clientRate,
 
             extraKm:
                 invoice.extraKm,
@@ -104,15 +138,25 @@ const generateClientInvoicePdf = async (
             daCharges:
                 invoice.daCharges,
 
+            subtotal:
+                invoice.subtotal,
+
+            discount:
+                invoice.discount,
+
+            gstPercentage:
+                invoice.gstPercentage,
+
+            gstAmount:
+                invoice.gstAmount,
+
             totalAmount:
                 invoice.totalAmount,
 
-            status:
-                invoice.status,
-
-            approvedAt:
-                invoice.approvedAt,
-
+            approvedAtFormatted:
+                invoice.approvedAt
+                    ? invoice.approvedAt.toLocaleString()
+                    : "",
         },
 
         client:
@@ -121,18 +165,23 @@ const generateClientInvoicePdf = async (
         event:
             invoice.event,
 
+        vehicle:
+            invoice.vehicleAssignment.vehicle,
+
+        driver:
+            invoice.vehicleAssignment.driver,
+
         approvedBy:
             invoice.approvedBy,
-                    generatedAt:
-            new Date().toLocaleString(),
 
+        generatedAt:
+            new Date().toLocaleString(),
     };
 
     return pdfGenerator.generatePdf(
         "clientInvoice",
         data
     );
-
 };
 
 module.exports = {

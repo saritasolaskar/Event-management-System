@@ -2,7 +2,7 @@ const auditLogRepository =
 require("../repositories/auditLog.repository");
 
 const AppError =
-require("../utils/appError");
+require("../utils/AppError");
 
 /**
  * Create Audit Log

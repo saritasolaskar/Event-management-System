@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html>
 
 <head>
@@ -7,60 +8,61 @@
 
 <style>
 
-body{
-    font-family:Arial,sans-serif;
-    margin:40px;
-    color:#222;
+body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    color: #222;
 }
 
-.header{
-    display:flex;
-    justify-content:space-between;
-    border-bottom:2px solid #000;
-    padding-bottom:15px;
+.header {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 2px solid #000;
+    padding-bottom: 15px;
 }
 
-.company h1{
-    margin:0;
+.company h1 {
+    margin: 0;
 }
 
-.company p{
-    margin:2px 0;
+.company p {
+    margin: 2px 0;
 }
 
-.bill{
-    text-align:right;
+.bill {
+    text-align: right;
 }
 
-.section{
-    margin-top:25px;
+.section {
+    margin-top: 25px;
 }
 
-.section h3{
-    margin-bottom:8px;
+.section h3 {
+    margin-bottom: 8px;
 }
 
-table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:10px;
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
 }
 
-th{
-    background:#f5f5f5;
+th {
+    background: #f5f5f5;
 }
 
 th,
-td{
-    border:1px solid #ccc;
-    padding:8px;
-    text-align:left;
+td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
 }
 
-.footer{
-    margin-top:80px;
-    text-align:center;
-    font-size:12px;
+.footer {
+    margin-top: 60px;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
 }
 
 </style>
@@ -71,209 +73,290 @@ td{
 
 <div class="header">
 
+```
 <div class="company">
 
-<h1>{{company.name}}</h1>
+    <h1>{{company.name}}</h1>
 
-<p>{{company.address}}</p>
+    <p>{{company.address}}</p>
 
-<p>{{company.phone}}</p>
+    <p>{{company.phone}}</p>
 
-<p>{{company.email}}</p>
+    <p>{{company.email}}</p>
 
-<p>GST : {{company.gst}}</p>
+    {{#if company.gst}}
+    <p>
+        <strong>GST :</strong>
+        {{company.gst}}
+    </p>
+    {{/if}}
 
 </div>
 
 <div class="bill">
 
-<h2>VENDOR BILL</h2>
+    <h2>VENDOR BILL</h2>
 
-<p>Bill No : {{bill.billNumber}}</p>
+    <p>
+        <strong>Bill No :</strong>
+        {{bill.billNumber}}
+    </p>
 
-<p>Date : {{bill.billDate}}</p>
+    <p>
+        <strong>Date :</strong>
+        {{bill.billDate}}
+    </p>
 
 </div>
+```
 
 </div>
 
 <div class="section">
 
+```
 <h3>Vendor Details</h3>
 
 <p>
 
-<b>{{vendor.companyName}}</b>
+    <strong>{{vendor.companyName}}</strong>
 
-<br>
+    <br>
 
-{{vendor.address}}
+    {{vendor.address}}
 
-<br>
+    <br>
 
-{{vendor.phone}}
+    {{vendor.phone}}
 
 </p>
+```
 
 </div>
 
 <div class="section">
 
+```
 <h3>Event Details</h3>
 
 <table>
 
-<tr>
-<td>Event</td>
-<td>{{event.eventName}}</td>
-</tr>
+    <tbody>
 
-<tr>
-<td>Venue</td>
-<td>{{event.venue.name}}</td>
-</tr>
+        <tr>
+            <td>Event</td>
+            <td>{{event.name}}</td>
+        </tr>
 
-<tr>
-<td>Duty Date</td>
-<td>{{duty.dutyDateFormatted}}</td>
-</tr>
+        <tr>
+            <td>Venue</td>
+            <td>{{event.venue.name}}</td>
+        </tr>
+
+        <tr>
+            <td>Duty Date</td>
+            <td>{{duty.dutyDateFormatted}}</td>
+        </tr>
+
+    </tbody>
 
 </table>
+```
 
 </div>
 
 <div class="section">
 
+```
 <h3>Vehicle Details</h3>
 
 <table>
 
-<tr>
-<td>Vehicle Number</td>
-<td>{{vehicle.vehicleNumber}}</td>
-</tr>
+    <tbody>
 
-<tr>
-<td>Driver</td>
-<td>{{driver.name}}</td>
-</tr>
+        <tr>
+            <td>Vehicle Number</td>
+            <td>{{vehicle.vehicleNumber}}</td>
+        </tr>
 
-<tr>
-<td>Driver Phone</td>
-<td>{{driver.phone}}</td>
-</tr>
+        <tr>
+            <td>Driver</td>
+            <td>{{driver.name}}</td>
+        </tr>
+
+        <tr>
+            <td>Driver Phone</td>
+            <td>{{driver.phone}}</td>
+        </tr>
+
+    </tbody>
 
 </table>
+```
 
 </div>
 
 <div class="section">
 
+```
 <h3>Billing Summary</h3>
 
 <table>
 
-<tr>
-<th>Description</th>
-<th>Amount</th>
-</tr>
+    <thead>
 
-<tr>
-<td>Vendor Rate</td>
-<td>{{bill.vendorRate}}</td>
-</tr>
+        <tr>
+            <th>Description</th>
+            <th>Amount / Value</th>
+        </tr>
 
-<tr>
-<td>Total KM</td>
-<td>{{bill.totalKm}}</td>
-</tr>
+    </thead>
 
-<tr>
-<td>Total Hours</td>
-<td>{{bill.totalHours}}</td>
-</tr>
+    <tbody>
 
-<tr>
-<td>Extra KM</td>
-<td>{{bill.extraKm}}</td>
-</tr>
+        <tr>
+            <td>Package</td>
+            <td>{{package.name}}</td>
+        </tr>
 
-<tr>
-<td>Extra Hour</td>
-<td>{{bill.extraHour}}</td>
-</tr>
+        <tr>
+            <td>Included KM</td>
+            <td>{{package.km}}</td>
+        </tr>
 
-<tr>
-<td>Parking Charges</td>
-<td>{{bill.parkingCharges}}</td>
-</tr>
+        <tr>
+            <td>Included Hours</td>
+            <td>{{package.hours}}</td>
+        </tr>
 
-<tr>
-<td>Toll Charges</td>
-<td>{{bill.tollCharges}}</td>
-</tr>
+        <tr>
+            <td>Vendor Rate</td>
+            <td>₹ {{bill.vendorRate}}</td>
+        </tr>
 
-<tr>
-<td>Entry Charges</td>
-<td>{{bill.entryCharges}}</td>
-</tr>
+        <tr>
+            <td>Total KM</td>
+            <td>{{bill.totalKm}}</td>
+        </tr>
 
-<tr>
-<td>DA Charges</td>
-<td>{{bill.daCharges}}</td>
-</tr>
+        <tr>
+            <td>Total Hours</td>
+            <td>{{bill.totalHours}}</td>
+        </tr>
 
-<tr>
-<td><b>Total Payable</b></td>
-<td><b>{{bill.totalAmount}}</b></td>
-</tr>
+        <tr>
+            <td>Extra KM</td>
+            <td>{{bill.extraKm}}</td>
+        </tr>
+
+        <tr>
+            <td>Extra Hour</td>
+            <td>{{bill.extraHour}}</td>
+        </tr>
+
+        <tr>
+            <td>Parking Charges</td>
+            <td>₹ {{bill.parkingCharges}}</td>
+        </tr>
+
+        <tr>
+            <td>Toll Charges</td>
+            <td>₹ {{bill.tollCharges}}</td>
+        </tr>
+
+        <tr>
+            <td>Entry Charges</td>
+            <td>₹ {{bill.entryCharges}}</td>
+        </tr>
+
+        <tr>
+            <td>DA Charges</td>
+            <td>₹ {{bill.daCharges}}</td>
+        </tr>
+
+        <tr>
+
+            <td>
+                <strong>Total Payable</strong>
+            </td>
+
+            <td>
+                <strong>
+                    ₹ {{bill.totalAmount}}
+                </strong>
+            </td>
+
+        </tr>
+
+    </tbody>
 
 </table>
+```
 
 </div>
 
 <div class="section">
 
+```
 <h3>Approval</h3>
 
 <table>
 
-<tr>
-<td>Status</td>
-<td>{{bill.status}}</td>
-</tr>
+    <tbody>
 
-<tr>
-<td>Approved By</td>
+        <tr>
+            <td>Status</td>
+            <td>{{bill.status}}</td>
+        </tr>
 
-<td>
+        <tr>
 
-{{#if approvedBy}}
+            <td>Approved By</td>
 
-{{approvedBy.name}}
+            <td>
 
-{{else}}
+                {{#if approvedBy}}
 
-Pending
+                    {{approvedBy.name}}
 
-{{/if}}
+                {{else}}
 
-</td>
+                    Pending
 
-</tr>
+                {{/if}}
 
-<tr>
-<td>Approved At</td>
-<td>{{bill.approvedAtFormatted}}</td>
-</tr>
+            </td>
+
+        </tr>
+
+        <tr>
+
+            <td>Approved At</td>
+
+            <td>
+                {{bill.approvedAtFormatted}}
+            </td>
+
+        </tr>
+
+    </tbody>
 
 </table>
+```
 
 </div>
 
 <div class="footer">
 
-Generated by Transit Fleets ERP
+```
+<p>
+    Generated by Transit Fleets ERP
+</p>
+
+<p>
+    This is a computer-generated vendor bill.
+</p>
+```
 
 </div>
 

@@ -1,6 +1,70 @@
-const vendorRepository = require("../repositories/vendor.repository");
+// vecdor services
+const vendorRepository =
+    require("../repositories/vendor.repository");
+const mongoose = require("mongoose");
 
-const AppError = require("../utils/appError");
+const AppError =
+    require("../utils/AppError");
+
+const { STATUS } =
+    require("../constants/status");
+const vehicleRepository =
+    require("../repositories/vehicle.repository");
+
+const driverRepository =
+    require("../repositories/driver.repository");
+/**
+ * Fields allowed when creating a Vendor.
+ */
+const CREATE_FIELDS = [
+    "companyName",
+    "ownerName",
+    "email",
+    "phone",
+    "gstNumber",
+    "panNumber",
+    "paymentCycle",
+    "commissionType",
+    "commissionValue",
+];
+
+/**
+ * Fields allowed when updating a Vendor.
+ */
+const UPDATE_FIELDS = [
+    "companyName",
+    "ownerName",
+    "email",
+    "phone",
+    "gstNumber",
+    "panNumber",
+    "paymentCycle",
+    "commissionType",
+    "commissionValue",
+];
+
+/**
+ * Pick only allowed fields.
+ */
+const pickFields = (
+    data,
+    fields
+) => {
+    const result = {};
+
+    for (const field of fields) {
+        if (
+            Object.prototype.hasOwnProperty.call(
+                data,
+                field
+            )
+        ) {
+            result[field] = data[field];
+        }
+    }
+
+    return result;
+};
 
 /**
  * Create Vendor
@@ -10,9 +74,14 @@ const createVendor = async (
     userId
 ) => {
 
+    const data = pickFields(
+        vendorData,
+        CREATE_FIELDS
+    );
+
     const existingCompany =
         await vendorRepository.findByCompanyName(
-            vendorData.companyName
+            data.companyName
         );
 
     if (existingCompany) {
@@ -24,7 +93,7 @@ const createVendor = async (
 
     const existingEmail =
         await vendorRepository.findByEmail(
-            vendorData.email
+            data.email
         );
 
     if (existingEmail) {
@@ -34,11 +103,10 @@ const createVendor = async (
         );
     }
 
-    if (vendorData.gstNumber) {
-
+    if (data.gstNumber) {
         const existingGST =
             await vendorRepository.findByGST(
-                vendorData.gstNumber
+                data.gstNumber
             );
 
         if (existingGST) {
@@ -49,21 +117,27 @@ const createVendor = async (
         }
     }
 
-    vendorData.createdBy = userId;
-    vendorData.updatedBy = userId;
+    const vendor = {
+        ...data,
 
-    return await vendorRepository.create(
-        vendorData
-    );
+        // System-controlled fields
+        status: STATUS.ACTIVE,
+
+        createdBy: userId,
+        updatedBy: userId,
+
+        isDeleted: false,
+        deletedAt: null,
+    };
+
+    return vendorRepository.create(vendor);
 };
 
 /**
  * Get All Vendors
  */
 const getAllVendors = async () => {
-
-    return await vendorRepository.findAll();
-
+    return vendorRepository.findAll();
 };
 
 /**
@@ -109,15 +183,27 @@ const updateVendor = async (
         );
     }
 
+    const data = pickFields(
+        updateData,
+        UPDATE_FIELDS
+    );
+
+    if (Object.keys(data).length === 0) {
+        throw new AppError(
+            "No valid fields provided for update.",
+            400
+        );
+    }
+
     if (
-        updateData.companyName &&
-        updateData.companyName !==
+        data.companyName &&
+        data.companyName !==
             vendor.companyName
     ) {
 
         const existingCompany =
             await vendorRepository.findByCompanyName(
-                updateData.companyName
+                data.companyName
             );
 
         if (existingCompany) {
@@ -129,14 +215,13 @@ const updateVendor = async (
     }
 
     if (
-        updateData.email &&
-        updateData.email !==
-            vendor.email
+        data.email &&
+        data.email !== vendor.email
     ) {
 
         const existingEmail =
             await vendorRepository.findByEmail(
-                updateData.email
+                data.email
             );
 
         if (existingEmail) {
@@ -148,14 +233,13 @@ const updateVendor = async (
     }
 
     if (
-        updateData.gstNumber &&
-        updateData.gstNumber !==
-            vendor.gstNumber
+        data.gstNumber &&
+        data.gstNumber !== vendor.gstNumber
     ) {
 
         const existingGST =
             await vendorRepository.findByGST(
-                updateData.gstNumber
+                data.gstNumber
             );
 
         if (existingGST) {
@@ -166,11 +250,11 @@ const updateVendor = async (
         }
     }
 
-    updateData.updatedBy = userId;
+    data.updatedBy = userId;
 
-    return await vendorRepository.updateById(
+    return vendorRepository.updateById(
         vendorId,
-        updateData
+        data
     );
 };
 
@@ -181,26 +265,94 @@ const deleteVendor = async (
     vendorId
 ) => {
 
-    const vendor =
-        await vendorRepository.findById(
-            vendorId
+    const session =
+        await mongoose.startSession();
+
+    try {
+
+        let deleted;
+
+        await session.withTransaction(
+            async () => {
+
+                const vendor =
+                    await vendorRepository.findById(
+                        vendorId,
+                        session
+                    );
+
+                if (!vendor) {
+                    throw new AppError(
+                        "Vendor not found.",
+                        404
+                    );
+                }
+
+                /*
+                 * Prevent deletion if active vehicles
+                 * still reference this vendor.
+                 */
+                const activeVehicles =
+                    await vehicleRepository.findByVendor(
+                        vendorId,
+                        session
+                    );
+
+                if (
+                    activeVehicles &&
+                    activeVehicles.length > 0
+                ) {
+                    throw new AppError(
+                        "Cannot delete vendor. Active vehicles are still assigned to this vendor.",
+                        409
+                    );
+                }
+
+                /*
+                 * Prevent deletion if active drivers
+                 * still reference this vendor.
+                 */
+                const activeDrivers =
+                    await driverRepository.findByVendor(
+                        vendorId,
+                        session
+                    );
+
+                if (
+                    activeDrivers &&
+                    activeDrivers.length > 0
+                ) {
+                    throw new AppError(
+                        "Cannot delete vendor. Active drivers are still assigned to this vendor.",
+                        409
+                    );
+                }
+
+                deleted =
+                    await vendorRepository.softDelete(
+                        vendorId,
+                        session
+                    );
+
+                if (!deleted) {
+                    throw new AppError(
+                        "Vendor could not be deleted.",
+                        500
+                    );
+                }
+            }
         );
 
-    if (!vendor) {
-        throw new AppError(
-            "Vendor not found.",
-            404
-        );
+        return {
+            message:
+                "Vendor deleted successfully.",
+        };
+
+    } finally {
+
+        await session.endSession();
+
     }
-
-    await vendorRepository.softDelete(
-        vendorId
-    );
-
-    return {
-        message:
-            "Vendor deleted successfully."
-    };
 };
 
 /**
@@ -208,7 +360,8 @@ const deleteVendor = async (
  */
 const updateVendorStatus = async (
     vendorId,
-    status
+    status,
+    userId
 ) => {
 
     const vendor =
@@ -223,9 +376,21 @@ const updateVendorStatus = async (
         );
     }
 
-    return await vendorRepository.updateStatus(
+    if (
+        !Object.values(STATUS).includes(
+            status
+        )
+    ) {
+        throw new AppError(
+            "Invalid vendor status.",
+            400
+        );
+    }
+
+    return vendorRepository.updateStatus(
         vendorId,
-        status
+        status,
+        userId
     );
 };
 

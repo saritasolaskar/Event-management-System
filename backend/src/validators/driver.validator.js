@@ -1,6 +1,7 @@
+```js
 const { body, param } = require("express-validator");
 
-const { DRIVER_STATUS } = require("../constants/status");
+const { STATUS } = require("../constants/status");
 
 /**
  * Create Driver Validation
@@ -85,17 +86,6 @@ const createDriverValidator = [
         .isISO8601({ strict: true })
         .withMessage("Invalid medical certificate expiry date."),
 
-    body("rating")
-        .optional()
-        .isFloat({ min: 0, max: 5 })
-        .withMessage("Rating must be between 0 and 5.")
-        .toFloat(),
-
-    body("status")
-        .optional()
-        .isIn(Object.values(DRIVER_STATUS))
-        .withMessage("Invalid driver status."),
-
 ];
 
 /**
@@ -110,12 +100,16 @@ const updateDriverValidator = [
     body("firstName")
         .optional()
         .trim()
+        .notEmpty()
+        .withMessage("First name cannot be empty.")
         .isLength({ max: 50 })
         .withMessage("First name cannot exceed 50 characters."),
 
     body("lastName")
         .optional()
         .trim()
+        .notEmpty()
+        .withMessage("Last name cannot be empty.")
         .isLength({ max: 50 })
         .withMessage("Last name cannot exceed 50 characters."),
 
@@ -126,11 +120,39 @@ const updateDriverValidator = [
         .withMessage("Invalid phone number."),
 
     body("email")
-        .optional()
+        .optional({ nullable: true })
         .trim()
         .isEmail()
         .withMessage("Please enter a valid email.")
         .normalizeEmail(),
+
+    body("dateOfBirth")
+        .optional({ nullable: true })
+        .isISO8601({ strict: true })
+        .withMessage("Invalid date of birth."),
+
+    body("gender")
+        .optional()
+        .isIn(["MALE", "FEMALE", "OTHER"])
+        .withMessage("Invalid gender."),
+
+    body("address")
+        .optional()
+        .trim(),
+
+    body("city")
+        .optional()
+        .trim(),
+
+    body("state")
+        .optional()
+        .trim(),
+
+    body("pincode")
+        .optional()
+        .trim()
+        .isLength({ max: 10 })
+        .withMessage("Invalid pincode."),
 
     body("vendor")
         .optional()
@@ -142,10 +164,32 @@ const updateDriverValidator = [
         .isMongoId()
         .withMessage("Invalid vehicle ID."),
 
-    body("status")
+    body("licenseNumber")
         .optional()
-        .isIn(Object.values(DRIVER_STATUS))
-        .withMessage("Invalid driver status."),
+        .trim()
+        .isLength({ min: 8, max: 20 })
+        .withMessage("Invalid license number."),
+
+    body("licenseExpiry")
+        .optional()
+        .isISO8601({ strict: true })
+        .withMessage("Invalid license expiry date."),
+
+    body("badgeNumber")
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 30 })
+        .withMessage("Badge number cannot exceed 30 characters."),
+
+    body("policeVerificationExpiry")
+        .optional({ nullable: true })
+        .isISO8601({ strict: true })
+        .withMessage("Invalid police verification expiry date."),
+
+    body("medicalCertificateExpiry")
+        .optional({ nullable: true })
+        .isISO8601({ strict: true })
+        .withMessage("Invalid medical certificate expiry date."),
 
 ];
 
@@ -160,6 +204,23 @@ const driverIdValidator = [
 
 ];
 
+/**
+ * Driver Status Validation
+ */
+const driverStatusValidator = [
+
+    param("id")
+        .isMongoId()
+        .withMessage("Invalid driver ID."),
+
+    body("status")
+        .notEmpty()
+        .withMessage("Driver status is required.")
+        .isIn(Object.values(STATUS))
+        .withMessage("Invalid driver status."),
+
+];
+
 module.exports = {
 
     createDriverValidator,
@@ -168,4 +229,7 @@ module.exports = {
 
     driverIdValidator,
 
+    driverStatusValidator,
+
 };
+```

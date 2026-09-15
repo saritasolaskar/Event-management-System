@@ -12,6 +12,7 @@ const findById = async (id) => {
         .populate("event")
         .populate("vendor")
         .populate("driver")
+        .populate("commercialPackage")
         .populate("vehicle")
         .populate("reportingLocation");
 };
@@ -29,13 +30,23 @@ const findAll = async () => {
         });
 };
 
-const updateById = async (id, data) => {
-    return VehicleAssignment.findByIdAndUpdate(
-        id,
+const updateById = (
+    id,
+    data,
+    session = null
+) => {
+    return VehicleAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         data,
         {
             new: true,
             runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
         }
     );
 };
@@ -57,10 +68,17 @@ const findTodayByDriver = async (driverId) => {
     return VehicleAssignment.findOne({
         driver: driverId,
         isDeleted: false,
+        status: {
+            $in: ["ASSIGNED", "ON_DUTY"],
+        },
     })
         .populate("vehicle")
         .populate("event")
-        .populate("vendor");
+        .populate("vendor")
+        .sort({
+            reportingTime: 1,
+            createdAt: -1,
+        });
 };
 
 const findByEvent = async (eventId) => {
@@ -88,6 +106,9 @@ const findActiveByDriver = async (
     const query = {
         driver: driverId,
         isDeleted: false,
+        status: {
+            $in: ["ASSIGNED", "ON_DUTY"],
+        },
     };
 
     if (excludeAssignmentId) {
@@ -112,6 +133,9 @@ const findActiveByVehicle = async (
     const query = {
         vehicle: vehicleId,
         isDeleted: false,
+        status: {
+            $in: ["ASSIGNED", "ON_DUTY"],
+        },
     };
 
     if (excludeAssignmentId) {
@@ -124,6 +148,38 @@ const findActiveByVehicle = async (
 
 };
 
+const findByCommercialPackage = async (
+    commercialPackageId
+) => {
+    return VehicleAssignment.find({
+        commercialPackage: commercialPackageId,
+        isDeleted: false,
+    }).select("_id assignmentCode status");
+};
+
+const updateByIdAndStatus = (
+    id,
+    currentStatus,
+    data,
+    session = null
+) => {
+    return VehicleAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            status: currentStatus,
+            isDeleted: false,
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
+};
+
 module.exports = {
     create,
     findById,
@@ -134,4 +190,6 @@ module.exports = {
     findByEvent,
     findActiveByDriver,
     findActiveByVehicle,
+    findByCommercialPackage,
+    updateByIdAndStatus,
 };

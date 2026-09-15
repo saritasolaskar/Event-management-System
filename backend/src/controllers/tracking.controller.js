@@ -1,118 +1,124 @@
 const trackingService =
-require("../services/tracking.service");
+    require("../services/tracking.service");
 
 const asyncHandler =
-require("../utils/asyncHandler");
+    require("../utils/asyncHandler");
 
 const {
     successResponse,
 } = require("../utils/response.utils");
-
+const AppError = require("../utils/AppError");
 /**
  * Driver Updates Live Location
  */
 const updateLocation =
-asyncHandler(async (req, res) => {
+    asyncHandler(async (req, res) => {
 
-    const tracking =
-    await trackingService.updateLocation(
-
-        req.user.driver,
-
-        req.body
-
+        if (!req.user.driver) {
+    throw new AppError(
+        "Driver profile is not linked to this account.",
+        403
     );
+}
 
-    return successResponse(
+        const tracking =
+            await trackingService.updateLocation(
 
-        res,
+                req.user.driver,
 
-        201,
+                req.body
 
-        "Location updated successfully.",
+            );
 
-        tracking
+        return successResponse(
 
-    );
+            res,
 
-});
+            201,
+
+            "Location updated successfully.",
+
+            tracking
+
+        );
+
+    });
 
 /**
  * Get Live Location Of A Duty
  */
 const getDutyLiveLocation =
-asyncHandler(async (req, res) => {
+    asyncHandler(async (req, res) => {
 
-    const tracking =
-    await trackingService.getDutyLiveLocation(
+        const tracking =
+            await trackingService.getDutyLiveLocation(
+                req.params.dutyId,
+                req.user
+            );
 
-        req.params.dutyId
+        return successResponse(
 
-    );
+            res,
 
-    return successResponse(
+            200,
 
-        res,
+            "Live location fetched successfully.",
 
-        200,
+            tracking
 
-        "Live location fetched successfully.",
+        );
 
-        tracking
-
-    );
-
-});
+    });
 
 /**
  * Get Live Locations Of All Active Duties
  */
 const getAllLiveLocations =
-asyncHandler(async (req, res) => {
+    asyncHandler(async (req, res) => {
 
-    const tracking =
-    await trackingService.getAllLiveLocations();
+        const tracking =
+            await trackingService.getAllLiveLocations();
 
-    return successResponse(
+        return successResponse(
 
-        res,
+            res,
 
-        200,
+            200,
 
-        "Live locations fetched successfully.",
+            "Live locations fetched successfully.",
 
-        tracking
+            tracking
 
-    );
+        );
 
-});
+    });
 
 /**
  * Get Tracking History
  */
 const getTrackingHistory =
-asyncHandler(async (req, res) => {
+    asyncHandler(async (req, res) => {
 
-    const history =
-    await trackingService.getTrackingHistory(
+        const history =
+            await trackingService.getTrackingHistory(
 
-        req.params.dutyId
+                req.params.dutyId
 
-    );
+            );
 
-    return successResponse(
+        return successResponse(
 
-        res,
+            res,
 
-        200,
+            200,
 
-        "Tracking history fetched successfully.",
+            "Tracking history fetched successfully.",
 
-        history
+            history
 
-    );
+        );
 
-});
+    });
 
 module.exports = {
 

@@ -11,8 +11,7 @@ const vehicleRoutes = require("./vehicle.routes");
 const vehicleAssignmentRoutes = require("./vehicleAssignment.routes");
 const guestAssignmentRoutes = require("./guestAssignment.routes");
 const dutyRoutes = require("./duty.routes");
-const driverTrackingRoutes = require("./driverTracking.routes");
-const billingRoutes = require("./billing.routes");
+// const billingRoutes = require("./billing.routes");
 const vendorBillRoutes = require("./vendorBill.routes");
 const clientInvoiceRoutes = require("./clientInvoice.routes");
 const billingApprovalRoutes = require("./billingApproval.routes");
@@ -20,11 +19,15 @@ const clientPortalRoutes = require("./clientPortal.routes");
 const driverApiRoutes = require("./driverApi.routes");
 const dutyPdfRoutes = require("./dutyPdf.routes");
 const guestManifestPdfRoutes = require("./guestManifestPdf.routes");
-
+const userRoutes = require("./user.routes");
 const router = express.Router();
+const commercialPackageRoutes = require("./commercialPackage.routes");
+const billingRoutes = require("./billing.routes");
+const notificationRoutes = require("./notification.routes");
 
+router.use("/commercial-packages", commercialPackageRoutes );
 router.use("/auth", authRoutes);
-
+router.use("/users", userRoutes); 
 router.use("/clients", clientRoutes);
 router.use("/events", eventRoutes);
 router.use("/guests", guestRoutes);
@@ -37,13 +40,12 @@ router.use("/vehicle-assignments", vehicleAssignmentRoutes);
 router.use("/guest-assignments", guestAssignmentRoutes);
 
 router.use("/duties", dutyRoutes);
-router.use("/tracking", driverTrackingRoutes);
 
 router.use("/billing", billingRoutes);
 router.use("/vendor-bills", vendorBillRoutes);
 router.use("/client-invoices", clientInvoiceRoutes);
 router.use("/billing-approval", billingApprovalRoutes);
-
+router.use("/notifications", notificationRoutes);
 router.use("/client-portal", clientPortalRoutes);
 router.use("/driver", driverApiRoutes);
 

@@ -9,9 +9,10 @@ const validate = require("../middleware/validate");
 const { ROLES } = require("../constants/roles");
 
 const {
-  createVehicleValidator,
-  updateVehicleValidator,
-  vehicleIdValidator,
+    createVehicleValidator,
+    updateVehicleValidator,
+    vehicleIdValidator,
+    vehicleStatusValidator,
 } = require("../validators/vehicle.validator");
 
 const router = express.Router();
@@ -86,12 +87,12 @@ router.delete(
  * Update Vehicle Status
  */
 router.patch(
-  "/:id/status",
-  protect,
-  authorize(ROLES.ADMIN, ROLES.OPERATIONS_MANAGER),
-  vehicleIdValidator,
-  validate,
-  vehicleController.updateVehicleStatus
+    "/:id/status",
+    protect,
+    authorize(ROLES.ADMIN, ROLES.OPERATIONS_MANAGER),
+    vehicleStatusValidator,
+    validate,
+    vehicleController.updateVehicleStatus
 );
 
 module.exports = router;

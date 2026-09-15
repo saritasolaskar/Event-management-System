@@ -76,8 +76,9 @@ const updateLocation = asyncHandler(async (req, res) => {
  */
 const deleteLocation = asyncHandler(async (req, res) => {
   await locationService.deleteLocation(
-    req.params.id
-  );
+    req.params.id,
+    req.user._id
+);
 
   return successResponse(
     res,
@@ -93,9 +94,10 @@ const updateLocationStatus = asyncHandler(
   async (req, res) => {
     const location =
       await locationService.updateLocationStatus(
-        req.params.id,
-        req.body.status
-      );
+    req.params.id,
+    req.body.status,
+    req.user._id
+);
 
     return successResponse(
       res,

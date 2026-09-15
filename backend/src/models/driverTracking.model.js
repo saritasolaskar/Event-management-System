@@ -6,7 +6,6 @@ const {
 
 const driverTrackingSchema = new mongoose.Schema(
     {
-
         duty: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Duty",
@@ -17,26 +16,34 @@ const driverTrackingSchema = new mongoose.Schema(
         latitude: {
             type: Number,
             required: true,
+            min: -90,
+            max: 90,
         },
 
         longitude: {
             type: Number,
             required: true,
+            min: -180,
+            max: 180,
         },
 
         accuracy: {
             type: Number,
             default: 0,
+            min: 0,
         },
 
         speed: {
             type: Number,
             default: 0,
+            min: 0,
         },
 
         heading: {
             type: Number,
             default: 0,
+            min: 0,
+            max: 360,
         },
 
         stage: {
@@ -49,7 +56,6 @@ const driverTrackingSchema = new mongoose.Schema(
             type: Date,
             default: Date.now,
         },
-
     },
     {
         timestamps: true,

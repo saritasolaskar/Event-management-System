@@ -84,9 +84,10 @@ const deleteVendor = asyncHandler(async (req, res) => {
  */
 const updateVendorStatus = asyncHandler(async (req, res) => {
   const vendor = await vendorService.updateVendorStatus(
-    req.params.id,
-    req.body.status
-  );
+  req.params.id,
+  req.body.status,
+  req.user._id
+);
 
   return successResponse(
     res,

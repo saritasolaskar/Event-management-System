@@ -1,16 +1,45 @@
-const clientInvoiceRepository = require("../repositories/clientInvoice.repository");
-const billingService = require("./billing.service");
-const dutyRepository = require("../repositories/duty.repository");
+const crypto = require("crypto");
 
-const AppError = require("../utils/appError");
+const clientInvoiceRepository =
+    require("../repositories/clientInvoice.repository");
 
+const billingService =
+    require("./billing.service");
+
+const dutyRepository =
+    require("../repositories/duty.repository");
+
+const AppError =
+    require("../utils/AppError");
+
+
+const generateInvoiceNumber = () => {
+
+    const timestamp =
+        Date.now().toString(36).toUpperCase();
+
+    const random =
+        crypto
+            .randomBytes(4)
+            .toString("hex")
+            .toUpperCase();
+
+    return `INV-${timestamp}-${random}`;
+};
+
+
+/**
+ * Create Client Invoice
+ */
 const createClientInvoice = async (
     dutyId,
     userId
 ) => {
 
     const existingInvoice =
-        await clientInvoiceRepository.findByDuty(dutyId);
+        await clientInvoiceRepository.findByDuty(
+            dutyId
+        );
 
     if (existingInvoice) {
         throw new AppError(
@@ -25,7 +54,9 @@ const createClientInvoice = async (
         );
 
     const duty =
-        await dutyRepository.findById(dutyId);
+        await dutyRepository.findById(
+            dutyId
+        );
 
     if (!duty) {
         throw new AppError(
@@ -34,69 +65,140 @@ const createClientInvoice = async (
         );
     }
 
-    return clientInvoiceRepository.create({
+    const event =
+        duty.vehicleAssignment?.event;
 
-        duty: duty._id,
+    if (!event) {
+        throw new AppError(
+            "Event not found for this duty.",
+            404
+        );
+    }
 
-        client: duty.event.client,
+    if (!event.client) {
+        throw new AppError(
+            "Client not found for this event.",
+            404
+        );
+    }
 
-        event: duty.event._id,
+    try {
 
-        vehicleAssignment:
-            draft.assignment._id,
+        return await clientInvoiceRepository.create({
 
-        invoiceNumber:
-            `INV-${Date.now()}`,
+            duty:
+                duty._id,
 
-        invoiceDate:
-            new Date(),
+            client:
+                event.client,
 
-        totalKm:
-            draft.totalKm,
+            event:
+                event._id,
 
-        totalHours:
-            draft.totalHours,
+            vehicleAssignment:
+                draft.assignment._id,
 
-        clientRate:
-            draft.clientBill.clientRate,
+            packageName:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.name,
 
-        extraKm:
-            draft.clientBill.extraKm,
+            packageKm:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.clientIncludedKm,
 
-        extraHour:
-            draft.clientBill.extraHour,
+            packageHours:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.clientIncludedHours,
 
-        parkingCharges:
-            draft.duty.parkingCharges || 0,
+            invoiceNumber:
+                generateInvoiceNumber(),
 
-        tollCharges:
-            draft.duty.tollCharges || 0,
+            invoiceDate:
+                new Date(),
 
-        entryCharges:
-            draft.duty.entryCharges || 0,
+            totalKm:
+                draft.totalKm,
 
-        daCharges:
-            draft.duty.daCharges || 0,
+            totalHours:
+                draft.totalHours,
 
-        subtotal:
-            draft.clientBill.amount,
+            clientRate:
+                draft.clientBill.clientRate,
 
-        discount: 0,
+            extraKm:
+                draft.clientBill.extraKm,
 
-        gstPercentage: 0,
+            extraHour:
+                draft.clientBill.extraHour,
 
-        gstAmount: 0,
+            parkingCharges:
+                draft.clientBill.parkingCharges,
 
-        totalAmount:
-            draft.clientBill.amount,
+            tollCharges:
+                draft.clientBill.tollCharges,
 
-        createdBy: userId,
+            entryCharges:
+                draft.clientBill.entryCharges,
 
-        updatedBy: userId,
+            daCharges:
+                draft.clientBill.daCharges,
 
-    });
+            subtotal:
+                draft.clientBill.amount,
 
+            discount:
+                0,
+
+            gstPercentage:
+                0,
+
+            gstAmount:
+                0,
+
+            totalAmount:
+                draft.clientBill.amount,
+
+            createdBy:
+                userId,
+
+            updatedBy:
+                userId,
+
+        });
+
+    } catch (error) {
+
+        // Unique duty/invoice number protection
+        if (error?.code === 11000) {
+
+            if (
+                error.keyPattern?.duty ||
+                error.keyValue?.duty
+            ) {
+                throw new AppError(
+                    "Client Invoice already exists for this duty.",
+                    409
+                );
+            }
+
+            if (
+                error.keyPattern?.invoiceNumber ||
+                error.keyValue?.invoiceNumber
+            ) {
+                throw new AppError(
+                    "Invoice number collision occurred. Please try again.",
+                    409
+                );
+            }
+        }
+
+        throw error;
+    }
 };
+
 
 module.exports = {
     createClientInvoice,

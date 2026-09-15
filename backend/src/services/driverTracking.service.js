@@ -1,7 +1,28 @@
-const driverTrackingRepository = require("../repositories/driverTracking.repository");
-const dutyRepository = require("../repositories/duty.repository");
+const driverTrackingRepository =
+    require("../repositories/driverTracking.repository");
 
-const AppError = require("../utils/appError");
+const dutyRepository =
+    require("../repositories/duty.repository");
+
+const AppError =
+    require("../utils/AppError");
+
+const {
+    TRIP_STAGE,
+} = require("../constants/status");
+
+const STAGE_ORDER = [
+    TRIP_STAGE.NOT_STARTED,
+    TRIP_STAGE.PICKUP_STARTED,
+    TRIP_STAGE.PICKUP_COMPLETED,
+    TRIP_STAGE.EVENT_DUTY,
+    TRIP_STAGE.RETURN_STARTED,
+    TRIP_STAGE.RETURN_COMPLETED,
+    TRIP_STAGE.COMPLETED,
+];
+
+const getStageIndex = (stage) =>
+    STAGE_ORDER.indexOf(stage);
 
 /**
  * Create Tracking Point
@@ -23,22 +44,99 @@ const createTrackingPoint = async (
         );
     }
 
-    return driverTrackingRepository.create({
-        duty: duty._id,
-        latitude: trackingData.latitude,
-        longitude: trackingData.longitude,
-        accuracy: trackingData.accuracy,
-        speed: trackingData.speed,
-        heading: trackingData.heading,
-        stage: trackingData.stage,
-    });
+    const latest =
+        await driverTrackingRepository.findLatestByDuty(
+            duty._id
+        );
 
+    if (latest) {
+
+        const previousIndex =
+            getStageIndex(latest.stage);
+
+        const nextIndex =
+            getStageIndex(trackingData.stage);
+
+        if (
+            previousIndex === -1 ||
+            nextIndex === -1 ||
+            nextIndex < previousIndex
+        ) {
+            throw new AppError(
+                "Invalid tracking stage progression.",
+                400
+            );
+        }
+    }
+
+    return driverTrackingRepository.create({
+
+        duty: duty._id,
+
+        latitude:
+            trackingData.latitude,
+
+        longitude:
+            trackingData.longitude,
+
+        accuracy:
+            trackingData.accuracy ?? 0,
+
+        speed:
+            trackingData.speed ?? 0,
+
+        heading:
+            trackingData.heading ?? 0,
+
+        stage:
+            trackingData.stage,
+    });
 };
+
 
 /**
  * Get Latest Location
+ *
+ * CLIENT users can only see
+ * tracking belonging to their own event.
  */
-const getLatestLocation = async (dutyId) => {
+const getLatestLocation = async (
+    dutyId,
+    clientId
+) => {
+
+    const duty =
+        await dutyRepository.findById(
+            dutyId
+        );
+
+    if (!duty) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
+
+    if (clientId) {
+
+        const event =
+            duty.vehicleAssignment?.event;
+
+        const eventClientId =
+            event?.client?._id ||
+            event?.client;
+
+        if (
+            !eventClientId ||
+            eventClientId.toString() !==
+                clientId.toString()
+        ) {
+            throw new AppError(
+                "Unauthorized.",
+                403
+            );
+        }
+    }
 
     const tracking =
         await driverTrackingRepository.findLatestByDuty(
@@ -53,35 +151,21 @@ const getLatestLocation = async (dutyId) => {
     }
 
     return tracking;
-
 };
+
 
 /**
  * Get Tracking History
  */
-const getTrackingHistory = async (dutyId) => {
+const getTrackingHistory = async (
+    dutyId
+) => {
 
     return driverTrackingRepository.findHistoryByDuty(
         dutyId
     );
-
 };
 
-/**
- * Delete Tracking History
- * Intentionally not implemented.
- *
- * Tracking history should be preserved for:
- * - Analytics
- * - Route history
- * - Driver performance
- * - Audit logs
- * - Reporting
- */
-
-// const deleteTrackingHistory = async (dutyId) => {
-//     return driverTrackingRepository.deleteByDuty(dutyId);
-// };
 
 module.exports = {
     createTrackingPoint,

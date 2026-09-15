@@ -61,8 +61,11 @@ const findAll = async (filter = {}) => {
  * Update Client
  */
 const updateById = async (id, updateData) => {
-  return Client.findByIdAndUpdate(
-    id,
+  return Client.findOneAndUpdate(
+    {
+      _id: id,
+      isDeleted: false,
+    },
     updateData,
     {
       new: true,
@@ -74,14 +77,20 @@ const updateById = async (id, updateData) => {
 /**
  * Soft Delete Client
  */
-const softDelete = async (id) => {
-  return Client.findByIdAndUpdate(
-    id,
+const softDelete = async (id, userId) => {
+  return Client.findOneAndUpdate(
+    {
+      _id: id,
+      isDeleted: false,
+    },
     {
       isDeleted: true,
+      deletedAt: new Date(),
+      updatedBy: userId,
     },
     {
       new: true,
+      runValidators: true,
     }
   );
 };
@@ -89,10 +98,16 @@ const softDelete = async (id) => {
 /**
  * Update Client Status
  */
-const updateStatus = async (id, status) => {
-  return Client.findByIdAndUpdate(
-    id,
-    { status },
+const updateStatus = async (id, status, userId) => {
+  return Client.findOneAndUpdate(
+    {
+      _id: id,
+      isDeleted: false,
+    },
+    {
+      status,
+      updatedBy: userId,
+    },
     {
       new: true,
       runValidators: true,

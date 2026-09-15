@@ -12,6 +12,7 @@ const { ROLES } = require("../constants/roles");
 
 const {
     createGuestAssignmentValidator,
+    bulkAssignGuestsValidator,
     updateGuestAssignmentValidator,
     guestAssignmentIdValidator,
 } = require("../validators/guestAssignment.validator");
@@ -41,6 +42,8 @@ router.post(
         ROLES.ADMIN,
         ROLES.OPERATIONS_MANAGER
     ),
+    bulkAssignGuestsValidator,
+    validate,
     guestAssignmentController.bulkAssignGuests
 );
 

@@ -22,6 +22,70 @@ const vehicleAssignmentSchema = new mongoose.Schema(
             required: true,
         },
 
+        commercialPackage: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "CommercialPackage",
+            required: true,
+        },
+
+        commercialPackageSnapshot: {
+            name: {
+                type: String,
+                trim: true,
+                maxlength: 150,
+            },
+
+            vendorBaseRate: {
+                type: Number,
+                min: 0,
+            },
+
+            vendorIncludedKm: {
+                type: Number,
+                min: 0,
+            },
+
+            vendorExtraKmRate: {
+                type: Number,
+                min: 0,
+            },
+
+            vendorIncludedHours: {
+                type: Number,
+                min: 0,
+            },
+
+            vendorExtraHourRate: {
+                type: Number,
+                min: 0,
+            },
+
+            clientBaseRate: {
+                type: Number,
+                min: 0,
+            },
+
+            clientIncludedKm: {
+                type: Number,
+                min: 0,
+            },
+
+            clientExtraKmRate: {
+                type: Number,
+                min: 0,
+            },
+
+            clientIncludedHours: {
+                type: Number,
+                min: 0,
+            },
+
+            clientExtraHourRate: {
+                type: Number,
+                min: 0,
+            },
+        },
+
         vehicle: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Vehicle",

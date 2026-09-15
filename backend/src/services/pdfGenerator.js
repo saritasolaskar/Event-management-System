@@ -3,8 +3,7 @@ const path = require("path");
 
 const puppeteer = require("puppeteer");
 const Handlebars = require("handlebars");
-
-const AppError = require("../../utils/appError");
+const AppError = require("../utils/AppError");
 
 /**
  * Handlebars Helper
@@ -24,7 +23,7 @@ const generatePdf = async (templateName, data) => {
     // Template Path
     const templatePath = path.join(
         __dirname,
-        "../../templates/pdf",
+       "../templates/Pdf",
         `${templateName}.hbs`
     );
 

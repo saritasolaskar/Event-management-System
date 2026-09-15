@@ -1,144 +1,109 @@
-const vendorBillRepository = require("../../repositories/vendorBill.repository");
-const pdfGenerator = require("./pdfGenerator");
+const vendorBillRepository =
+    require("../repositories/vendorBill.repository");
 
-const config = require("../../config/env");
-const AppError = require("../../utils/appError");
+const billingService =
+    require("./billing.service");
 
-/**
- * Generate Vendor Bill PDF
- */
-const generateVendorBillPdf = async (billId) => {
+const AppError =
+    require("../utils/AppError");
 
-    const bill =
-        await vendorBillRepository.findById(
-            billId
+const createVendorBill = async (
+    dutyId,
+    userId
+) => {
+
+
+    const existingBill =
+        await vendorBillRepository.findByDuty(
+            dutyId
         );
 
-    if (!bill) {
+    if (existingBill) {
         throw new AppError(
-            "Vendor Bill not found.",
+            "Vendor Bill already exists for this duty.",
+            409
+        );
+    }
+
+    const draft =
+        await billingService.generateDraftBill(
+            dutyId
+        );
+
+    if (!draft.assignment.vendor) {
+        throw new AppError(
+            "Vendor not found for this vehicle assignment.",
             404
         );
     }
 
-    if (!bill.vehicleAssignment) {
-        throw new AppError(
-            "Vehicle Assignment not found for this bill.",
-            404
-        );
-    }
-
-    if (!bill.vendor) {
-        throw new AppError(
-            "Vendor not found.",
-            404
-        );
-    }
-
-    if (!bill.duty) {
-        throw new AppError(
-            "Duty not found.",
-            404
-        );
-    }
-
-    const vehicleAssignment =
-        bill.vehicleAssignment;
-
-    const data = {
-
-        company: {
-
-            name:
-                config.COMPANY_NAME || "Transit Fleets",
-
-            address:
-                config.COMPANY_ADDRESS || "",
-
-            phone:
-                config.COMPANY_PHONE || "",
-
-            email:
-                config.COMPANY_EMAIL || "",
-
-            gst:
-                config.COMPANY_GST || "",
-
-        },
-
-        bill: {
-
-            billNumber:
-                bill.billNumber,
-
-            billDate:
-                bill.createdAt.toLocaleDateString(),
-
-            vendorRate:
-                bill.vendorRate,
-
-            totalKm:
-                bill.totalKm,
-
-            totalHours:
-                bill.totalHours,
-
-            extraKm:
-                bill.extraKm,
-
-            extraHour:
-                bill.extraHour,
-
-            parkingCharges:
-                bill.parkingCharges,
-
-            tollCharges:
-                bill.tollCharges,
-
-            entryCharges:
-                bill.entryCharges,
-
-            daCharges:
-                bill.daCharges,
-
-            totalAmount:
-                bill.totalAmount,
-
-            status:
-                bill.status,
-
-            approvedAt:
-                bill.approvedAt,
-
-        },
-
-        vendor:
-            bill.vendor,
-
-        event:
-            bill.duty.event,
+    return vendorBillRepository.create({
 
         duty:
-            bill.duty,
+            draft.duty._id,
 
-        vehicle:
-            vehicleAssignment.vehicle,
+        vendor:
+            draft.assignment.vendor,
 
-        driver:
-            vehicleAssignment.driver,
+        vehicleAssignment:
+            draft.assignment._id,
 
-        approvedBy:
-            bill.approvedBy,
+        packageName:
+            draft.assignment.commercialPackageSnapshot?.name,
 
-    };
+        packageKm:
+            draft.assignment.commercialPackageSnapshot?.vendorIncludedKm,
 
-    return pdfGenerator.generatePdf(
-        "vendorBill",
-        data
-    );
+        packageHours:
+            draft.assignment.commercialPackageSnapshot?.vendorIncludedHours,
+
+        billDate:
+            new Date(),
+
+        totalKm:
+            draft.totalKm,
+
+        totalHours:
+            draft.totalHours,
+
+        vendorRate:
+            draft.vendorBill.vendorRate,
+
+        extraKm:
+            draft.vendorBill.extraKm,
+
+        extraHour:
+            draft.vendorBill.extraHour,
+
+        parkingCharges:
+            draft.vendorBill.parkingCharges,
+
+        tollCharges:
+            draft.vendorBill.tollCharges,
+
+        entryCharges:
+            draft.vendorBill.entryCharges,
+
+        daCharges:
+            draft.vendorBill.daCharges,
+
+        totalAmount:
+            draft.vendorBill.amount,
+
+        status:
+            draft.status,
+
+        createdBy:
+            userId,
+
+        updatedBy:
+            userId,
+
+    });
+
 
 };
 
 module.exports = {
-    generateVendorBillPdf,
+    createVendorBill,
 };

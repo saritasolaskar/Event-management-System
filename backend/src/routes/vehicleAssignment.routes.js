@@ -14,6 +14,7 @@ const {
     createVehicleAssignmentValidator,
     updateVehicleAssignmentValidator,
     vehicleAssignmentIdValidator,
+    updateVehicleAssignmentStatusValidator,
 } = require("../validators/vehicleAssignment.validator");
 
 /**
@@ -100,7 +101,7 @@ router.patch(
         ROLES.ADMIN,
         ROLES.OPERATIONS_MANAGER
     ),
-    vehicleAssignmentIdValidator,
+    updateVehicleAssignmentStatusValidator,
     validate,
     vehicleAssignmentController.updateVehicleAssignmentStatus
 );

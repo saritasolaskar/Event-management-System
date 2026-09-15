@@ -12,6 +12,7 @@ const {
     createEventValidator,
     updateEventValidator,
     eventIdValidator,
+    eventStatusValidator
 } = require("../validators/event.validator");
 
 const router = express.Router();
@@ -101,6 +102,7 @@ router.patch(
         ROLES.ADMIN,
         ROLES.OPERATIONS_MANAGER
     ),
+    eventStatusValidator,
     eventIdValidator,
     validate,
     eventController.updateEventStatus

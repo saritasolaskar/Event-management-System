@@ -61,12 +61,11 @@ router.get(
     protect,
 
     authorize(
-
-        ROLES.ADMIN,
-
-        ROLES.ACCOUNTS
-
-    ),
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER,
+    ROLES.DISPATCHER,
+    ROLES.ACCOUNTS
+),
 
     controller.getAllLiveLocations
 

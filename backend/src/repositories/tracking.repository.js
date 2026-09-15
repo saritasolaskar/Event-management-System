@@ -41,7 +41,6 @@ const findLatestByDriver = (driverId) =>
  * Latest Location Of Every Active Duty
  */
 const findLatestActiveLocations = async () => {
-
     return Tracking.aggregate([
         {
             $sort: {
@@ -61,8 +60,41 @@ const findLatestActiveLocations = async () => {
                 newRoot: "$latestTracking",
             },
         },
+        {
+            $lookup: {
+                from: "duties",
+                localField: "duty",
+                foreignField: "_id",
+                as: "duty",
+            },
+        },
+        {
+            $unwind: "$duty",
+        },
+        {
+            $match: {
+                "duty.status": "STARTED",
+                "duty.isDeleted": false,
+            },
+        },
+        {
+            $lookup: {
+                from: "vehicleassignments",
+                localField: "vehicleAssignment",
+                foreignField: "_id",
+                as: "vehicleAssignment",
+            },
+        },
+        {
+            $unwind: "$vehicleAssignment",
+        },
+        {
+            $match: {
+                "vehicleAssignment.status": "ON_DUTY",
+                "vehicleAssignment.isDeleted": false,
+            },
+        },
     ]);
-
 };
 
 module.exports = {

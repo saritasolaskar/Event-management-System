@@ -37,6 +37,12 @@ const createVehicleAssignmentValidator = [
     .optional()
     .isISO8601()
     .withMessage("Invalid Reporting Time."),
+
+  body("commercialPackage")
+    .notEmpty()
+    .withMessage("Commercial Package is required.")
+    .isMongoId()
+    .withMessage("Invalid Commercial Package ID."),
 ];
 
 /**
@@ -46,6 +52,38 @@ const updateVehicleAssignmentValidator = [
   param("id")
     .isMongoId()
     .withMessage("Invalid Assignment ID."),
+
+  body("vehicle")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid Vehicle ID."),
+
+  body("driver")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid Driver ID."),
+
+  body("reportingLocation")
+    .optional({ nullable: true })
+    .isMongoId()
+    .withMessage("Invalid Reporting Location ID."),
+
+  body("reportingTime")
+    .optional()
+    .isISO8601()
+    .withMessage("Invalid Reporting Time."),
+
+  body("remarks")
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage("Remarks cannot exceed 500 characters."),
+
+  body("commercialPackage")
+    .optional()
+    .isMongoId()
+    .withMessage("Invalid Commercial Package ID."),  
 ];
 
 /**
@@ -57,8 +95,19 @@ const vehicleAssignmentIdValidator = [
     .withMessage("Invalid Assignment ID."),
 ];
 
+const updateVehicleAssignmentStatusValidator = [
+    param("id")
+        .isMongoId()
+        .withMessage("Invalid Vehicle Assignment ID."),
+
+    body("status")
+        .equals("CANCELLED")
+        .withMessage("Only CANCELLED status is allowed."),
+];
+
 module.exports = {
   createVehicleAssignmentValidator,
   updateVehicleAssignmentValidator,
   vehicleAssignmentIdValidator,
+  updateVehicleAssignmentStatusValidator,
 };
