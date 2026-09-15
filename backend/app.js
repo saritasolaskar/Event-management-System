@@ -7,13 +7,13 @@ const morgan = require("morgan");
 
 // Main API Routes
 const routes = require("./src/routes");
-const trackingRoutes =require("./src/routes/tracking.routes");
-const auditLogRoutes =require("./src/routes/auditLog.routes");
+
+// Additional Routes
+const trackingRoutes = require("./src/routes/tracking.routes");
+const auditLogRoutes = require("./src/routes/auditLog.routes");
+
 // PDF Routes
 const dutyPdfRoutes = require("./src/routes/dutyPdf.routes");
-const clientInvoicePdfRoutes = require("./src/routes/clientInvoicePdf.routes");
-const vendorBillPdfRoutes = require("./src/routes/vendorBillPdf.routes");
-
 
 // Middlewares
 const notFound = require("./src/middleware/notFound.middleware");
@@ -57,32 +57,14 @@ app.use(morgan("dev"));
 // Main API Routes
 app.use("/api/v1", routes);
 
-// PDF Routes
+// Duty PDF Routes
 app.use("/api/v1/duty", dutyPdfRoutes);
 
+// Tracking Routes
+app.use("/api/v1/tracking", trackingRoutes);
 
-
-app.use(
-    "/api/v1/client-invoices",
-    clientInvoicePdfRoutes
-);
-
-app.use(
-    "/api/v1/vendor-bills",
-    vendorBillPdfRoutes
-);
-
-app.use(
-    "/api/v1/tracking",
-    trackingRoutes
-);
-
-
-
-app.use(
-    "/api/v1/audit-logs",
-    auditLogRoutes
-);
+// Audit Log Routes
+app.use("/api/v1/audit-logs", auditLogRoutes);
 
 /*
 |--------------------------------------------------------------------------
