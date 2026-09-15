@@ -1,4 +1,5 @@
-const clientInvoicePdfService =  require("../services/pdf/clientInvoicePdf.service");
+const clientInvoicePdfService =
+    require("../services/Pdf/clientInvoicePdf.service");
  
 const clientInvoiceService = require("../services/clientInvoice.service");
 
