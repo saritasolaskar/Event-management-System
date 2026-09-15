@@ -57,6 +57,34 @@ const updateById = (id, data) =>
         }
     );
 
+
+    /**
+ * Atomically update a Client Invoice only when its current status
+ * is one of the expected statuses.
+ */
+const updateStatusIfCurrent = async (
+    id,
+    currentStatuses,
+    data
+) => {
+
+    return ClientInvoice.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            status: {
+                $in: currentStatuses,
+            },
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
+
+};
+
 const findByClient = async (clientId) => {
 
     return ClientInvoice.find({
@@ -84,4 +112,5 @@ module.exports = {
     updateById,
     findByClient,
     findByDuty,
+    updateStatusIfCurrent,
 };

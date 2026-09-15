@@ -83,6 +83,34 @@ const updateById = async (
 
 };
 
+
+/**
+ * Atomically update a Vendor Bill only when its current status
+ * is one of the expected statuses.
+ */
+const updateStatusIfCurrent = async (
+    id,
+    currentStatuses,
+    data
+) => {
+
+    return VendorBill.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            status: {
+                $in: currentStatuses,
+            },
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
+
+};
+
 /**
  * Get Vendor Bills By Vendor
  */
@@ -122,4 +150,5 @@ module.exports = {
     updateById,
     findByVendor,
     findByDuty,
+    updateStatusIfCurrent,
 };
