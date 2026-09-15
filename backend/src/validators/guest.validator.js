@@ -11,21 +11,30 @@ const {
  * Create Guest Validation
  */
 const createGuestValidator = [
+
     body("guestCode")
         .trim()
         .notEmpty()
-        .withMessage("Guest code is required."),
+        .withMessage(
+            "Guest code is required."
+        ),
 
     body("event")
         .notEmpty()
-        .withMessage("Event is required.")
+        .withMessage(
+            "Event is required."
+        )
         .isMongoId()
-        .withMessage("Invalid event ID."),
+        .withMessage(
+            "Invalid event ID."
+        ),
 
     body("firstName")
         .trim()
         .notEmpty()
-        .withMessage("First name is required.")
+        .withMessage(
+            "First name is required."
+        )
         .isLength({ max: 50 })
         .withMessage(
             "First name cannot exceed 50 characters."
@@ -42,13 +51,17 @@ const createGuestValidator = [
     body("phone")
         .trim()
         .notEmpty()
-        .withMessage("Phone number is required."),
+        .withMessage(
+            "Phone number is required."
+        ),
 
     body("email")
         .optional()
         .trim()
         .isEmail()
-        .withMessage("Invalid email address.")
+        .withMessage(
+            "Invalid email address."
+        )
         .normalizeEmail(),
 
     body("gender")
@@ -58,7 +71,9 @@ const createGuestValidator = [
             "FEMALE",
             "OTHER",
         ])
-        .withMessage("Invalid gender."),
+        .withMessage(
+            "Invalid gender."
+        ),
 
     body("pickupLocation")
         .notEmpty()
@@ -115,12 +130,38 @@ const createGuestValidator = [
         ),
 
     body("status")
-        .optional()
-        .isIn(
-            Object.values(GUEST_STATUS)
-        )
+        .not()
+        .exists()
         .withMessage(
-            "Invalid guest status."
+            "Guest status must be changed using the status endpoint."
+        ),
+
+    body("isDeleted")
+        .not()
+        .exists()
+        .withMessage(
+            "isDeleted cannot be modified."
+        ),
+
+    body("deletedAt")
+        .not()
+        .exists()
+        .withMessage(
+            "deletedAt cannot be modified."
+        ),
+
+    body("createdBy")
+        .not()
+        .exists()
+        .withMessage(
+            "createdBy cannot be modified."
+        ),
+
+    body("updatedBy")
+        .not()
+        .exists()
+        .withMessage(
+            "updatedBy cannot be modified."
         ),
 ];
 
@@ -128,6 +169,7 @@ const createGuestValidator = [
  * Update Guest Validation
  */
 const updateGuestValidator = [
+
     param("id")
         .isMongoId()
         .withMessage(
@@ -236,6 +278,41 @@ const updateGuestValidator = [
         .withMessage(
             "Remarks cannot exceed 500 characters."
         ),
+
+    body("status")
+        .not()
+        .exists()
+        .withMessage(
+            "Guest status must be changed using the status endpoint."
+        ),
+
+    body("isDeleted")
+        .not()
+        .exists()
+        .withMessage(
+            "isDeleted cannot be modified."
+        ),
+
+    body("deletedAt")
+        .not()
+        .exists()
+        .withMessage(
+            "deletedAt cannot be modified."
+        ),
+
+    body("createdBy")
+        .not()
+        .exists()
+        .withMessage(
+            "createdBy cannot be modified."
+        ),
+
+    body("updatedBy")
+        .not()
+        .exists()
+        .withMessage(
+            "updatedBy cannot be modified."
+        ),
 ];
 
 /**
@@ -264,6 +341,7 @@ const eventIdValidator = [
  * Guest Status Validation
  */
 const guestStatusValidator = [
+
     param("id")
         .isMongoId()
         .withMessage(

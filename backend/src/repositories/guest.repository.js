@@ -99,6 +99,7 @@ const updateById = async (
  */
 const softDelete = async (
     id,
+    userId,
     session = null
 ) => {
     return Guest.findOneAndUpdate(
@@ -108,6 +109,8 @@ const softDelete = async (
         },
         {
             isDeleted: true,
+            deletedAt: new Date(),
+            updatedBy: userId,
         },
         {
             new: true,
@@ -125,6 +128,7 @@ const softDelete = async (
 const updateStatus = async (
     id,
     status,
+    userId,
     session = null
 ) => {
     return Guest.findOneAndUpdate(
@@ -134,6 +138,7 @@ const updateStatus = async (
         },
         {
             status,
+            updatedBy: userId,
         },
         {
             new: true,
@@ -145,7 +150,15 @@ const updateStatus = async (
     );
 };
 
-const findByEventWithAssignment = async (eventId) => {
+/**
+ * Find Guests By Event With Assignment
+ *
+ * Kept as an explicit repository method for callers
+ * that need the guest list for an event.
+ */
+const findByEventWithAssignment = async (
+    eventId
+) => {
     return findByEvent(eventId);
 };
 
@@ -159,16 +172,4 @@ module.exports = {
     updateById,
     softDelete,
     updateStatus,
-};
-
-module.exports = {
-    create,
-    findById,
-    findByGuestCode,
-    findByEvent,
-    findAll,
-    updateById,
-    softDelete,
-    updateStatus,
-    findByEventWithAssignment
 };

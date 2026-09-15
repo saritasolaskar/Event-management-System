@@ -147,6 +147,12 @@ const createGuest = async (
         status:
             GUEST_STATUS.PENDING,
 
+        isDeleted:
+            false,
+
+        deletedAt:
+            null,
+
         createdBy:
             userId,
 
@@ -245,6 +251,27 @@ const updateGuest = async (
         );
     }
 
+    /**
+     * Guest cannot be structurally changed
+     * once it has been assigned to a vehicle.
+     *
+     * This protects:
+     * Guest -> Event
+     * Guest -> Vehicle Assignment
+     * consistency.
+     */
+    const existingAssignment =
+        await guestAssignmentRepository.findByGuest(
+            guestId
+        );
+
+    if (existingAssignment) {
+        throw new AppError(
+            "Guest cannot be structurally modified while assigned to a vehicle.",
+            409
+        );
+    }
+
     const currentEventId =
         guest.event?._id ||
         guest.event;
@@ -271,10 +298,7 @@ const updateGuest = async (
 
     if (
         eventChanged ||
-        Object.keys(updateData).some(
-            (key) =>
-                key !== "status"
-        )
+        Object.keys(updateData).length > 0
     ) {
         await validateEventForGuestChange(
             targetEventId
@@ -369,7 +393,8 @@ const updateGuest = async (
  * Delete Guest
  */
 const deleteGuest = async (
-    guestId
+    guestId,
+    userId
 ) => {
 
     const guest =
@@ -398,7 +423,8 @@ const deleteGuest = async (
 
     const deletedGuest =
         await guestRepository.softDelete(
-            guestId
+            guestId,
+            userId
         );
 
     if (!deletedGuest) {
@@ -407,6 +433,8 @@ const deleteGuest = async (
             409
         );
     }
+
+    return deletedGuest;
 };
 
 /**
@@ -414,7 +442,8 @@ const deleteGuest = async (
  */
 const updateGuestStatus = async (
     guestId,
-    status
+    status,
+    userId
 ) => {
 
     const guest =
@@ -440,6 +469,29 @@ const updateGuestStatus = async (
             "Cancelled guest cannot change status.",
             400
         );
+    }
+
+    /**
+     * A guest with an active vehicle assignment
+     * cannot be cancelled because that would leave
+     * an active assignment pointing to a cancelled guest.
+     */
+    if (
+        status ===
+        GUEST_STATUS.CANCELLED
+    ) {
+
+        const assignment =
+            await guestAssignmentRepository.findByGuest(
+                guestId
+            );
+
+        if (assignment) {
+            throw new AppError(
+                "Assigned guest cannot be cancelled. Remove the vehicle assignment first.",
+                409
+            );
+        }
     }
 
     const allowedTransitions = {
@@ -470,7 +522,8 @@ const updateGuestStatus = async (
     const updatedGuest =
         await guestRepository.updateStatus(
             guestId,
-            status
+            status,
+            userId
         );
 
     if (!updatedGuest) {
