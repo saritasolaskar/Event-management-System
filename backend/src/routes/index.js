@@ -11,7 +11,6 @@ const vehicleRoutes = require("./vehicle.routes");
 const vehicleAssignmentRoutes = require("./vehicleAssignment.routes");
 const guestAssignmentRoutes = require("./guestAssignment.routes");
 const dutyRoutes = require("./duty.routes");
-const driverTrackingRoutes = require("./driverTracking.routes");
 // const billingRoutes = require("./billing.routes");
 const vendorBillRoutes = require("./vendorBill.routes");
 const clientInvoiceRoutes = require("./clientInvoice.routes");
@@ -39,7 +38,6 @@ router.use("/vehicle-assignments", vehicleAssignmentRoutes);
 router.use("/guest-assignments", guestAssignmentRoutes);
 
 router.use("/duties", dutyRoutes);
-router.use("/tracking", driverTrackingRoutes);
 
 // router.use("/billing", billingRoutes);
 router.use("/vendor-bills", vendorBillRoutes);

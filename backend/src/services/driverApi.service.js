@@ -1,4 +1,4 @@
-```js
+
 const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.repository");
 const guestAssignmentRepository = require("../repositories/guestAssignment.repository");
 
@@ -212,4 +212,3 @@ module.exports = {
     markReturnPickup,
     markGuestDropped,
 };
-```

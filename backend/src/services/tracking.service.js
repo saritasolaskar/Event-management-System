@@ -1,4 +1,4 @@
-```js
+
 const trackingRepository =
     require("../repositories/tracking.repository");
 
@@ -223,4 +223,4 @@ module.exports = {
     getTrackingHistory,
 
 };
-```
+
