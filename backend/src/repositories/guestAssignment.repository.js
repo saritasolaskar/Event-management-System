@@ -96,6 +96,30 @@ const updateById = async (
     );
 };
 
+
+/**
+ * Atomically update a Guest Assignment only when
+ * its current lifecycle state matches the expected state.
+ */
+const updateByIdIfState = async (
+    id,
+    expectedState,
+    data
+) => {
+    return GuestAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            ...expectedState,
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
+};
+
 /**
  * Update only if the trip has not started.
  *
@@ -106,18 +130,13 @@ const updateByIdIfPending = async (
     id,
     data
 ) => {
-    return GuestAssignment.findOneAndUpdate(
+    return updateByIdIfState(
+        id,
         {
-            _id: id,
-            isDeleted: false,
             pickupStatus: "PENDING",
             returnStatus: "NOT_STARTED",
         },
-        data,
-        {
-            new: true,
-            runValidators: true,
-        }
+        data
     );
 };
 
@@ -302,4 +321,5 @@ module.exports = {
     findByVehicleAssignment,
     findByGuest,
     findByDriver,
+    updateByIdIfState,
 };

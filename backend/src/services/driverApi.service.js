@@ -88,12 +88,19 @@ const getAssignedGuests = async (driverId) => {
 /**
  * Driver En Route
  */
-const markDriverEnRoute = async (id, driverId) => {
+const markDriverEnRoute = async (
+    id,
+    driverId
+) => {
     const assignment =
-        await getDriverGuestAssignment(id, driverId);
+        await getDriverGuestAssignment(
+            id,
+            driverId
+        );
 
     if (
-        assignment.pickupStatus !== PICKUP_STATUS.PENDING
+        assignment.pickupStatus !==
+        PICKUP_STATUS.PENDING
     ) {
         throw new AppError(
             "Guest must be in PENDING status before starting pickup.",
@@ -101,20 +108,47 @@ const markDriverEnRoute = async (id, driverId) => {
         );
     }
 
-    return guestAssignmentRepository.updateById(id, {
-        pickupStatus: PICKUP_STATUS.DRIVER_EN_ROUTE,
-    });
+    const updatedAssignment =
+        await guestAssignmentRepository.updateByIdIfState(
+            id,
+            {
+                pickupStatus:
+                    PICKUP_STATUS.PENDING,
+                returnStatus:
+                    RETURN_STATUS.NOT_STARTED,
+            },
+            {
+                pickupStatus:
+                    PICKUP_STATUS.DRIVER_EN_ROUTE,
+            }
+        );
+
+    if (!updatedAssignment) {
+        throw new AppError(
+            "Guest assignment was already updated by another request.",
+            409
+        );
+    }
+
+    return updatedAssignment;
 };
 
 /**
  * Guest Picked
  */
-const markGuestPicked = async (id, driverId) => {
+const markGuestPicked = async (
+    id,
+    driverId
+) => {
     const assignment =
-        await getDriverGuestAssignment(id, driverId);
+        await getDriverGuestAssignment(
+            id,
+            driverId
+        );
 
     if (
-        assignment.pickupStatus !== PICKUP_STATUS.DRIVER_EN_ROUTE
+        assignment.pickupStatus !==
+        PICKUP_STATUS.DRIVER_EN_ROUTE
     ) {
         throw new AppError(
             "Driver must be en route before marking guest as picked up.",
@@ -122,21 +156,46 @@ const markGuestPicked = async (id, driverId) => {
         );
     }
 
-    return guestAssignmentRepository.updateById(id, {
-        pickupStatus: PICKUP_STATUS.PICKED_UP,
-        pickupTime: new Date(),
-    });
+    const updatedAssignment =
+        await guestAssignmentRepository.updateByIdIfState(
+            id,
+            {
+                pickupStatus:
+                    PICKUP_STATUS.DRIVER_EN_ROUTE,
+            },
+            {
+                pickupStatus:
+                    PICKUP_STATUS.PICKED_UP,
+                pickupTime: new Date(),
+            }
+        );
+
+    if (!updatedAssignment) {
+        throw new AppError(
+            "Guest assignment was already updated by another request.",
+            409
+        );
+    }
+
+    return updatedAssignment;
 };
 
 /**
  * Venue Reached
  */
-const markVenueReached = async (id, driverId) => {
+const markVenueReached = async (
+    id,
+    driverId
+) => {
     const assignment =
-        await getDriverGuestAssignment(id, driverId);
+        await getDriverGuestAssignment(
+            id,
+            driverId
+        );
 
     if (
-        assignment.pickupStatus !== PICKUP_STATUS.PICKED_UP
+        assignment.pickupStatus !==
+        PICKUP_STATUS.PICKED_UP
     ) {
         throw new AppError(
             "Guest must be picked up before reaching the venue.",
@@ -144,21 +203,46 @@ const markVenueReached = async (id, driverId) => {
         );
     }
 
-    return guestAssignmentRepository.updateById(id, {
-        pickupStatus: PICKUP_STATUS.DROPPED_AT_VENUE,
-        venueArrivalTime: new Date(),
-    });
+    const updatedAssignment =
+        await guestAssignmentRepository.updateByIdIfState(
+            id,
+            {
+                pickupStatus:
+                    PICKUP_STATUS.PICKED_UP,
+            },
+            {
+                pickupStatus:
+                    PICKUP_STATUS.DROPPED_AT_VENUE,
+                venueArrivalTime: new Date(),
+            }
+        );
+
+    if (!updatedAssignment) {
+        throw new AppError(
+            "Guest assignment was already updated by another request.",
+            409
+        );
+    }
+
+    return updatedAssignment;
 };
 
 /**
  * Return Pickup
  */
-const markReturnPickup = async (id, driverId) => {
+const markReturnPickup = async (
+    id,
+    driverId
+) => {
     const assignment =
-        await getDriverGuestAssignment(id, driverId);
+        await getDriverGuestAssignment(
+            id,
+            driverId
+        );
 
     if (
-        assignment.pickupStatus !== PICKUP_STATUS.DROPPED_AT_VENUE
+        assignment.pickupStatus !==
+        PICKUP_STATUS.DROPPED_AT_VENUE
     ) {
         throw new AppError(
             "Guest must reach the venue before return pickup.",
@@ -167,7 +251,8 @@ const markReturnPickup = async (id, driverId) => {
     }
 
     if (
-        assignment.returnStatus !== RETURN_STATUS.NOT_STARTED
+        assignment.returnStatus !==
+        RETURN_STATUS.NOT_STARTED
     ) {
         throw new AppError(
             "Return pickup has already started or completed.",
@@ -175,21 +260,48 @@ const markReturnPickup = async (id, driverId) => {
         );
     }
 
-    return guestAssignmentRepository.updateById(id, {
-        returnStatus: RETURN_STATUS.RETURN_PICKUP,
-        returnPickupTime: new Date(),
-    });
+    const updatedAssignment =
+        await guestAssignmentRepository.updateByIdIfState(
+            id,
+            {
+                pickupStatus:
+                    PICKUP_STATUS.DROPPED_AT_VENUE,
+                returnStatus:
+                    RETURN_STATUS.NOT_STARTED,
+            },
+            {
+                returnStatus:
+                    RETURN_STATUS.RETURN_PICKUP,
+                returnPickupTime: new Date(),
+            }
+        );
+
+    if (!updatedAssignment) {
+        throw new AppError(
+            "Guest assignment was already updated by another request.",
+            409
+        );
+    }
+
+    return updatedAssignment;
 };
 
 /**
  * Guest Dropped
  */
-const markGuestDropped = async (id, driverId) => {
+const markGuestDropped = async (
+    id,
+    driverId
+) => {
     const assignment =
-        await getDriverGuestAssignment(id, driverId);
+        await getDriverGuestAssignment(
+            id,
+            driverId
+        );
 
     if (
-        assignment.returnStatus !== RETURN_STATUS.RETURN_PICKUP
+        assignment.returnStatus !==
+        RETURN_STATUS.RETURN_PICKUP
     ) {
         throw new AppError(
             "Guest must be picked up for return before marking as dropped.",
@@ -197,12 +309,29 @@ const markGuestDropped = async (id, driverId) => {
         );
     }
 
-    return guestAssignmentRepository.updateById(id, {
-        returnStatus: RETURN_STATUS.DROPPED,
-        dropTime: new Date(),
-    });
-};
+    const updatedAssignment =
+        await guestAssignmentRepository.updateByIdIfState(
+            id,
+            {
+                returnStatus:
+                    RETURN_STATUS.RETURN_PICKUP,
+            },
+            {
+                returnStatus:
+                    RETURN_STATUS.DROPPED,
+                dropTime: new Date(),
+            }
+        );
 
+    if (!updatedAssignment) {
+        throw new AppError(
+            "Guest assignment was already updated by another request.",
+            409
+        );
+    }
+
+    return updatedAssignment;
+};
 module.exports = {
     getDriverDashboard,
     getAssignedGuests,
