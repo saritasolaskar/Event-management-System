@@ -1,45 +1,66 @@
 const notificationRepository =
-require("../repositories/notification.repository");
+    require("../repositories/notification.repository");
 
 const AppError =
-require("../utils/AppError");
+    require("../utils/AppError");
+
+const {
+    NOTIFICATION_TYPE,
+} = require("../constants/status");
+
 
 /**
  * Create Notification
  */
 const createNotification = async ({
-
     recipientUser,
-
     title,
-
     message,
-
     type,
-
     referenceType = "SYSTEM",
-
     referenceId = null,
-
 }) => {
 
+    if (!recipientUser) {
+        throw new AppError(
+            "Notification recipient is required.",
+            400
+        );
+    }
+
+    if (!Object.values(
+        NOTIFICATION_TYPE
+    ).includes(type)) {
+        throw new AppError(
+            "Invalid notification type.",
+            400
+        );
+    }
+
+    if (!title?.trim()) {
+        throw new AppError(
+            "Notification title is required.",
+            400
+        );
+    }
+
+    if (!message?.trim()) {
+        throw new AppError(
+            "Notification message is required.",
+            400
+        );
+    }
+
     return notificationRepository.create({
-
         recipientUser,
-
-        title,
-
-        message,
-
+        title: title.trim(),
+        message: message.trim(),
         type,
-
         referenceType,
-
         referenceId,
-
     });
-
 };
+
 
 /**
  * Get Logged-in User Notifications
@@ -51,8 +72,21 @@ const getMyNotifications = async (
     return notificationRepository.findByRecipient(
         userId
     );
-
 };
+
+
+/**
+ * Get Unread Notification Count
+ */
+const getUnreadCount = async (
+    userId
+) => {
+
+    return notificationRepository.countUnread(
+        userId
+    );
+};
+
 
 /**
  * Mark Notification As Read
@@ -63,32 +97,44 @@ const markAsRead = async (
 ) => {
 
     const notification =
-        await notificationRepository.findById(
-            notificationId
+        await notificationRepository.markAsRead(
+            notificationId,
+            userId
         );
 
     if (!notification) {
-        throw new AppError(
-            "Notification not found.",
-            404
-        );
+
+        const existing =
+            await notificationRepository.findById(
+                notificationId
+            );
+
+        if (!existing) {
+            throw new AppError(
+                "Notification not found.",
+                404
+            );
+        }
+
+        if (
+            existing.recipientUser.toString() !==
+            userId.toString()
+        ) {
+            throw new AppError(
+                "Unauthorized.",
+                403
+            );
+        }
+
+        /*
+         * Notification already read.
+         */
+        return existing;
     }
 
-    if (
-        notification.recipientUser.toString() !==
-        userId.toString()
-    ) {
-        throw new AppError(
-            "Unauthorized.",
-            403
-        );
-    }
-
-    return notificationRepository.markAsRead(
-        notificationId
-    );
-
+    return notification;
 };
+
 
 /**
  * Mark All Notifications As Read
@@ -100,8 +146,8 @@ const markAllAsRead = async (
     return notificationRepository.markAllAsRead(
         userId
     );
-
 };
+
 
 /**
  * Delete Notification
@@ -112,38 +158,41 @@ const deleteNotification = async (
 ) => {
 
     const notification =
+        await notificationRepository.softDelete(
+            notificationId,
+            userId
+        );
+
+    if (notification) {
+        return notification;
+    }
+
+    const existing =
         await notificationRepository.findById(
             notificationId
         );
 
-    if (!notification) {
+    if (!existing) {
         throw new AppError(
             "Notification not found.",
             404
         );
     }
 
-    if (
-        notification.recipientUser.toString() !==
-        userId.toString()
-    ) {
-        throw new AppError(
-            "Unauthorized.",
-            403
-        );
-    }
-
-    return notificationRepository.softDelete(
-        notificationId
+    throw new AppError(
+        "Unauthorized.",
+        403
     );
-
 };
+
 
 module.exports = {
 
     createNotification,
 
     getMyNotifications,
+
+    getUnreadCount,
 
     markAsRead,
 
