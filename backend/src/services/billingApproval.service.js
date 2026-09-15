@@ -7,8 +7,10 @@ const clientInvoiceRepository =
 const AppError =
     require("../utils/AppError");
 
-const { BILL_STATUS } =
-    require("../constants/status");
+const {
+    BILL_STATUS,
+} = require("../constants/status");
+
 
 /**
  * Approve Vendor Bill
@@ -18,6 +20,7 @@ const approveVendorBill = async (
     remarks,
     userId
 ) => {
+
     const bill =
         await vendorBillRepository.findById(id);
 
@@ -38,16 +41,34 @@ const approveVendorBill = async (
         );
     }
 
-    return vendorBillRepository.updateById(
-        id,
-        {
-            status: BILL_STATUS.APPROVED,
-            approvedBy: userId,
-            approvedAt: new Date(),
-            remarks,
-            updatedBy: userId,
-        }
-    );
+    const updated =
+        await vendorBillRepository.updateStatusIfCurrent(
+            id,
+            [
+                BILL_STATUS.DRAFT,
+                BILL_STATUS.UNDER_REVIEW,
+            ],
+            {
+                status: BILL_STATUS.APPROVED,
+                approvedBy: userId,
+                approvedAt: new Date(),
+
+                rejectedBy: null,
+                rejectedAt: null,
+
+                remarks,
+                updatedBy: userId,
+            }
+        );
+
+    if (!updated) {
+        throw new AppError(
+            "Vendor Bill status changed. Please refresh and try again.",
+            409
+        );
+    }
+
+    return updated;
 };
 
 
@@ -59,6 +80,7 @@ const rejectVendorBill = async (
     remarks,
     userId
 ) => {
+
     const bill =
         await vendorBillRepository.findById(id);
 
@@ -79,22 +101,35 @@ const rejectVendorBill = async (
         );
     }
 
-    return vendorBillRepository.updateById(
-    id,
-    {
-        status: BILL_STATUS.REJECTED,
+    const updated =
+        await vendorBillRepository.updateStatusIfCurrent(
+            id,
+            [
+                BILL_STATUS.DRAFT,
+                BILL_STATUS.UNDER_REVIEW,
+            ],
+            {
+                status: BILL_STATUS.REJECTED,
 
-        rejectedBy: userId,
-        rejectedAt: new Date(),
+                rejectedBy: userId,
+                rejectedAt: new Date(),
 
-        // Clear any previous approval metadata.
-        approvedBy: null,
-        approvedAt: null,
+                approvedBy: null,
+                approvedAt: null,
 
-        remarks,
-        updatedBy: userId,
+                remarks,
+                updatedBy: userId,
+            }
+        );
+
+    if (!updated) {
+        throw new AppError(
+            "Vendor Bill status changed. Please refresh and try again.",
+            409
+        );
     }
-);
+
+    return updated;
 };
 
 
@@ -105,6 +140,7 @@ const shareVendorBill = async (
     id,
     userId
 ) => {
+
     const bill =
         await vendorBillRepository.findById(id);
 
@@ -124,13 +160,26 @@ const shareVendorBill = async (
         );
     }
 
-    return vendorBillRepository.updateById(
-        id,
-        {
-            status: BILL_STATUS.SHARED,
-            updatedBy: userId,
-        }
-    );
+    const updated =
+        await vendorBillRepository.updateStatusIfCurrent(
+            id,
+            [
+                BILL_STATUS.APPROVED,
+            ],
+            {
+                status: BILL_STATUS.SHARED,
+                updatedBy: userId,
+            }
+        );
+
+    if (!updated) {
+        throw new AppError(
+            "Vendor Bill status changed. Please refresh and try again.",
+            409
+        );
+    }
+
+    return updated;
 };
 
 
@@ -143,6 +192,7 @@ const markVendorBillPaid = async (
     paymentReference,
     userId
 ) => {
+
     const bill =
         await vendorBillRepository.findById(id);
 
@@ -153,24 +203,40 @@ const markVendorBillPaid = async (
         );
     }
 
-    if (bill.status !== BILL_STATUS.SHARED) {
+    if (
+        bill.status !== BILL_STATUS.SHARED
+    ) {
         throw new AppError(
             "Only shared Vendor Bills can be marked as paid.",
             400
         );
     }
 
-    return vendorBillRepository.updateById(
-        id,
-        {
-            status: BILL_STATUS.PAID,
-            paymentDate: new Date(),
-            paymentMode,
-            paymentReference,
-            updatedBy: userId,
-        }
-    );
+    const updated =
+        await vendorBillRepository.updateStatusIfCurrent(
+            id,
+            [
+                BILL_STATUS.SHARED,
+            ],
+            {
+                status: BILL_STATUS.PAID,
+                paymentDate: new Date(),
+                paymentMode,
+                paymentReference,
+                updatedBy: userId,
+            }
+        );
+
+    if (!updated) {
+        throw new AppError(
+            "Vendor Bill status changed. Please refresh and try again.",
+            409
+        );
+    }
+
+    return updated;
 };
+
 
 /**
  * Approve Client Invoice
@@ -180,6 +246,7 @@ const approveClientInvoice = async (
     remarks,
     userId
 ) => {
+
     const invoice =
         await clientInvoiceRepository.findById(id);
 
@@ -200,16 +267,34 @@ const approveClientInvoice = async (
         );
     }
 
-    return clientInvoiceRepository.updateById(
-        id,
-        {
-            status: BILL_STATUS.APPROVED,
-            approvedBy: userId,
-            approvedAt: new Date(),
-            remarks,
-            updatedBy: userId,
-        }
-    );
+    const updated =
+        await clientInvoiceRepository.updateStatusIfCurrent(
+            id,
+            [
+                BILL_STATUS.DRAFT,
+                BILL_STATUS.UNDER_REVIEW,
+            ],
+            {
+                status: BILL_STATUS.APPROVED,
+                approvedBy: userId,
+                approvedAt: new Date(),
+
+                rejectedBy: null,
+                rejectedAt: null,
+
+                remarks,
+                updatedBy: userId,
+            }
+        );
+
+    if (!updated) {
+        throw new AppError(
+            "Client Invoice status changed. Please refresh and try again.",
+            409
+        );
+    }
+
+    return updated;
 };
 
 
@@ -221,6 +306,7 @@ const rejectClientInvoice = async (
     remarks,
     userId
 ) => {
+
     const invoice =
         await clientInvoiceRepository.findById(id);
 
@@ -241,21 +327,35 @@ const rejectClientInvoice = async (
         );
     }
 
-    return clientInvoiceRepository.updateById(
-        id,
-        {
-            status: BILL_STATUS.REJECTED,
-            rejectedBy: userId,
-            rejectedAt: new Date(),
+    const updated =
+        await clientInvoiceRepository.updateStatusIfCurrent(
+            id,
+            [
+                BILL_STATUS.DRAFT,
+                BILL_STATUS.UNDER_REVIEW,
+            ],
+            {
+                status: BILL_STATUS.REJECTED,
 
-            // Clear any previous approval metadata.
-            approvedBy: null,
-            approvedAt: null,
+                rejectedBy: userId,
+                rejectedAt: new Date(),
 
-            remarks,
-            updatedBy: userId,
-        }
-    );
+                approvedBy: null,
+                approvedAt: null,
+
+                remarks,
+                updatedBy: userId,
+            }
+        );
+
+    if (!updated) {
+        throw new AppError(
+            "Client Invoice status changed. Please refresh and try again.",
+            409
+        );
+    }
+
+    return updated;
 };
 
 
@@ -266,6 +366,7 @@ const shareClientInvoice = async (
     id,
     userId
 ) => {
+
     const invoice =
         await clientInvoiceRepository.findById(id);
 
@@ -285,13 +386,26 @@ const shareClientInvoice = async (
         );
     }
 
-    return clientInvoiceRepository.updateById(
-        id,
-        {
-            status: BILL_STATUS.SHARED,
-            updatedBy: userId,
-        }
-    );
+    const updated =
+        await clientInvoiceRepository.updateStatusIfCurrent(
+            id,
+            [
+                BILL_STATUS.APPROVED,
+            ],
+            {
+                status: BILL_STATUS.SHARED,
+                updatedBy: userId,
+            }
+        );
+
+    if (!updated) {
+        throw new AppError(
+            "Client Invoice status changed. Please refresh and try again.",
+            409
+        );
+    }
+
+    return updated;
 };
 
 
@@ -304,6 +418,7 @@ const markClientInvoicePaid = async (
     paymentReference,
     userId
 ) => {
+
     const invoice =
         await clientInvoiceRepository.findById(id);
 
@@ -314,30 +429,47 @@ const markClientInvoicePaid = async (
         );
     }
 
-    if (invoice.status !== BILL_STATUS.SHARED) {
+    if (
+        invoice.status !== BILL_STATUS.SHARED
+    ) {
         throw new AppError(
             "Only shared Client Invoices can be marked as paid.",
             400
         );
     }
 
-    return clientInvoiceRepository.updateById(
-        id,
-        {
-            status: BILL_STATUS.PAID,
-            paymentDate: new Date(),
-            paymentMode,
-            paymentReference,
-            updatedBy: userId,
-        }
-    );
+    const updated =
+        await clientInvoiceRepository.updateStatusIfCurrent(
+            id,
+            [
+                BILL_STATUS.SHARED,
+            ],
+            {
+                status: BILL_STATUS.PAID,
+                paymentDate: new Date(),
+                paymentMode,
+                paymentReference,
+                updatedBy: userId,
+            }
+        );
+
+    if (!updated) {
+        throw new AppError(
+            "Client Invoice status changed. Please refresh and try again.",
+            409
+        );
+    }
+
+    return updated;
 };
+
 
 module.exports = {
     approveVendorBill,
     rejectVendorBill,
     shareVendorBill,
     markVendorBillPaid,
+
     approveClientInvoice,
     rejectClientInvoice,
     shareClientInvoice,
