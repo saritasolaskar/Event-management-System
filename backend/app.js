@@ -8,11 +8,9 @@ const morgan = require("morgan");
 // Main API Routes
 const routes = require("./src/routes");
 const trackingRoutes =require("./src/routes/tracking.routes");
-const notificationRoutes =require("./src/routes/notification.routes");
 const auditLogRoutes =require("./src/routes/auditLog.routes");
 // PDF Routes
 const dutyPdfRoutes = require("./src/routes/dutyPdf.routes");
-const guestManifestPdfRoutes = require("./src/routes/guestManifestPdf.routes");
 const clientInvoicePdfRoutes = require("./src/routes/clientInvoicePdf.routes");
 const vendorBillPdfRoutes = require("./src/routes/vendorBillPdf.routes");
 
@@ -62,10 +60,7 @@ app.use("/api/v1", routes);
 // PDF Routes
 app.use("/api/v1/duty", dutyPdfRoutes);
 
-app.use(
-    "/api/v1/guest-manifest",
-    guestManifestPdfRoutes
-);
+
 
 app.use(
     "/api/v1/client-invoices",
@@ -82,10 +77,7 @@ app.use(
     trackingRoutes
 );
 
-app.use(
-    "/api/v1/notifications",
-    notificationRoutes
-);
+
 
 app.use(
     "/api/v1/audit-logs",
