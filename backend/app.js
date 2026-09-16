@@ -4,7 +4,7 @@ const helmet = require("helmet");
 const compression = require("compression");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
-
+const corsOptions = require("./src/config/cors");
 // Main API Routes
 const routes = require("./src/routes");
 
@@ -31,7 +31,7 @@ const app = express();
 app.use(helmet());
 
 // Enable CORS
-app.use(cors());
+app.use(cors(corsOptions));
 
 // Compress Responses
 app.use(compression());
