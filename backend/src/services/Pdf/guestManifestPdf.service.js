@@ -114,47 +114,55 @@ const generateGuestManifestPdf = async (
 
                 return {
 
-                    name:
-                        `${guest.firstName} ${
-                            guest.lastName || ""
-                        }`.trim(),
+    name:
+        `${guest.firstName} ${
+            guest.lastName || ""
+        }`.trim(),
 
-                    company:
-                        "-",
+    company:
+        "-",
 
-                    phone:
-                        guest.phone || "-",
+    phone:
+        guest.phone || "-",
 
-                    pickupLocation:
-                        guest.pickupLocation || null,
+    pickupLocation:
+        guest.pickupLocation || null,
 
-                    dropLocation:
-                        guest.dropLocation || null,
+    dropLocation:
+        guest.dropLocation || null,
 
-                    status:
-                        guest.status,
+    status:
+        guest.status,
 
-                    vehicleAssignment:
-                        assignment
-                            ? {
-                                vehicle:
-                                    vehicle
-                                        ? {
-                                            vehicleNumber:
-                                                vehicle.vehicleNumber,
-                                        }
-                                        : null,
+    pickupStatus:
+        assignment?.pickupStatus ||
+        "PENDING",
 
-                                driver:
-                                    driver
-                                        ? {
-                                            name:
-                                                driverName,
-                                        }
-                                        : null,
-                            }
-                            : null,
-                };
+    returnStatus:
+        assignment?.returnStatus ||
+        "NOT_STARTED",
+
+    vehicleAssignment:
+        assignment
+            ? {
+                vehicle:
+                    vehicle
+                        ? {
+                            vehicleNumber:
+                                vehicle.vehicleNumber,
+                        }
+                        : null,
+
+                driver:
+                    driver
+                        ? {
+                            name:
+                                driverName,
+                        }
+                        : null,
+            }
+            : null,
+};
             }
         );
 
@@ -165,16 +173,20 @@ const generateGuestManifestPdf = async (
         ).length;
 
     const pickedUp =
-        guestList.filter(
-            (guest) =>
-                guest.status === "PICKED_UP"
-        ).length;
+    guestList.filter(
+        (guest) =>
+            guest.pickupStatus ===
+                "PICKED_UP" ||
+            guest.pickupStatus ===
+                "DROPPED_AT_VENUE"
+    ).length;
 
-    const dropped =
-        guestList.filter(
-            (guest) =>
-                guest.status === "DROPPED"
-        ).length;
+const dropped =
+    guestList.filter(
+        (guest) =>
+            guest.returnStatus ===
+            "DROPPED"
+    ).length;
 
     const pending =
         guestList.length - assigned;

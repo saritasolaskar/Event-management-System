@@ -92,24 +92,24 @@ const getGuests = async (eventId, clientId) => {
             ...guestDoc,
             assignment: assignment
                 ? {
-                      _id: assignment._id,
-                      vehicleAssignment:
-                          assignment.vehicleAssignment?._id ||
-                          assignment.vehicleAssignment,
-                      vehicle:
-                          assignment.vehicleAssignment?.vehicle || null,
-                      driver:
-                          assignment.vehicleAssignment?.driver || null,
-                      pickupSequence: assignment.pickupSequence,
-                      dropSequence: assignment.dropSequence,
-                      pickupStatus: assignment.pickupStatus,
-                      returnStatus: assignment.returnStatus,
-                      pickupTime: assignment.pickupTime,
-                      venueArrivalTime: assignment.venueArrivalTime,
-                      returnPickupTime: assignment.returnPickupTime,
-                      dropTime: assignment.dropTime,
-                      remarks: assignment.remarks,
-                  }
+                    _id: assignment._id,
+                    vehicleAssignment:
+                        assignment.vehicleAssignment?._id ||
+                        assignment.vehicleAssignment,
+                    vehicle:
+                        assignment.vehicleAssignment?.vehicle || null,
+                    driver:
+                        assignment.vehicleAssignment?.driver || null,
+                    pickupSequence: assignment.pickupSequence,
+                    dropSequence: assignment.dropSequence,
+                    pickupStatus: assignment.pickupStatus,
+                    returnStatus: assignment.returnStatus,
+                    pickupTime: assignment.pickupTime,
+                    venueArrivalTime: assignment.venueArrivalTime,
+                    returnPickupTime: assignment.returnPickupTime,
+                    dropTime: assignment.dropTime,
+                    remarks: assignment.remarks,
+                }
                 : null,
         };
     });
@@ -130,10 +130,12 @@ const getVehicles = async (eventId, clientId) => {
         vehicle: assignment.vehicle,
         driver: assignment.driver
             ? {
-                  _id: assignment.driver._id,
-                  name: assignment.driver.name,
-                  phone: assignment.driver.phone,
-              }
+                _id: assignment.driver._id,
+                name:
+                    `${assignment.driver.firstName || ""} ${assignment.driver.lastName || ""
+                        }`.trim(),
+                phone: assignment.driver.phone,
+            }
             : null,
         startDate: assignment.startDate,
         endDate: assignment.endDate,
@@ -208,18 +210,20 @@ const getEventOverview = async (eventId, clientId) => {
             assignmentStatus: va ? va.status : "UNASSIGNED",
             cab: va?.vehicle
                 ? {
-                      id: va.vehicle._id,
-                      vehicleNumber: va.vehicle.vehicleNumber,
-                      model: va.vehicle.model,
-                      vehicleType: va.vehicle.vehicleType,
-                  }
+                    id: va.vehicle._id,
+                    vehicleNumber: va.vehicle.vehicleNumber,
+                    model: va.vehicle.model,
+                    vehicleType: va.vehicle.vehicleType,
+                }
                 : null,
             driver: va?.driver
                 ? {
-                      id: va.driver._id,
-                      name: va.driver.name,
-                      phone: va.driver.phone,
-                  }
+                    id: va.driver._id,
+                    name:
+                        `${va.driver.firstName || ""} ${va.driver.lastName || ""
+                            }`.trim(),
+                    phone: va.driver.phone,
+                }
                 : null,
             pickupSequence: ga?.pickupSequence || null,
             dropSequence: ga?.dropSequence || null,
@@ -300,18 +304,21 @@ const getLiveTracking = async (eventId, clientId) => {
         tracking.push({
             duty: duty._id,
             driver: assignment.driver
-                ? {
-                      _id: assignment.driver._id,
-                      name: assignment.driver.name,
-                      phone: assignment.driver.phone,
-                  }
-                : null,
+    ? {
+          _id: assignment.driver._id,
+          name:
+              `${assignment.driver.firstName || ""} ${
+                  assignment.driver.lastName || ""
+              }`.trim(),
+          phone: assignment.driver.phone,
+      }
+    : null,
             vehicle: assignment.vehicle
                 ? {
-                      _id: assignment.vehicle._id,
-                      vehicleNumber: assignment.vehicle.vehicleNumber,
-                      model: assignment.vehicle.model,
-                  }
+                    _id: assignment.vehicle._id,
+                    vehicleNumber: assignment.vehicle.vehicleNumber,
+                    model: assignment.vehicle.model,
+                }
                 : null,
             location: latest,
         });
@@ -333,24 +340,27 @@ const getDrivers = async (eventId, clientId) => {
         assignmentId: assignment._id,
         status: assignment.status,
         driver: assignment.driver
-            ? {
-                  _id: assignment.driver._id,
-                  name: assignment.driver.name,
-                  phone: assignment.driver.phone,
-                  licenseNumber: assignment.driver.licenseNumber,
-                  status: assignment.driver.status,
-              }
-            : null,
+    ? {
+          _id: assignment.driver._id,
+          name:
+              `${assignment.driver.firstName || ""} ${
+                  assignment.driver.lastName || ""
+              }`.trim(),
+          phone: assignment.driver.phone,
+          licenseNumber: assignment.driver.licenseNumber,
+          status: assignment.driver.status,
+      }
+    : null,
         vehicle: assignment.vehicle
             ? {
-                  _id: assignment.vehicle._id,
-                  vehicleNumber: assignment.vehicle.vehicleNumber,
-                  model: assignment.vehicle.model,
-                  vehicleType: assignment.vehicle.vehicleType,
-                  capacity:
-                      assignment.vehicle.seatingCapacity ||
-                      assignment.vehicle.capacity,
-              }
+                _id: assignment.vehicle._id,
+                vehicleNumber: assignment.vehicle.vehicleNumber,
+                model: assignment.vehicle.model,
+                vehicleType: assignment.vehicle.vehicleType,
+                capacity:
+                    assignment.vehicle.seatingCapacity ||
+                    assignment.vehicle.capacity,
+            }
             : null,
     }));
 };
