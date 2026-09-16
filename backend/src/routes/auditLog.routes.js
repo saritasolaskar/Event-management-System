@@ -32,17 +32,11 @@ const {
 */
 
 router.use(
-
     protect,
-
     authorize(
-
         ROLES.ADMIN,
-
         ROLES.ACCOUNTS
-
     )
-
 );
 
 /*
@@ -52,29 +46,8 @@ router.use(
 */
 
 router.get(
-
     "/",
-
     controller.getAllLogs
-
-);
-
-/*
-|--------------------------------------------------------------------------
-| Get Audit Log By ID
-|--------------------------------------------------------------------------
-*/
-
-router.get(
-
-    "/:id",
-
-    auditLogIdValidator,
-
-    validate,
-
-    controller.getLogById
-
 );
 
 /*
@@ -84,15 +57,10 @@ router.get(
 */
 
 router.get(
-
     "/user/:userId",
-
     auditLogUserValidator,
-
     validate,
-
     controller.getLogsByUser
-
 );
 
 /*
@@ -102,15 +70,10 @@ router.get(
 */
 
 router.get(
-
     "/module/:module",
-
     auditLogModuleValidator,
-
     validate,
-
     controller.getLogsByModule
-
 );
 
 /*
@@ -120,15 +83,24 @@ router.get(
 */
 
 router.get(
-
     "/module/:module/:referenceId",
-
     auditLogReferenceValidator,
-
     validate,
-
     controller.getLogsByReference
+);
 
+/*
+|--------------------------------------------------------------------------
+| Get Audit Log By ID
+|--------------------------------------------------------------------------
+| IMPORTANT: Keep this last because it is generic.
+*/
+
+router.get(
+    "/:id",
+    auditLogIdValidator,
+    validate,
+    controller.getLogById
 );
 
 module.exports = router;

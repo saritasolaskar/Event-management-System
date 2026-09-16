@@ -30,21 +30,14 @@ require("../constants/roles");
 */
 
 router.post(
-
     "/location",
-
     protect,
-
     authorize(
         ROLES.DRIVER
     ),
-
     updateLocationValidator,
-
     validate,
-
     controller.updateLocation
-
 );
 
 /*
@@ -55,20 +48,34 @@ router.post(
 */
 
 router.get(
-
     "/live",
-
     protect,
-
     authorize(
-    ROLES.ADMIN,
-    ROLES.OPERATIONS_MANAGER,
-    ROLES.DISPATCHER,
-    ROLES.ACCOUNTS
-),
-
+        ROLES.ADMIN,
+        ROLES.OPERATIONS_MANAGER,
+        ROLES.DISPATCHER,
+        ROLES.ACCOUNTS
+    ),
     controller.getAllLiveLocations
+);
 
+/*
+|--------------------------------------------------------------------------
+| Complete Tracking History
+|--------------------------------------------------------------------------
+| IMPORTANT: Must come before /:dutyId
+*/
+
+router.get(
+    "/:dutyId/history",
+    protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.ACCOUNTS
+    ),
+    dutyIdValidator,
+    validate,
+    controller.getTrackingHistory
 );
 
 /*
@@ -78,55 +85,16 @@ router.get(
 */
 
 router.get(
-
     "/:dutyId",
-
     protect,
-
     authorize(
-
         ROLES.ADMIN,
-
         ROLES.ACCOUNTS,
-
         ROLES.CLIENT
-
     ),
-
     dutyIdValidator,
-
     validate,
-
     controller.getDutyLiveLocation
-
-);
-
-/*
-|--------------------------------------------------------------------------
-| Complete Tracking History
-|--------------------------------------------------------------------------
-*/
-
-router.get(
-
-    "/:dutyId/history",
-
-    protect,
-
-    authorize(
-
-        ROLES.ADMIN,
-
-        ROLES.ACCOUNTS
-
-    ),
-
-    dutyIdValidator,
-
-    validate,
-
-    controller.getTrackingHistory
-
 );
 
 module.exports = router;
