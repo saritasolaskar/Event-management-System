@@ -21,6 +21,9 @@ const findById = (id) => {
             },
             {
                 path: "event",
+                populate: {
+                    path: "client",
+                },
             },
         ],
     });

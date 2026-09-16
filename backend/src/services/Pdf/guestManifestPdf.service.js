@@ -1,19 +1,37 @@
-const eventRepository = require("../../repositories/event.repository");
-const guestRepository = require("../../repositories/guest.repository");
-const guestAssignmentRepository = require("../../repositories/guestAssignment.repository");
+const eventRepository =
+    require("../../repositories/event.repository");
 
-const pdfGenerator = require("../pdfGenerator");
+const guestRepository =
+    require("../../repositories/guest.repository");
 
-const config = require("../../config/env");
-const AppError = require("../../utils/appError");
+const guestAssignmentRepository =
+    require("../../repositories/guestAssignment.repository");
+
+const pdfGenerator =
+    require("../pdfGenerator");
+
+const config =
+    require("../../config/env");
+
+const AppError =
+    require("../../utils/AppError");
+
+const {
+    ROLES,
+} = require("../../constants/roles");
 
 /**
  * Generate Guest Manifest PDF
  */
-const generateGuestManifestPdf = async (eventId) => {
+const generateGuestManifestPdf = async (
+    eventId,
+    user
+) => {
 
     const event =
-        await eventRepository.findById(eventId);
+        await eventRepository.findById(
+            eventId
+        );
 
     if (!event) {
         throw new AppError(
@@ -22,70 +40,140 @@ const generateGuestManifestPdf = async (eventId) => {
         );
     }
 
+    /*
+     * CLIENT users can only download
+     * manifests for their own events.
+     */
+    if (
+        user.role === ROLES.CLIENT &&
+        (
+            !user.client ||
+            !event.client ||
+            event.client._id.toString() !==
+                user.client.toString()
+        )
+    ) {
+        throw new AppError(
+            "Unauthorized.",
+            403
+        );
+    }
+
     const guests =
-        await guestRepository.findByEvent(eventId);
+        await guestRepository.findByEvent(
+            eventId
+        );
 
     const guestAssignments =
         await guestAssignmentRepository.findByEvent(
             eventId
         );
 
-    const guestList = guests.map((guest) => {
+    const assignmentMap =
+        new Map();
 
-        const assignment =
-            guestAssignments.find(
-                (item) =>
-                    item.guest &&
-                    item.guest._id.toString() ===
-                    guest._id.toString()
-            );
+    for (
+        const assignment of guestAssignments
+    ) {
 
-        return {
+        if (!assignment.guest) {
+            continue;
+        }
 
-            name:
-                guest.name,
+        assignmentMap.set(
+            assignment.guest._id.toString(),
+            assignment
+        );
+    }
 
-            company:
-                guest.company,
+    const guestList =
+        guests.map(
+            (guest) => {
 
-            phone:
-                guest.phone,
+                const assignment =
+                    assignmentMap.get(
+                        guest._id.toString()
+                    );
 
-            pickupAddress:
-                guest.pickupAddress,
+                const driver =
+                    assignment
+                        ?.vehicleAssignment
+                        ?.driver;
 
-            dropAddress:
-                guest.dropAddress,
+                const vehicle =
+                    assignment
+                        ?.vehicleAssignment
+                        ?.vehicle;
 
-            vehicleNumber:
-                assignment?.vehicleAssignment?.vehicle
-                    ?.registrationNumber || "-",
+                const driverName =
+                    driver
+                        ? `${driver.firstName || ""} ${
+                            driver.lastName || ""
+                          }`.trim()
+                        : "-";
 
-            driverName:
-                assignment?.vehicleAssignment?.driver
-                    ? `${assignment.vehicleAssignment.driver.firstName} ${assignment.vehicleAssignment.driver.lastName}`
-                    : "-",
+                return {
 
-            status:
-                guest.status,
+                    name:
+                        `${guest.firstName} ${
+                            guest.lastName || ""
+                        }`.trim(),
 
-        };
+                    company:
+                        "-",
 
-    });
+                    phone:
+                        guest.phone || "-",
+
+                    pickupLocation:
+                        guest.pickupLocation || null,
+
+                    dropLocation:
+                        guest.dropLocation || null,
+
+                    status:
+                        guest.status,
+
+                    vehicleAssignment:
+                        assignment
+                            ? {
+                                vehicle:
+                                    vehicle
+                                        ? {
+                                            vehicleNumber:
+                                                vehicle.vehicleNumber,
+                                        }
+                                        : null,
+
+                                driver:
+                                    driver
+                                        ? {
+                                            name:
+                                                driverName,
+                                        }
+                                        : null,
+                            }
+                            : null,
+                };
+            }
+        );
 
     const assigned =
         guestList.filter(
-            (guest) => guest.vehicleNumber !== "-"
+            (guest) =>
+                guest.vehicleAssignment
         ).length;
 
     const pickedUp =
         guestList.filter(
-            (guest) => guest.status === "PICKED_UP"
+            (guest) =>
+                guest.status === "PICKED_UP"
         ).length;
 
     const dropped =
         guestList.filter(
-            (guest) => guest.status === "DROPPED"
+            (guest) =>
+                guest.status === "DROPPED"
         ).length;
 
     const pending =
@@ -96,23 +184,47 @@ const generateGuestManifestPdf = async (eventId) => {
         company: {
 
             name:
-                config.COMPANY_NAME || "Transit Fleets",
+                config.COMPANY_NAME ||
+                "Transit Fleets",
 
             address:
-                config.COMPANY_ADDRESS || "",
+                config.COMPANY_ADDRESS ||
+                "",
 
             phone:
-                config.COMPANY_PHONE || "",
+                config.COMPANY_PHONE ||
+                "",
 
             email:
-                config.COMPANY_EMAIL || "",
+                config.COMPANY_EMAIL ||
+                "",
 
             gst:
-                config.COMPANY_GST || "",
-
+                config.COMPANY_GST ||
+                "",
         },
 
-        event,
+        event: {
+
+            ...(
+                event.toObject
+                    ? event.toObject()
+                    : event
+            ),
+
+            eventName:
+                event.name,
+
+            startDateFormatted:
+                event.startDate
+                    ? event.startDate.toLocaleDateString()
+                    : "",
+
+            endDateFormatted:
+                event.endDate
+                    ? event.endDate.toLocaleDateString()
+                    : "",
+        },
 
         client:
             event.client,
@@ -132,19 +244,16 @@ const generateGuestManifestPdf = async (eventId) => {
             pickedUp,
 
             dropped,
-
         },
 
         generatedAt:
             new Date().toLocaleString(),
-
     };
 
     return pdfGenerator.generatePdf(
         "guestManifest",
         data
     );
-
 };
 
 module.exports = {
