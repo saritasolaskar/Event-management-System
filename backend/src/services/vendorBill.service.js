@@ -7,11 +7,11 @@ const billingService =
 const AppError =
     require("../utils/AppError");
 
+
 const createVendorBill = async (
     dutyId,
     userId
 ) => {
-
 
     const existingBill =
         await vendorBillRepository.findByDuty(
@@ -37,72 +37,99 @@ const createVendorBill = async (
         );
     }
 
-    return vendorBillRepository.create({
+    try {
 
-        duty:
-            draft.duty._id,
+        return await vendorBillRepository.create({
 
-        vendor:
-            draft.assignment.vendor,
+            duty:
+                draft.duty._id,
 
-        vehicleAssignment:
-            draft.assignment._id,
+            vendor:
+                draft.assignment.vendor,
 
-        packageName:
-            draft.assignment.commercialPackageSnapshot?.name,
+            vehicleAssignment:
+                draft.assignment._id,
 
-        packageKm:
-            draft.assignment.commercialPackageSnapshot?.vendorIncludedKm,
+            packageName:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.name,
 
-        packageHours:
-            draft.assignment.commercialPackageSnapshot?.vendorIncludedHours,
+            packageKm:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.vendorIncludedKm,
 
-        billDate:
-            new Date(),
+            packageHours:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.vendorIncludedHours,
 
-        totalKm:
-            draft.totalKm,
+            billDate:
+                new Date(),
 
-        totalHours:
-            draft.totalHours,
+            totalKm:
+                draft.totalKm,
 
-        vendorRate:
-            draft.vendorBill.vendorRate,
+            totalHours:
+                draft.totalHours,
 
-        extraKm:
-            draft.vendorBill.extraKm,
+            vendorRate:
+                draft.vendorBill.vendorRate,
 
-        extraHour:
-            draft.vendorBill.extraHour,
+            extraKm:
+                draft.vendorBill.extraKm,
 
-        parkingCharges:
-            draft.vendorBill.parkingCharges,
+            extraHour:
+                draft.vendorBill.extraHour,
 
-        tollCharges:
-            draft.vendorBill.tollCharges,
+            parkingCharges:
+                draft.vendorBill.parkingCharges,
 
-        entryCharges:
-            draft.vendorBill.entryCharges,
+            tollCharges:
+                draft.vendorBill.tollCharges,
 
-        daCharges:
-            draft.vendorBill.daCharges,
+            entryCharges:
+                draft.vendorBill.entryCharges,
 
-        totalAmount:
-            draft.vendorBill.amount,
+            daCharges:
+                draft.vendorBill.daCharges,
 
-        status:
-            draft.status,
+            totalAmount:
+                draft.vendorBill.amount,
 
-        createdBy:
-            userId,
+            status:
+                draft.status,
 
-        updatedBy:
-            userId,
+            createdBy:
+                userId,
 
-    });
+            updatedBy:
+                userId,
 
+        });
 
+    } catch (error) {
+
+        // The database unique index on duty is the final
+        // protection against concurrent duplicate bills.
+        if (
+            error?.code === 11000 &&
+            (
+                error.keyPattern?.duty ||
+                error.keyValue?.duty
+            )
+        ) {
+            throw new AppError(
+                "Vendor Bill already exists for this duty.",
+                409
+            );
+        }
+
+        throw error;
+    }
 };
+
 
 module.exports = {
     createVendorBill,
