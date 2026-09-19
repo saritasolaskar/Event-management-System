@@ -5,15 +5,14 @@ const router = express.Router();
 const protect =
     require("../middleware/auth.middleware");
 
-const authorize =
-    require("../middleware/role.middleware");
-
 const controller =
     require("../controllers/commercialPackage.controller");
 
-const validate =
-    require("../middleware/validate.middleware");
+const authorize =
+    require("../middleware/authorize.middleware");
 
+const validate =
+    require("../middleware/validate");
 const {
     commercialPackageIdValidator,
     createCommercialPackageValidator,
