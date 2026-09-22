@@ -157,6 +157,7 @@ const updateById = async (
  */
 const softDelete = async (
     id,
+     updatedBy = null,
     session = null
 ) => {
     const query = Driver.findOneAndUpdate(
@@ -185,6 +186,7 @@ const softDelete = async (
 const updateStatus = async (
     id,
     status,
+     updatedBy = null,
     session = null
 ) => {
     const query = Driver.findOneAndUpdate(

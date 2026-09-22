@@ -108,15 +108,24 @@ const updateById = async (
 /**
  * Soft Delete Event
  */
-const softDelete = async (id) => {
+const softDelete = async (
+    id,
+    updatedBy = null
+) => {
+    const updateData = {
+        isDeleted: true,
+    };
+
+    if (updatedBy) {
+        updateData.updatedBy = updatedBy;
+    }
+
     return Event.findOneAndUpdate(
         {
             _id: id,
             isDeleted: false,
         },
-        {
-            isDeleted: true,
-        },
+        updateData,
         {
             new: true,
             runValidators: true,
@@ -129,16 +138,23 @@ const softDelete = async (id) => {
  */
 const updateStatus = async (
     id,
-    status
+    status,
+    updatedBy = null
 ) => {
+    const updateData = {
+        status,
+    };
+
+    if (updatedBy) {
+        updateData.updatedBy = updatedBy;
+    }
+
     return Event.findOneAndUpdate(
         {
             _id: id,
             isDeleted: false,
         },
-        {
-            status,
-        },
+        updateData,
         {
             new: true,
             runValidators: true,
