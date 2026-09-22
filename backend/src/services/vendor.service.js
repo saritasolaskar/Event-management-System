@@ -262,7 +262,8 @@ const updateVendor = async (
  * Delete Vendor
  */
 const deleteVendor = async (
-    vendorId
+    vendorId,
+     userId
 ) => {
 
     const session =
@@ -331,7 +332,8 @@ const deleteVendor = async (
                 deleted =
                     await vendorRepository.softDelete(
                         vendorId,
-                        session
+                        session,
+                         userId
                     );
 
                 if (!deleted) {

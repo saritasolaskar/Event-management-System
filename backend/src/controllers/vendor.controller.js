@@ -70,7 +70,10 @@ const updateVendor = asyncHandler(async (req, res) => {
  * Delete Vendor
  */
 const deleteVendor = asyncHandler(async (req, res) => {
-  await vendorService.deleteVendor(req.params.id);
+  await vendorService.deleteVendor(
+    req.params.id,
+    req.user._id
+);
 
   return successResponse(
     res,

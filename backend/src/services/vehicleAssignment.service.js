@@ -562,7 +562,8 @@ const deleteVehicleAssignment = async (
     }
 
     await vehicleAssignmentRepository.softDelete(
-        id
+        id,
+        userId
     );
 
     await auditLogService.createLog({

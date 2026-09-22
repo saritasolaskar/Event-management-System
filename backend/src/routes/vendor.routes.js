@@ -71,6 +71,7 @@ router.put(
     "/:id",
     protect,
     authorize(ROLES.ADMIN),
+    vendorIdValidator,
     updateVendorValidator,
     validate,
     vendorController.updateVendor

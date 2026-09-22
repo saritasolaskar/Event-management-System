@@ -51,17 +51,36 @@ const updateById = (
     );
 };
 
-const softDelete = async (id) => {
-    return VehicleAssignment.findByIdAndUpdate(
-        id,
+const softDelete = async (
+    id,
+    updatedBy = null,
+    session = null
+) => {
+    const query = VehicleAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         {
             isDeleted: true,
+            ...(updatedBy && {
+                updatedBy,
+            }),
         },
         {
             new: true,
             runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
         }
     );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 const findTodayByDriver = async (driverId) => {
@@ -180,6 +199,28 @@ const updateByIdAndStatus = (
     );
 };
 
+const findByVehicle = async (
+    vehicleId,
+    session = null
+) => {
+    const query = VehicleAssignment.find({
+        vehicle: vehicleId,
+        isDeleted: false,
+        status: {
+            $in: [
+                "ASSIGNED",
+                "ON_DUTY",
+            ],
+        },
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
 module.exports = {
     create,
     findById,
@@ -192,4 +233,5 @@ module.exports = {
     findActiveByVehicle,
     findByCommercialPackage,
     updateByIdAndStatus,
+    findByVehicle,
 };

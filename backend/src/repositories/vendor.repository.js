@@ -131,7 +131,8 @@ const updateById = async (
  */
 const softDelete = async (
     id,
-    session = null
+    session = null,
+    updatedBy = null
 ) => {
     const query = Vendor.findOneAndUpdate(
         {
@@ -141,6 +142,9 @@ const softDelete = async (
         {
             isDeleted: true,
             deletedAt: new Date(),
+            ...(updatedBy && {
+                updatedBy,
+            }),
         },
         {
             new: true,

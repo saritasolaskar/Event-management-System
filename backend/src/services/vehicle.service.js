@@ -154,7 +154,7 @@ const validateDriver = async (
     if (
         vendorId &&
         getId(driver.vendor) !==
-            getId(vendorId)
+        getId(vendorId)
     ) {
         throw new AppError(
             "Driver does not belong to the selected vendor.",
@@ -170,7 +170,7 @@ const validateDriver = async (
     if (
         driver.currentVehicle &&
         getId(driver.currentVehicle) !==
-            getId(vehicleId)
+        getId(vehicleId)
     ) {
         throw new AppError(
             "Driver is already assigned to another vehicle.",
@@ -463,7 +463,7 @@ const updateVehicle = async (
                 if (
                     data.vehicleNumber &&
                     data.vehicleNumber !==
-                        vehicle.vehicleNumber
+                    vehicle.vehicleNumber
                 ) {
 
                     const existingVehicle =
@@ -475,7 +475,7 @@ const updateVehicle = async (
                     if (
                         existingVehicle &&
                         getId(existingVehicle._id) !==
-                            getId(vehicleId)
+                        getId(vehicleId)
                     ) {
                         throw new AppError(
                             "Vehicle with this vehicle number already exists.",
@@ -536,7 +536,7 @@ const updateVehicle = async (
 
                     if (
                         vehicle.status ===
-                            VEHICLE_STATUS.ON_DUTY
+                        VEHICLE_STATUS.ON_DUTY
                     ) {
                         throw new AppError(
                             "Cannot change the driver of a vehicle while it is on duty.",
@@ -546,7 +546,7 @@ const updateVehicle = async (
 
                     if (
                         vehicle.status ===
-                            VEHICLE_STATUS.MAINTENANCE
+                        VEHICLE_STATUS.MAINTENANCE
                     ) {
                         throw new AppError(
                             "Cannot assign a driver to a vehicle under maintenance.",
@@ -701,7 +701,7 @@ const deleteVehicle = async (
                  */
                 if (
                     vehicle.status ===
-                        VEHICLE_STATUS.ON_DUTY
+                    VEHICLE_STATUS.ON_DUTY
                 ) {
                     throw new AppError(
                         "Cannot delete a vehicle while it is on duty.",
@@ -715,7 +715,8 @@ const deleteVehicle = async (
                  */
                 const activeAssignments =
                     await vehicleAssignmentRepository.findByVehicle(
-                        vehicleId
+                        vehicleId,
+                        session
                     );
 
                 if (
@@ -820,7 +821,7 @@ const updateVehicleStatus = async (
                  */
                 if (
                     status ===
-                        VEHICLE_STATUS.AVAILABLE &&
+                    VEHICLE_STATUS.AVAILABLE &&
                     existingVehicle.currentDriver
                 ) {
                     throw new AppError(
@@ -835,7 +836,7 @@ const updateVehicleStatus = async (
                  */
                 if (
                     status ===
-                        VEHICLE_STATUS.ASSIGNED &&
+                    VEHICLE_STATUS.ASSIGNED &&
                     !existingVehicle.currentDriver
                 ) {
                     throw new AppError(
@@ -851,9 +852,9 @@ const updateVehicleStatus = async (
                  */
                 if (
                     existingVehicle.status ===
-                        VEHICLE_STATUS.ON_DUTY &&
+                    VEHICLE_STATUS.ON_DUTY &&
                     status !==
-                        VEHICLE_STATUS.ON_DUTY
+                    VEHICLE_STATUS.ON_DUTY
                 ) {
                     throw new AppError(
                         "Vehicle status cannot be changed while the vehicle is on duty.",

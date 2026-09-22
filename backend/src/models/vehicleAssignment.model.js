@@ -186,6 +186,39 @@ vehicleAssignmentSchema.index({ driver: 1 });
 vehicleAssignmentSchema.index({ vehicle: 1 });
 vehicleAssignmentSchema.index({ status: 1 });
 
+vehicleAssignmentSchema.index(
+    { driver: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            isDeleted: false,
+            status: {
+                $in: [
+                    "ASSIGNED",
+                    "ON_DUTY",
+                ],
+            },
+        },
+    }
+);
+
+vehicleAssignmentSchema.index(
+    { vehicle: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            isDeleted: false,
+            status: {
+                $in: [
+                    "ASSIGNED",
+                    "ON_DUTY",
+                ],
+            },
+        },
+    }
+);
+
+
 module.exports = mongoose.model(
     "VehicleAssignment",
     vehicleAssignmentSchema
