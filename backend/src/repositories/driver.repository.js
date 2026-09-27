@@ -157,17 +157,22 @@ const updateById = async (
  */
 const softDelete = async (
     id,
-     updatedBy = null,
+    updatedBy = null,
     session = null
 ) => {
+    const updateData = {
+        isDeleted: true,
+        ...(updatedBy && {
+            updatedBy,
+        }),
+    };
+
     const query = Driver.findOneAndUpdate(
         {
             _id: id,
             isDeleted: false,
         },
-        {
-            isDeleted: true,
-        },
+        updateData,
         {
             new: true,
         }
@@ -186,17 +191,22 @@ const softDelete = async (
 const updateStatus = async (
     id,
     status,
-     updatedBy = null,
+    updatedBy = null,
     session = null
 ) => {
+    const updateData = {
+        status,
+        ...(updatedBy && {
+            updatedBy,
+        }),
+    };
+
     const query = Driver.findOneAndUpdate(
         {
             _id: id,
             isDeleted: false,
         },
-        {
-            status,
-        },
+        updateData,
         {
             new: true,
             runValidators: true,

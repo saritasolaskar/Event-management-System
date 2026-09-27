@@ -576,9 +576,10 @@ const deleteEvent = async (
     }
 
     const deletedEvent =
-        await eventRepository.softDelete(
-            eventId
-        );
+    await eventRepository.softDelete(
+        eventId,
+        userId
+    );
 
     if (!deletedEvent) {
         throw new AppError(
@@ -677,7 +678,8 @@ const updateEventStatus = async (
     const updatedEvent =
         await eventRepository.updateStatus(
             eventId,
-            status
+            status,
+             userId
         );
 
     if (!updatedEvent) {

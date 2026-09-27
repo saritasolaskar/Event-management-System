@@ -1058,7 +1058,8 @@ const updateDriver = async (
  * Delete Driver
  */
 const deleteDriver = async (
-  driverId
+  driverId,
+  userId
 ) => {
 
   const driver =
@@ -1144,8 +1145,9 @@ const deleteDriver = async (
 
 
   await driverRepository.softDelete(
-    driverId
-  );
+  driverId,
+  userId
+);
 
 
   return {
@@ -1160,7 +1162,8 @@ const deleteDriver = async (
  */
 const updateDriverStatus = async (
   driverId,
-  status
+  status,
+  userId
 ) => {
 
   const driver =
@@ -1218,10 +1221,11 @@ const updateDriverStatus = async (
 
 
   const updatedDriver =
-    await driverRepository.updateStatus(
-      driverId,
-      status
-    );
+  await driverRepository.updateStatus(
+    driverId,
+    status,
+    userId
+  );
 
 
   /*
