@@ -271,10 +271,23 @@ const createVehicleAssignment = async (
     data.createdBy = userId;
     data.updatedBy = userId;
 
-    const assignment =
-        await vehicleAssignmentRepository.create(
-            data
-        );
+    let assignment;
+
+    try {
+        assignment =
+            await vehicleAssignmentRepository.create(
+                data
+            );
+    } catch (error) {
+        if (error.code === 11000) {
+            throw new AppError(
+                "Driver or vehicle is already assigned to another active assignment.",
+                409
+            );
+        }
+
+        throw error;
+    }
 
     await notificationService.createNotification({
 
@@ -561,10 +574,19 @@ const deleteVehicleAssignment = async (
         );
     }
 
-    await vehicleAssignmentRepository.softDelete(
+    const deletedAssignment =
+    await vehicleAssignmentRepository.softDeleteByStatus(
         id,
+        assignment.status,
         userId
     );
+
+if (!deletedAssignment) {
+    throw new AppError(
+        "Vehicle Assignment was changed by another operation. Please refresh and try again.",
+        409
+    );
+}
 
     await auditLogService.createLog({
 
@@ -642,13 +664,21 @@ const updateVehicleAssignmentStatus = async (
     }
 
     const updatedAssignment =
-        await vehicleAssignmentRepository.updateById(
-            id,
-            {
-                status: "CANCELLED",
-                updatedBy: userId,
-            }
-        );
+    await vehicleAssignmentRepository.updateByIdAndStatus(
+        id,
+        assignment.status,
+        {
+            status: "CANCELLED",
+            updatedBy: userId,
+        }
+    );
+
+if (!updatedAssignment) {
+    throw new AppError(
+        "Vehicle Assignment was changed by another operation. Please refresh and try again.",
+        409
+    );
+}
 
     await notificationService.createNotification({
 

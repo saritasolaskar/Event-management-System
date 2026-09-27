@@ -221,6 +221,40 @@ const findByVehicle = async (
     return query;
 };
 
+const softDeleteByStatus = async (
+    id,
+    currentStatus,
+    updatedBy = null,
+    session = null
+) => {
+    const query = VehicleAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            status: currentStatus,
+            isDeleted: false,
+        },
+        {
+            isDeleted: true,
+            ...(updatedBy && {
+                updatedBy,
+            }),
+        },
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
 module.exports = {
     create,
     findById,
@@ -234,4 +268,5 @@ module.exports = {
     findByCommercialPackage,
     updateByIdAndStatus,
     findByVehicle,
+    softDeleteByStatus,
 };
