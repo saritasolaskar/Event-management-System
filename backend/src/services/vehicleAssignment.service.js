@@ -565,9 +565,10 @@ const deleteVehicleAssignment = async (
     }
 
     if (
-        assignment.status === "ON_DUTY" ||
-        assignment.status === "COMPLETED"
-    ) {
+    assignment.status === "ON_DUTY" ||
+    assignment.status === "COMPLETED" ||
+    assignment.status === "CANCELLED"
+) {
         throw new AppError(
             "Vehicle Assignment cannot be deleted after duty has started.",
             400
@@ -663,15 +664,28 @@ const updateVehicleAssignmentStatus = async (
         );
     }
 
-    const updatedAssignment =
-    await vehicleAssignmentRepository.updateByIdAndStatus(
-        id,
-        assignment.status,
-        {
-            status: "CANCELLED",
-            updatedBy: userId,
-        }
-    );
+    const expectedStatus =
+    assignment.status;
+
+let updatedAssignment;
+
+try {
+    updatedAssignment =
+        await vehicleAssignmentRepository.updateByIdAndStatus(
+            id,
+            expectedStatus,
+            updateData
+        );
+} catch (error) {
+    if (error.code === 11000) {
+        throw new AppError(
+            "Driver or vehicle is already assigned to another active assignment.",
+            409
+        );
+    }
+
+    throw error;
+}
 
 if (!updatedAssignment) {
     throw new AppError(
