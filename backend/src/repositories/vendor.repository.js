@@ -195,6 +195,44 @@ const updateStatus = async (
     return query;
 };
 
+/**
+ * Atomically update Vendor status only when
+ * the current status matches the expected status.
+ */
+const updateStatusIfCurrent = async (
+    id,
+    currentStatus,
+    status,
+    updatedBy = null,
+    session = null
+) => {
+    const updateData = {
+        status,
+        ...(updatedBy && {
+            updatedBy,
+        }),
+    };
+
+    const query = Vendor.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            status: currentStatus,
+        },
+        updateData,
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
 module.exports = {
     create,
     findById,
@@ -204,5 +242,6 @@ module.exports = {
     findAll,
     updateById,
     softDelete,
-    updateStatus,
+    updateStatus,  
+    updateStatusIfCurrent,
 };

@@ -389,11 +389,22 @@ const updateVendorStatus = async (
         );
     }
 
-    return vendorRepository.updateStatus(
+    const updatedVendor =
+    await vendorRepository.updateStatusIfCurrent(
         vendorId,
+        vendor.status,
         status,
         userId
     );
+
+if (!updatedVendor) {
+    throw new AppError(
+        "Vendor status changed before it could be updated.",
+        409
+    );
+}
+
+return updatedVendor;
 };
 
 module.exports = {
