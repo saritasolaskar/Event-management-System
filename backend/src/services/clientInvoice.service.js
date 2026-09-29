@@ -1,211 +1,210 @@
+const crypto = require("crypto");
+
 const clientInvoiceRepository =
-    require("../../repositories/clientInvoice.repository");
+    require("../repositories/clientInvoice.repository");
 
-const pdfGenerator =
-    require("../pdfGenerator");
+const billingService =
+    require("./billing.service");
 
-const config =
-    require("../../config/env");
+const dutyRepository =
+    require("../repositories/duty.repository");
 
 const AppError =
-    require("../../utils/AppError");
+    require("../utils/AppError");
 
-const generateClientInvoicePdf = async (
-    invoiceId,
-    user
-) => {
+    const notificationService =
+    require("./notification.service");
 
-    const invoice =
-        await clientInvoiceRepository.findById(
-            invoiceId
-        );
+const auditLogService =
+    require("./auditLog.service");
 
-    if (!invoice) {
-        throw new AppError(
-            "Client Invoice not found.",
-            404
-        );
-    }
+const generateInvoiceNumber = () => {
 
-    if (!invoice.client) {
-        throw new AppError(
-            "Client not found.",
-            404
-        );
-    }
+    const timestamp =
+        Date.now().toString(36).toUpperCase();
 
-    if (
-        user.role === "CLIENT" &&
-        (
-            !user.client ||
-            invoice.client._id.toString() !==
-                user.client.toString()
-        )
-    ) {
-        throw new AppError(
-            "Unauthorized.",
-            403
-        );
-    }
+    const random =
+        crypto
+            .randomBytes(4)
+            .toString("hex")
+            .toUpperCase();
 
-    if (!invoice.event) {
-        throw new AppError(
-            "Event not found.",
-            404
-        );
-    }
-
-    if (!invoice.vehicleAssignment) {
-        throw new AppError(
-            "Vehicle Assignment not found.",
-            404
-        );
-    }
-
-    const driver =
-        invoice.vehicleAssignment.driver;
-
-    const driverData =
-        driver
-            ? {
-                ...(
-                    driver.toObject
-                        ? driver.toObject()
-                        : driver
-                ),
-
-                name:
-                    `${driver.firstName || ""} ${
-                        driver.lastName || ""
-                    }`.trim(),
-
-                phone:
-                    driver.phone || "",
-            }
-            : null;
-
-    const company = {
-
-        name:
-            config.COMPANY_NAME ||
-            "Transit Fleets",
-
-        address:
-            config.COMPANY_ADDRESS ||
-            "",
-
-        phone:
-            config.COMPANY_PHONE ||
-            "",
-
-        email:
-            config.COMPANY_EMAIL ||
-            "",
-
-        gst:
-            config.COMPANY_GST ||
-            "",
-    };
-
-    const data = {
-
-        company,
-
-        invoice: {
-
-            invoiceNumber:
-                invoice.invoiceNumber,
-
-            invoiceDate:
-                invoice.invoiceDate
-                    ? invoice.invoiceDate.toLocaleDateString()
-                    : "",
-
-            status:
-                invoice.status,
-
-            packageName:
-                invoice.packageName || "",
-
-            packageKm:
-                invoice.packageKm || 0,
-
-            packageHours:
-                invoice.packageHours || 0,
-
-            totalKm:
-                invoice.totalKm,
-
-            totalHours:
-                invoice.totalHours,
-
-            clientRate:
-                invoice.clientRate,
-
-            extraKm:
-                invoice.extraKm,
-
-            extraHour:
-                invoice.extraHour,
-
-            parkingCharges:
-                invoice.parkingCharges,
-
-            tollCharges:
-                invoice.tollCharges,
-
-            entryCharges:
-                invoice.entryCharges,
-
-            daCharges:
-                invoice.daCharges,
-
-            subtotal:
-                invoice.subtotal,
-
-            discount:
-                invoice.discount,
-
-            gstPercentage:
-                invoice.gstPercentage,
-
-            gstAmount:
-                invoice.gstAmount,
-
-            totalAmount:
-                invoice.totalAmount,
-
-            approvedAtFormatted:
-                invoice.approvedAt
-                    ? invoice.approvedAt.toLocaleString()
-                    : "",
-        },
-
-        client:
-            invoice.client,
-
-        event:
-            invoice.event,
-
-        vehicle:
-            invoice.vehicleAssignment.vehicle,
-
-        driver:
-            driverData,
-
-        approvedBy:
-            invoice.approvedBy,
-
-        generatedAt:
-            new Date().toLocaleString(),
-    };
-
-    return pdfGenerator.generatePdf(
-        "clientInvoice",
-        data
-    );
+    return `INV-${timestamp}-${random}`;
 };
 
+
+/**
+ * Create Client Invoice
+ */
+const createClientInvoice = async (
+    dutyId,
+    userId
+) => {
+
+    const existingInvoice =
+        await clientInvoiceRepository.findByDuty(
+            dutyId
+        );
+
+    if (existingInvoice) {
+        throw new AppError(
+            "Client Invoice already exists for this duty.",
+            409
+        );
+    }
+
+    const draft =
+        await billingService.generateDraftBill(
+            dutyId
+        );
+
+    const duty =
+        await dutyRepository.findById(
+            dutyId
+        );
+
+    if (!duty) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
+
+    const event =
+        duty.vehicleAssignment?.event;
+
+    if (!event) {
+        throw new AppError(
+            "Event not found for this duty.",
+            404
+        );
+    }
+
+    if (!event.client) {
+        throw new AppError(
+            "Client not found for this event.",
+            404
+        );
+    }
+
+    try {
+
+        return await clientInvoiceRepository.create({
+
+            duty:
+                duty._id,
+
+            client:
+                event.client,
+
+            event:
+                event._id,
+
+            vehicleAssignment:
+                draft.assignment._id,
+
+            packageName:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.name,
+
+            packageKm:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.clientIncludedKm,
+
+            packageHours:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.clientIncludedHours,
+
+            invoiceNumber:
+                generateInvoiceNumber(),
+
+            invoiceDate:
+                new Date(),
+
+            totalKm:
+                draft.totalKm,
+
+            totalHours:
+                draft.totalHours,
+
+            clientRate:
+                draft.clientBill.clientRate,
+
+            extraKm:
+                draft.clientBill.extraKm,
+
+            extraHour:
+                draft.clientBill.extraHour,
+
+            parkingCharges:
+                draft.clientBill.parkingCharges,
+
+            tollCharges:
+                draft.clientBill.tollCharges,
+
+            entryCharges:
+                draft.clientBill.entryCharges,
+
+            daCharges:
+                draft.clientBill.daCharges,
+
+            subtotal:
+                draft.clientBill.amount,
+
+            discount:
+                0,
+
+            gstPercentage:
+                0,
+
+            gstAmount:
+                0,
+
+            totalAmount:
+                draft.clientBill.amount,
+
+            createdBy:
+                userId,
+
+            updatedBy:
+                userId,
+
+        });
+
+    } catch (error) {
+
+        // Unique duty/invoice number protection
+        if (error?.code === 11000) {
+
+            if (
+                error.keyPattern?.duty ||
+                error.keyValue?.duty
+            ) {
+                throw new AppError(
+                    "Client Invoice already exists for this duty.",
+                    409
+                );
+            }
+
+            if (
+                error.keyPattern?.invoiceNumber ||
+                error.keyValue?.invoiceNumber
+            ) {
+                throw new AppError(
+                    "Invoice number collision occurred. Please try again.",
+                    409
+                );
+            }
+        }
+
+        throw error;
+    }
+};
+
+
 module.exports = {
-    generateClientInvoicePdf,
+    createClientInvoice,
 };

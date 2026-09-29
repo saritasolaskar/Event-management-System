@@ -62,6 +62,28 @@ const generateClientInvoicePdf = async (
         );
     }
 
+    const driver =
+        invoice.vehicleAssignment.driver;
+
+    const driverData =
+        driver
+            ? {
+                ...(
+                    driver.toObject
+                        ? driver.toObject()
+                        : driver
+                ),
+
+                name:
+                    `${driver.firstName || ""} ${
+                        driver.lastName || ""
+                    }`.trim(),
+
+                phone:
+                    driver.phone || "",
+            }
+            : null;
+
     const company = {
 
         name:
@@ -169,7 +191,7 @@ const generateClientInvoicePdf = async (
             invoice.vehicleAssignment.vehicle,
 
         driver:
-            invoice.vehicleAssignment.driver,
+            driverData,
 
         approvedBy:
             invoice.approvedBy,
