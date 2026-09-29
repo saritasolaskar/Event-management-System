@@ -6,6 +6,9 @@ const dutyRepository =
 const vehicleAssignmentRepository =
     require("../repositories/vehicleAssignment.repository");
 
+const vehicleRepository =
+    require("../repositories/vehicle.repository");
+
 const notificationService =
     require("./notification.service");
 
@@ -18,6 +21,7 @@ const AppError =
 const {
     DUTY_STATUS,
     VEHICLE_ASSIGNMENT_STATUS,
+    VEHICLE_STATUS,
 } = require("../constants/status");
 
 
@@ -141,6 +145,30 @@ const startDuty = async (
                 if (!updatedAssignment) {
                     throw new AppError(
                         "Vehicle Assignment was changed by another operation. Please refresh and try again.",
+                        409
+                    );
+                }
+
+                const vehicleId =
+                    assignment.vehicle?._id ||
+                    assignment.vehicle;
+
+                const updatedVehicle =
+                    await vehicleRepository.updateById(
+                        vehicleId,
+                        {
+                            status:
+                                VEHICLE_STATUS.ON_DUTY,
+
+                            updatedBy:
+                                userId,
+                        },
+                        session
+                    );
+
+                if (!updatedVehicle) {
+                    throw new AppError(
+                        "Vehicle could not be marked ON_DUTY.",
                         409
                     );
                 }
@@ -346,10 +374,13 @@ const completeDuty = async (
                     );
                 }
 
+                const vehicleAssignmentId =
+                    duty.vehicleAssignment._id ||
+                    duty.vehicleAssignment;
+
                 const updatedAssignment =
                     await vehicleAssignmentRepository.updateByIdAndStatus(
-                        duty.vehicleAssignment._id ||
-                            duty.vehicleAssignment,
+                        vehicleAssignmentId,
 
                         VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
 
@@ -374,6 +405,30 @@ const completeDuty = async (
                 if (!updatedAssignment) {
                     throw new AppError(
                         "Vehicle Assignment was changed by another operation. Please refresh and try again.",
+                        409
+                    );
+                }
+
+                const vehicleId =
+                    duty.vehicleAssignment.vehicle?._id ||
+                    duty.vehicleAssignment.vehicle;
+
+                const updatedVehicle =
+                    await vehicleRepository.updateById(
+                        vehicleId,
+                        {
+                            status:
+                                VEHICLE_STATUS.ASSIGNED,
+
+                            updatedBy:
+                                userId,
+                        },
+                        session
+                    );
+
+                if (!updatedVehicle) {
+                    throw new AppError(
+                        "Vehicle could not be marked ASSIGNED.",
                         409
                     );
                 }
