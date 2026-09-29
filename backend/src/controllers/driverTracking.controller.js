@@ -4,6 +4,9 @@ const driverTrackingService =
 const asyncHandler =
     require("../utils/asyncHandler");
 
+const AppError =
+    require("../utils/AppError");
+
 const {
     successResponse,
 } = require("../utils/response.utils");
@@ -14,6 +17,13 @@ const {
  */
 const createTrackingPoint =
     asyncHandler(async (req, res) => {
+
+        if (!req.user.driver) {
+            throw new AppError(
+                "Driver profile is not linked to this account.",
+                403
+            );
+        }
 
         const tracking =
             await driverTrackingService.createTrackingPoint(
@@ -36,10 +46,18 @@ const createTrackingPoint =
 const getLatestLocation =
     asyncHandler(async (req, res) => {
 
-        const clientId =
-            req.user.role === "CLIENT"
-                ? req.user.client
-                : undefined;
+        let clientId;
+
+        if (req.user.role === "CLIENT") {
+            if (!req.user.client) {
+                throw new AppError(
+                    "Client profile is not linked to this account.",
+                    403
+                );
+            }
+
+            clientId = req.user.client;
+        }
 
         const tracking =
             await driverTrackingService.getLatestLocation(

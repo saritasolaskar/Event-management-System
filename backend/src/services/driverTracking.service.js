@@ -1,97 +1,170 @@
-const driverTrackingService =
-    require("../services/driverTracking.service");
+const driverTrackingRepository =
+    require("../repositories/driverTracking.repository");
 
-const asyncHandler =
-    require("../utils/asyncHandler");
+const dutyRepository =
+    require("../repositories/duty.repository");
 
 const AppError =
     require("../utils/AppError");
 
 const {
-    successResponse,
-} = require("../utils/response.utils");
+    TRIP_STAGE,
+} = require("../constants/status");
+
+const STAGE_ORDER = [
+    TRIP_STAGE.NOT_STARTED,
+    TRIP_STAGE.PICKUP_STARTED,
+    TRIP_STAGE.PICKUP_COMPLETED,
+    TRIP_STAGE.EVENT_DUTY,
+    TRIP_STAGE.RETURN_STARTED,
+    TRIP_STAGE.RETURN_COMPLETED,
+    TRIP_STAGE.COMPLETED,
+];
+
+const getStageIndex = (stage) =>
+    STAGE_ORDER.indexOf(stage);
+
+/**
+ * Create Tracking Point
+ */
+const createTrackingPoint = async (
+    driverId,
+    trackingData
+) => {
+
+    const duty =
+        await dutyRepository.findActiveDutyByDriver(
+            driverId
+        );
+
+    if (!duty) {
+        throw new AppError(
+            "No active duty assigned.",
+            404
+        );
+    }
+
+    const latest =
+        await driverTrackingRepository.findLatestByDuty(
+            duty._id
+        );
+
+    if (latest) {
+
+        const previousIndex =
+            getStageIndex(latest.stage);
+
+        const nextIndex =
+            getStageIndex(trackingData.stage);
+
+        if (
+            previousIndex === -1 ||
+            nextIndex === -1 ||
+            nextIndex < previousIndex
+        ) {
+            throw new AppError(
+                "Invalid tracking stage progression.",
+                400
+            );
+        }
+    }
+
+    return driverTrackingRepository.create({
+
+        duty: duty._id,
+
+        latitude:
+            trackingData.latitude,
+
+        longitude:
+            trackingData.longitude,
+
+        accuracy:
+            trackingData.accuracy ?? 0,
+
+        speed:
+            trackingData.speed ?? 0,
+
+        heading:
+            trackingData.heading ?? 0,
+
+        stage:
+            trackingData.stage,
+    });
+};
 
 
 /**
- * Driver sends GPS location
+ * Get Latest Location
+ *
+ * CLIENT users can only see
+ * tracking belonging to their own event.
  */
-const createTrackingPoint =
-    asyncHandler(async (req, res) => {
+const getLatestLocation = async (
+    dutyId,
+    clientId
+) => {
 
-        if (!req.user.driver) {
+    const duty =
+        await dutyRepository.findById(
+            dutyId
+        );
+
+    if (!duty) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
+
+    if (clientId) {
+
+        const event =
+            duty.vehicleAssignment?.event;
+
+        const eventClientId =
+            event?.client?._id ||
+            event?.client;
+
+        if (
+            !eventClientId ||
+            eventClientId.toString() !==
+                clientId.toString()
+        ) {
             throw new AppError(
-                "Driver profile is not linked to this account.",
+                "Unauthorized.",
                 403
             );
         }
+    }
 
-        const tracking =
-            await driverTrackingService.createTrackingPoint(
-                req.user.driver,
-                req.body
-            );
-
-        return successResponse(
-            res,
-            201,
-            "Location updated successfully.",
-            tracking
+    const tracking =
+        await driverTrackingRepository.findLatestByDuty(
+            dutyId
         );
-    });
+
+    if (!tracking) {
+        throw new AppError(
+            "Tracking data not found.",
+            404
+        );
+    }
+
+    return tracking;
+};
 
 
 /**
- * Get latest location
+ * Get Tracking History
  */
-const getLatestLocation =
-    asyncHandler(async (req, res) => {
+const getTrackingHistory = async (
+    dutyId
+) => {
 
-        let clientId;
-
-        if (req.user.role === "CLIENT") {
-            if (!req.user.client) {
-                throw new AppError(
-                    "Client profile is not linked to this account.",
-                    403
-                );
-            }
-
-            clientId = req.user.client;
-        }
-
-        const tracking =
-            await driverTrackingService.getLatestLocation(
-                req.params.dutyId,
-                clientId
-            );
-
-        return successResponse(
-            res,
-            200,
-            "Latest location fetched successfully.",
-            tracking
-        );
-    });
-
-
-/**
- * Get tracking history
- */
-const getTrackingHistory =
-    asyncHandler(async (req, res) => {
-
-        const history =
-            await driverTrackingService.getTrackingHistory(
-                req.params.dutyId
-            );
-
-        return successResponse(
-            res,
-            200,
-            "Tracking history fetched successfully.",
-            history
-        );
-    });
+    return driverTrackingRepository.findHistoryByDuty(
+        dutyId
+    );
+};
 
 
 module.exports = {
