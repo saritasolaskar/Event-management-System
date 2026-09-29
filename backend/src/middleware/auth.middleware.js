@@ -1,65 +1,81 @@
-const AppError = require("../utils/AppError");
+const AppError =
+    require("../utils/AppError");
 
-const { verifyAccessToken } = require("../utils/jwt.utils");
+const {
+    verifyAccessToken,
+} = require("../utils/jwt.utils");
 
-const userRepository = require("../repositories/user.repository");
-const asyncHandler = require("../utils/asyncHandler");
+const {
+    STATUS,
+} = require("../constants/status");
 
-const protect = asyncHandler(async (req, res, next) =>  {
-  try {
-    let token;
+const userRepository =
+    require("../repositories/user.repository");
 
-    // Check Authorization Header
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer ")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
-    }
+const asyncHandler =
+    require("../utils/asyncHandler");
 
-    // No Token
-    if (!token) {
-      return next(
-        new AppError(
-          "Access denied. No token provided.",
-          401
-        )
-      );
-    }
+const protect =
+    asyncHandler(async (
+        req,
+        res,
+        next
+    ) => {
 
-    // Verify Token
-    const payload = verifyAccessToken(token);
+        let token;
 
-    // Find User
-    const user = await userRepository.findById(payload.id);
+        if (
+            req.headers.authorization &&
+            req.headers.authorization.startsWith(
+                "Bearer "
+            )
+        ) {
+            token =
+                req.headers.authorization
+                    .split(" ")[1];
+        }
 
-    if (!user) {
-      return next(
-        new AppError(
-          "User no longer exists.",
-          401
-        )
-      );
-    }
+        if (!token) {
+            return next(
+                new AppError(
+                    "Access denied. No token provided.",
+                    401
+                )
+            );
+        }
 
-    // Check Active Status
-    if (user.status !== "ACTIVE") {
-      return next(
-        new AppError(
-          "Account is inactive.",
-          403
-        )
-      );
-    }
+        const payload =
+            verifyAccessToken(token);
 
-    // Attach User
-    req.user = user;
+        const user =
+            await userRepository.findById(
+                payload.id
+            );
 
-    next();
+        if (!user) {
+            return next(
+                new AppError(
+                    "User no longer exists.",
+                    401
+                )
+            );
+        }
 
-  } catch (error) {
-    next(error);
-  }
-});
+        if (
+            user.status !==
+            STATUS.ACTIVE
+        ) {
+            return next(
+                new AppError(
+                    "Account is inactive.",
+                    403
+                )
+            );
+        }
+
+        req.user = user;
+
+        next();
+    });
 
 module.exports = protect;

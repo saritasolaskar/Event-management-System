@@ -162,6 +162,17 @@ const findByEventWithAssignment = async (
     return findByEvent(eventId);
 };
 
+
+const count = async (
+    filter = {}
+) => {
+    return Guest.countDocuments({
+        isDeleted: false,
+        ...filter,
+    });
+};
+
+
 module.exports = {
     create,
     findById,
@@ -172,4 +183,5 @@ module.exports = {
     updateById,
     softDelete,
     updateStatus,
+    count,
 };

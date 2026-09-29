@@ -1,229 +1,243 @@
 const dutyRepository =
-require("../repositories/duty.repository");
-
-
+    require("../repositories/duty.repository");
 
 const vehicleAssignmentRepository =
-require("../repositories/vehicleAssignment.repository");
+    require("../repositories/vehicleAssignment.repository");
 
-const { BILL_STATUS } =
-require("../constants/status");
+const {
+    BILL_STATUS,
+    DUTY_STATUS,
+} = require("../constants/status");
 
 const AppError =
-require("../utils/AppError");
+    require("../utils/AppError");
 
 const generateDraftBill = async (
-dutyId
+    dutyId
 ) => {
 
+    const duty =
+        await dutyRepository.findById(
+            dutyId
+        );
 
-const duty =
-    await dutyRepository.findById(dutyId);
+    if (!duty) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
 
-if (!duty) {
-    throw new AppError(
-        "Duty not found.",
-        404
-    );
-}
+    if (
+        duty.status !==
+        DUTY_STATUS.COMPLETED
+    ) {
+        throw new AppError(
+            "Billing can only be generated after duty is completed.",
+            400
+        );
+    }
 
-if (duty.status !== "COMPLETED") {
-    throw new AppError(
-        "Billing can only be generated after duty is completed.",
-        400
-    );
-}
+    const vehicleAssignmentId =
+        duty.vehicleAssignment?._id ||
+        duty.vehicleAssignment;
 
-const vehicleAssignmentId =
-    duty.vehicleAssignment?._id ||
-    duty.vehicleAssignment;
+    const assignment =
+        await vehicleAssignmentRepository.findById(
+            vehicleAssignmentId
+        );
 
-const assignment =
-    await vehicleAssignmentRepository.findById(
-        vehicleAssignmentId
-    );
+    if (!assignment) {
+        throw new AppError(
+            "Vehicle Assignment not found.",
+            404
+        );
+    }
 
-if (!assignment) {
-    throw new AppError(
-        "Vehicle Assignment not found.",
-        404
-    );
-}
+    if (!assignment.commercialPackage) {
+        throw new AppError(
+            "Commercial Package not assigned.",
+            400
+        );
+    }
 
-if (!assignment.commercialPackage) {
-    throw new AppError(
-        "Commercial Package not assigned.",
-        400
-    );
-}
+    const commercial =
+        assignment.commercialPackageSnapshot;
 
-const commercial = assignment.commercialPackageSnapshot;
+    if (!commercial) {
+        throw new AppError(
+            "Commercial Package snapshot not found for this vehicle assignment.",
+            400
+        );
+    }
 
-if (!commercial) {
-    throw new AppError(
-        "Commercial Package snapshot not found for this vehicle assignment.",
-        400
-    );
-}
+    if (
+        duty.startKm == null ||
+        duty.endKm == null ||
+        !duty.dutyStartTime ||
+        !duty.dutyEndTime
+    ) {
+        throw new AppError(
+            "Duty is incomplete. KM or Time is missing.",
+            400
+        );
+    }
 
-if (
-    duty.startKm == null ||
-    duty.endKm == null ||
-    !duty.dutyStartTime ||
-    !duty.dutyEndTime
-) {
-    throw new AppError(
-        "Duty is incomplete. KM or Time is missing.",
-        400
-    );
-}
+    const totalKm =
+        Math.max(
+            0,
+            duty.endKm - duty.startKm
+        );
 
-const totalKm =
-    Math.max(
-        0,
-        duty.endKm - duty.startKm
-    );
+    const totalHours =
+        Number(
+            (
+                (duty.dutyEndTime -
+                    duty.dutyStartTime) /
+                (1000 * 60 * 60)
+            ).toFixed(2)
+        );
 
-const totalHours =
-    Number(
+    const vendorExtraKm =
+        Math.max(
+            0,
+            totalKm -
+                commercial.vendorIncludedKm
+        );
+
+    const vendorExtraHour =
+        Math.max(
+            0,
+            totalHours -
+                commercial.vendorIncludedHours
+        );
+
+    const clientExtraKm =
+        Math.max(
+            0,
+            totalKm -
+                commercial.clientIncludedKm
+        );
+
+    const clientExtraHour =
+        Math.max(
+            0,
+            totalHours -
+                commercial.clientIncludedHours
+        );
+
+    const DA =
+        duty.DA || 0;
+
+    const toll =
+        duty.toll || 0;
+
+    const parking =
+        duty.parking || 0;
+
+    const entry =
+        duty.entry || 0;
+
+    const additionalCharges =
+        parking +
+        toll +
+        entry +
+        DA;
+
+    const vendorAmount =
+        commercial.vendorBaseRate +
         (
-            (duty.dutyEndTime - duty.dutyStartTime) /
-            (1000 * 60 * 60)
-        ).toFixed(2)
-    );
+            vendorExtraKm *
+            commercial.vendorExtraKmRate
+        ) +
+        (
+            vendorExtraHour *
+            commercial.vendorExtraHourRate
+        ) +
+        additionalCharges;
 
-const vendorExtraKm =
-    Math.max(
-        0,
-        totalKm - commercial.vendorIncludedKm
-    );
+    const clientAmount =
+        commercial.clientBaseRate +
+        (
+            clientExtraKm *
+            commercial.clientExtraKmRate
+        ) +
+        (
+            clientExtraHour *
+            commercial.clientExtraHourRate
+        ) +
+        additionalCharges;
 
-const vendorExtraHour =
-    Math.max(
-        0,
-        totalHours - commercial.vendorIncludedHours
-    );
+    return {
+        assignment,
 
-const clientExtraKm =
-    Math.max(
-        0,
-        totalKm - commercial.clientIncludedKm
-    );
+        duty,
 
-const clientExtraHour =
-    Math.max(
-        0,
-        totalHours - commercial.clientIncludedHours
-    );
+        totalKm,
 
-const DA =
-    duty.DA || 0;
+        totalHours,
 
-const toll =
-    duty.toll || 0;
+        vendorBill: {
+            vendorRate:
+                commercial.vendorBaseRate,
 
-const parking =
-    duty.parking || 0;
+            extraKm:
+                vendorExtraKm,
 
-const entry =
-    duty.entry || 0;
+            extraHour:
+                vendorExtraHour,
 
-const additionalCharges =
-    parking +
-    toll +
-    entry +
-    DA;
+            parkingCharges:
+                parking,
 
-const vendorAmount =
-    commercial.vendorBaseRate +
-    (vendorExtraKm *
-        commercial.vendorExtraKmRate) +
-    (vendorExtraHour *
-        commercial.vendorExtraHourRate) +
-    additionalCharges;
+            tollCharges:
+                toll,
 
-const clientAmount =
-    commercial.clientBaseRate +
-    (clientExtraKm *
-        commercial.clientExtraKmRate) +
-    (clientExtraHour *
-        commercial.clientExtraHourRate) +
-    additionalCharges;
+            entryCharges:
+                entry,
 
-return {
+            daCharges:
+                DA,
 
-    assignment,
+            amount:
+                vendorAmount,
+        },
 
-    duty,
+        clientBill: {
+            clientRate:
+                commercial.clientBaseRate,
 
-    totalKm,
+            extraKm:
+                clientExtraKm,
 
-    totalHours,
+            extraHour:
+                clientExtraHour,
 
-    vendorBill: {
+            parkingCharges:
+                parking,
 
-        vendorRate:
-            commercial.vendorBaseRate,
+            tollCharges:
+                toll,
 
-        extraKm:
-            vendorExtraKm,
+            entryCharges:
+                entry,
 
-        extraHour:
-            vendorExtraHour,
+            daCharges:
+                DA,
 
-        parkingCharges:
-            parking,
+            amount:
+                clientAmount,
+        },
 
-        tollCharges:
-            toll,
-
-        entryCharges:
-            entry,
-
-        daCharges:
-            DA,
-
-        amount:
+        profit:
+            clientAmount -
             vendorAmount,
-    },
 
-    clientBill: {
-
-        clientRate:
-            commercial.clientBaseRate,
-
-        extraKm:
-            clientExtraKm,
-
-        extraHour:
-            clientExtraHour,
-
-        parkingCharges:
-            parking,
-
-        tollCharges:
-            toll,
-
-        entryCharges:
-            entry,
-
-        daCharges:
-            DA,
-
-        amount:
-            clientAmount,
-    },
-
-    profit:
-        clientAmount - vendorAmount,
-
-    status:
-        BILL_STATUS.DRAFT,
-};
-
-
+        status:
+            BILL_STATUS.DRAFT,
+    };
 };
 
 module.exports = {
-generateDraftBill,
+    generateDraftBill,
 };

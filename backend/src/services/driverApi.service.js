@@ -1,20 +1,31 @@
+const vehicleAssignmentRepository =
+    require("../repositories/vehicleAssignment.repository");
 
-const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.repository");
-const guestAssignmentRepository = require("../repositories/guestAssignment.repository");
+const guestAssignmentRepository =
+    require("../repositories/guestAssignment.repository");
 
-const AppError = require("../utils/AppError");
+const AppError =
+    require("../utils/AppError");
 
 const {
     PICKUP_STATUS,
     RETURN_STATUS,
+    VEHICLE_ASSIGNMENT_STATUS,
 } = require("../constants/status");
 
 /**
- * Verify that a guest assignment belongs to the logged-in driver.
+ * Verify that a guest assignment belongs to the logged-in driver
+ * and that its vehicle assignment is still active.
  */
-const getDriverGuestAssignment = async (id, driverId) => {
+const getDriverGuestAssignment = async (
+    id,
+    driverId
+) => {
+
     const guestAssignment =
-        await guestAssignmentRepository.findById(id);
+        await guestAssignmentRepository.findById(
+            id
+        );
 
     if (!guestAssignment) {
         throw new AppError(
@@ -23,13 +34,24 @@ const getDriverGuestAssignment = async (id, driverId) => {
         );
     }
 
+    const vehicleAssignment =
+        guestAssignment.vehicleAssignment;
+
+    if (!vehicleAssignment) {
+        throw new AppError(
+            "Vehicle assignment not found.",
+            404
+        );
+    }
+
     const assignedDriver =
-        guestAssignment.vehicleAssignment?.driver?._id ||
-        guestAssignment.vehicleAssignment?.driver;
+        vehicleAssignment.driver?._id ||
+        vehicleAssignment.driver;
 
     if (
         !assignedDriver ||
-        assignedDriver.toString() !== driverId.toString()
+        assignedDriver.toString() !==
+            driverId.toString()
     ) {
         throw new AppError(
             "You are not authorized to update this guest assignment.",
@@ -37,15 +59,30 @@ const getDriverGuestAssignment = async (id, driverId) => {
         );
     }
 
+    if (
+    vehicleAssignment.status !==
+    VEHICLE_ASSIGNMENT_STATUS.ON_DUTY
+) {
+    throw new AppError(
+        "Guest operations can only be performed after duty has started.",
+        400
+    );
+}
+
     return guestAssignment;
 };
 
 /**
  * Driver Dashboard
  */
-const getDriverDashboard = async (driverId) => {
+const getDriverDashboard = async (
+    driverId
+) => {
+
     const assignment =
-        await vehicleAssignmentRepository.findTodayByDriver(driverId);
+        await vehicleAssignmentRepository.findTodayByDriver(
+            driverId
+        );
 
     if (!assignment) {
         throw new AppError(
@@ -61,7 +98,8 @@ const getDriverDashboard = async (driverId) => {
 
     return {
         assignment,
-        totalGuests: guests.length,
+        totalGuests:
+            guests.length,
         guests,
     };
 };
@@ -69,9 +107,14 @@ const getDriverDashboard = async (driverId) => {
 /**
  * Assigned Guests
  */
-const getAssignedGuests = async (driverId) => {
+const getAssignedGuests = async (
+    driverId
+) => {
+
     const assignment =
-        await vehicleAssignmentRepository.findTodayByDriver(driverId);
+        await vehicleAssignmentRepository.findTodayByDriver(
+            driverId
+        );
 
     if (!assignment) {
         throw new AppError(
@@ -92,6 +135,7 @@ const markDriverEnRoute = async (
     id,
     driverId
 ) => {
+
     const assignment =
         await getDriverGuestAssignment(
             id,
@@ -114,6 +158,7 @@ const markDriverEnRoute = async (
             {
                 pickupStatus:
                     PICKUP_STATUS.PENDING,
+
                 returnStatus:
                     RETURN_STATUS.NOT_STARTED,
             },
@@ -140,6 +185,7 @@ const markGuestPicked = async (
     id,
     driverId
 ) => {
+
     const assignment =
         await getDriverGuestAssignment(
             id,
@@ -166,7 +212,9 @@ const markGuestPicked = async (
             {
                 pickupStatus:
                     PICKUP_STATUS.PICKED_UP,
-                pickupTime: new Date(),
+
+                pickupTime:
+                    new Date(),
             }
         );
 
@@ -187,6 +235,7 @@ const markVenueReached = async (
     id,
     driverId
 ) => {
+
     const assignment =
         await getDriverGuestAssignment(
             id,
@@ -213,7 +262,9 @@ const markVenueReached = async (
             {
                 pickupStatus:
                     PICKUP_STATUS.DROPPED_AT_VENUE,
-                venueArrivalTime: new Date(),
+
+                venueArrivalTime:
+                    new Date(),
             }
         );
 
@@ -234,6 +285,7 @@ const markReturnPickup = async (
     id,
     driverId
 ) => {
+
     const assignment =
         await getDriverGuestAssignment(
             id,
@@ -266,13 +318,16 @@ const markReturnPickup = async (
             {
                 pickupStatus:
                     PICKUP_STATUS.DROPPED_AT_VENUE,
+
                 returnStatus:
                     RETURN_STATUS.NOT_STARTED,
             },
             {
                 returnStatus:
                     RETURN_STATUS.RETURN_PICKUP,
-                returnPickupTime: new Date(),
+
+                returnPickupTime:
+                    new Date(),
             }
         );
 
@@ -293,6 +348,7 @@ const markGuestDropped = async (
     id,
     driverId
 ) => {
+
     const assignment =
         await getDriverGuestAssignment(
             id,
@@ -319,7 +375,9 @@ const markGuestDropped = async (
             {
                 returnStatus:
                     RETURN_STATUS.DROPPED,
-                dropTime: new Date(),
+
+                dropTime:
+                    new Date(),
             }
         );
 
@@ -332,6 +390,7 @@ const markGuestDropped = async (
 
     return updatedAssignment;
 };
+
 module.exports = {
     getDriverDashboard,
     getAssignedGuests,

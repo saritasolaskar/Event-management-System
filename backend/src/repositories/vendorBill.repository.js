@@ -29,14 +29,23 @@ const findById = async (id) => {
                 {
                     path: "vehicle",
                 },
+                {
+                    path: "event",
+                    populate: {
+                        path: "client",
+                    },
+                },
             ],
         })
         .populate({
             path: "duty",
             populate: {
-                path: "event",
+                path: "vehicleAssignment",
                 populate: {
-                    path: "venue",
+                    path: "event",
+                    populate: {
+                        path: "venue",
+                    },
                 },
             },
         })
@@ -82,7 +91,6 @@ const updateById = async (
     );
 
 };
-
 
 /**
  * Atomically update a Vendor Bill only when its current status

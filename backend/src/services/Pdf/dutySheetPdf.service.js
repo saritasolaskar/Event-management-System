@@ -44,15 +44,18 @@ const generateDutySheetPdf = async (
         );
     }
 
-    if (!duty.event) {
+    const vehicleAssignment =
+        duty.vehicleAssignment;
+
+    const event =
+        vehicleAssignment.event;
+
+    if (!event) {
         throw new AppError(
             "Event not found.",
             404
         );
     }
-
-    const vehicleAssignment =
-        duty.vehicleAssignment;
 
     if (!vehicleAssignment.driver) {
         throw new AppError(
@@ -167,27 +170,27 @@ const generateDutySheetPdf = async (
         event: {
 
             ...(
-                duty.event.toObject
-                    ? duty.event.toObject()
-                    : duty.event
+                event.toObject
+                    ? event.toObject()
+                    : event
             ),
 
             eventName:
-                duty.event.name,
+                event.name,
 
             startDate:
-                duty.event.startDate
-                    ? duty.event.startDate.toLocaleDateString()
+                event.startDate
+                    ? event.startDate.toLocaleDateString()
                     : "",
 
             endDate:
-                duty.event.endDate
-                    ? duty.event.endDate.toLocaleDateString()
+                event.endDate
+                    ? event.endDate.toLocaleDateString()
                     : "",
         },
 
         client:
-            duty.event.client || null,
+            event.client || null,
 
         vendor: {
 
@@ -224,7 +227,7 @@ const generateDutySheetPdf = async (
                 "Operations Team",
 
             clientSpoc:
-                duty.event.client?.companyName ||
+                event.client?.companyName ||
                 "-",
 
             emergency:

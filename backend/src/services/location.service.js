@@ -6,7 +6,8 @@ const eventRepository =
 
 const AppError =
     require("../utils/AppError");
-
+const guestRepository =
+    require("../repositories/guest.repository");
 const {
     STATUS,
 } = require("../constants/status");
@@ -190,15 +191,44 @@ const deleteLocation = async (
 
     if (eventCount > 0) {
         throw new AppError(
-            "Location cannot be deleted because it is being used by an event.",
+            "Location cannot be deleted because it is being used as an event venue.",
             409
         );
     }
 
-    await locationRepository.softDelete(
-        locationId,
-        userId
-    );
+    const guestCount =
+        await guestRepository.count({
+            $or: [
+                {
+                    pickupLocation:
+                        locationId,
+                },
+                {
+                    dropLocation:
+                        locationId,
+                },
+            ],
+        });
+
+    if (guestCount > 0) {
+        throw new AppError(
+            "Location cannot be deleted because it is being used by guests.",
+            409
+        );
+    }
+
+    const deletedLocation =
+        await locationRepository.softDelete(
+            locationId,
+            userId
+        );
+
+    if (!deletedLocation) {
+        throw new AppError(
+            "Location could not be deleted.",
+            409
+        );
+    }
 
     return {
         message:

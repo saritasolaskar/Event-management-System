@@ -7,7 +7,7 @@ const generatePdf = async (templateName, data) => {
 
     const templatePath = path.join(
         __dirname,
-        "../templates/pdf",
+        "../templates/Pdf",
         `${templateName}.hbs`
     );
 
