@@ -62,12 +62,10 @@ const validateVehicleAssignment =
 
         if (
             vehicleAssignment.status !==
-                VEHICLE_ASSIGNMENT_STATUS.ASSIGNED &&
-            vehicleAssignment.status !==
-                VEHICLE_ASSIGNMENT_STATUS.ON_DUTY
+            VEHICLE_ASSIGNMENT_STATUS.ASSIGNED
         ) {
             throw new AppError(
-                "Guest can only be assigned to an active Vehicle Assignment.",
+                "Guest can only be assigned before vehicle duty starts.",
                 400
             );
         }
