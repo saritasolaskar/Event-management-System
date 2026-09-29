@@ -1,4 +1,3 @@
-
 const driverRepository =
   require("../repositories/driver.repository");
 
@@ -204,9 +203,6 @@ const createDriver = async (
     medicalCertificateExpiry:
       driverData.medicalCertificateExpiry || null,
 
-    /*
-     * Server-controlled fields
-     */
     rating:
       5,
 
@@ -221,14 +217,12 @@ const createDriver = async (
 
     isDeleted:
       false,
-
   };
 
 
   /*
-   * Driver creation and all related
-   * operations are inside the rollback
-   * protected block.
+   * Driver creation and related
+   * operations are rollback protected.
    */
   let driver;
 
@@ -241,8 +235,7 @@ const createDriver = async (
 
 
     /*
-     * Link current vehicle to the
-     * newly created driver.
+     * Link current vehicle to driver.
      */
     if (driver.currentVehicle) {
 
@@ -314,8 +307,8 @@ const createDriver = async (
 
 
       /*
-       * Prevent the same login account
-       * from being linked to another driver.
+       * Prevent login account from
+       * being linked to another driver.
        */
       if (
         existingUser.driver &&
@@ -368,9 +361,6 @@ const createDriver = async (
 
       } catch (error) {
 
-        /*
-         * Restore User state.
-         */
         existingUser.driver =
           previousDriver;
 
@@ -452,9 +442,6 @@ const createDriver = async (
 
     } catch (error) {
 
-      /*
-       * Rollback newly created User.
-       */
       try {
 
         await User.updateOne(
@@ -492,16 +479,11 @@ const createDriver = async (
   } catch (error) {
 
     /*
-     * If the Driver was created and
-     * something afterwards failed,
-     * soft-delete the Driver.
+     * Rollback Driver and Vehicle
+     * if a later operation fails.
      */
     if (driver?._id) {
 
-      /*
-       * If a vehicle was linked,
-       * release it again.
-       */
       if (driver.currentVehicle) {
 
         try {
@@ -655,6 +637,10 @@ const updateDriver = async (
     sanitizedUpdateData;
 
 
+  /*
+   * Find existing driver BEFORE
+   * performing vehicle validation.
+   */
   const driver =
     await driverRepository.findById(
       driverId
@@ -671,7 +657,12 @@ const updateDriver = async (
   /*
    * Vendor Validation
    */
-  if (updateData.vendor) {
+  if (
+    Object.prototype.hasOwnProperty.call(
+      updateData,
+      "vendor"
+    )
+  ) {
 
     const vendor =
       await vendorRepository.findById(
@@ -689,6 +680,9 @@ const updateDriver = async (
 
   /*
    * Determine effective vendor.
+   *
+   * If vendor is not being changed,
+   * keep the driver's existing vendor.
    */
   const effectiveVendorId =
     updateData.vendor ||
@@ -709,6 +703,9 @@ const updateDriver = async (
 
   /*
    * Determine effective vehicle.
+   *
+   * null means the driver is being
+   * explicitly unassigned from a vehicle.
    */
   const effectiveVehicleId =
     vehicleWasUpdated
@@ -742,6 +739,10 @@ const updateDriver = async (
       vehicle.vendor;
 
 
+    /*
+     * Vehicle and Driver must belong
+     * to the same vendor.
+     */
     if (
       !effectiveVendorId ||
       !vehicleVendorId ||
@@ -776,8 +777,8 @@ const updateDriver = async (
 
 
     /*
-     * A vehicle already assigned to
-     * this driver is allowed.
+     * If the vehicle already belongs
+     * to this driver, it is allowed.
      *
      * Otherwise it must be AVAILABLE.
      */
@@ -885,14 +886,19 @@ const updateDriver = async (
 
 
   /*
-   * Store old vehicle so we can
-   * synchronize it after the update.
+   * Store old vehicle.
    */
   const oldVehicleId =
     driver.currentVehicle?._id ||
     driver.currentVehicle;
 
 
+  /*
+   * New vehicle.
+   *
+   * If currentVehicle was not supplied,
+   * retain the old vehicle.
+   */
   const newVehicleId =
     vehicleWasUpdated
       ? updateData.currentVehicle
@@ -928,8 +934,8 @@ const updateDriver = async (
   if (vehicleWasUpdated) {
 
     /*
-     * Release old vehicle when the
-     * driver is moved or unassigned.
+     * Release old vehicle when
+     * changing or removing it.
      */
     if (
       oldVehicleId &&
@@ -1077,7 +1083,7 @@ const deleteDriver = async (
 
   /*
    * Prevent deletion while driver
-   * is assigned to an active event/duty.
+   * is assigned to active duty/event.
    */
   const activeAssignment =
     await vehicleAssignmentRepository.findActiveByDriver(
@@ -1096,8 +1102,7 @@ const deleteDriver = async (
 
 
   /*
-   * Disable linked login account
-   * before soft-deleting driver.
+   * Disable linked login account.
    */
   await User.updateMany(
     {
@@ -1139,15 +1144,18 @@ const deleteDriver = async (
 
         status:
           VEHICLE_STATUS.AVAILABLE,
+
+        updatedBy:
+          userId,
       }
     );
   }
 
 
   await driverRepository.softDelete(
-  driverId,
-  userId
-);
+    driverId,
+    userId
+  );
 
 
   return {
@@ -1221,16 +1229,16 @@ const updateDriverStatus = async (
 
 
   const updatedDriver =
-  await driverRepository.updateStatus(
-    driverId,
-    status,
-    userId
-  );
+    await driverRepository.updateStatus(
+      driverId,
+      status,
+      userId
+    );
 
 
   /*
    * Keep Driver login status aligned
-   * with the Driver record.
+   * with Driver status.
    */
   const linkedUser =
     await User.findOne({
