@@ -20,6 +20,7 @@ const {
     VEHICLE_ASSIGNMENT_STATUS,
 } = require("../constants/status");
 
+
 /**
  * Start Duty
  */
@@ -28,6 +29,7 @@ const startDuty = async (
     userId,
     driverId
 ) => {
+
     const assignment =
         await vehicleAssignmentRepository.findById(
             data.vehicleAssignment
@@ -65,18 +67,6 @@ const startDuty = async (
         );
     }
 
-    const existingDuty =
-        await dutyRepository.findByVehicleAssignment(
-            data.vehicleAssignment
-        );
-
-    if (existingDuty) {
-        throw new AppError(
-            "A duty already exists for this vehicle assignment.",
-            400
-        );
-    }
-
     if (
         data.startKm === undefined ||
         data.startKm < 0
@@ -87,47 +77,50 @@ const startDuty = async (
         );
     }
 
-    data.status =
-        DUTY_STATUS.STARTED;
-
-    data.dutyStartTime =
-        new Date();
-
-    data.createdBy =
-        userId;
-
-    data.updatedBy =
-        userId;
+    const session =
+        await mongoose.startSession();
 
     let duty;
 
-    const session =
-        await mongoose.startSession();
+    const dutyStartTime =
+        new Date();
 
     try {
 
         await session.withTransaction(
             async () => {
 
-                try {
-                    duty =
-                        await dutyRepository.create(
-                            data,
-                            session
-                        );
-                } catch (error) {
+                const existingDuty =
+                    await dutyRepository.findByVehicleAssignment(
+                        data.vehicleAssignment,
+                        session
+                    );
 
-                    if (
-                        error.code === 11000
-                    ) {
-                        throw new AppError(
-                            "A duty already exists for this vehicle assignment.",
-                            409
-                        );
-                    }
-
-                    throw error;
+                if (existingDuty) {
+                    throw new AppError(
+                        "A duty already exists for this vehicle assignment.",
+                        409
+                    );
                 }
+
+                duty =
+                    await dutyRepository.create(
+                        {
+                            ...data,
+
+                            status:
+                                DUTY_STATUS.STARTED,
+
+                            dutyStartTime,
+
+                            createdBy:
+                                userId,
+
+                            updatedBy:
+                                userId,
+                        },
+                        session
+                    );
 
                 const updatedAssignment =
                     await vehicleAssignmentRepository.updateByIdAndStatus(
@@ -137,8 +130,7 @@ const startDuty = async (
                             startKm:
                                 data.startKm,
 
-                            dutyStartTime:
-                                data.dutyStartTime,
+                            dutyStartTime,
 
                             status:
                                 VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
@@ -148,10 +140,11 @@ const startDuty = async (
                         },
                         session
                     );
+
                 if (!updatedAssignment) {
                     throw new AppError(
-                        "Failed to update vehicle assignment.",
-                        500
+                        "Vehicle Assignment was changed by another operation. Please refresh and try again.",
+                        409
                     );
                 }
             }
@@ -163,24 +156,42 @@ const startDuty = async (
 
     await notificationService.createNotification({
         recipientUser: userId,
-        title: "Duty Started",
+
+        title:
+            "Duty Started",
+
         message:
             "Duty has been started successfully.",
-        type: "DUTY_STARTED",
-        referenceType: "DUTY",
-        referenceId: duty._id,
+
+        type:
+            "DUTY_STARTED",
+
+        referenceType:
+            "DUTY",
+
+        referenceId:
+            duty._id,
     });
 
     await auditLogService.createLog({
         user: userId,
-        action: "CREATE",
-        module: "DUTY",
-        referenceId: duty._id,
-        description: "Duty started.",
+
+        action:
+            "CREATE",
+
+        module:
+            "DUTY",
+
+        referenceId:
+            duty._id,
+
+        description:
+            "Duty started.",
     });
 
     return duty;
 };
+
 
 /**
  * Get Duty
@@ -189,8 +200,11 @@ const getDuty = async (
     id,
     driverId = null
 ) => {
+
     const duty =
-        await dutyRepository.findById(id);
+        await dutyRepository.findById(
+            id
+        );
 
     if (!duty) {
         throw new AppError(
@@ -199,7 +213,6 @@ const getDuty = async (
         );
     }
 
-    // Drivers can only access their own duty.
     if (driverId) {
 
         const assignedDriver =
@@ -221,6 +234,7 @@ const getDuty = async (
     return duty;
 };
 
+
 /**
  * Complete Duty
  */
@@ -230,8 +244,11 @@ const completeDuty = async (
     userId,
     driverId
 ) => {
+
     const duty =
-        await dutyRepository.findById(id);
+        await dutyRepository.findById(
+            id
+        );
 
     if (!duty) {
         throw new AppError(
@@ -295,6 +312,9 @@ const completeDuty = async (
     const totalKm =
         data.endKm - duty.startKm;
 
+    const dutyEndTime =
+        new Date();
+
     const session =
         await mongoose.startSession();
 
@@ -306,61 +326,62 @@ const completeDuty = async (
             async () => {
 
                 completedDuty =
-    await dutyRepository.updateByIdAndStatus(
-        id,
-        DUTY_STATUS.STARTED,
-        {
-            endKm:
-                data.endKm,
+                    await dutyRepository.updateByIdAndStatus(
+                        id,
+                        DUTY_STATUS.STARTED,
+                        {
+                            endKm:
+                                data.endKm,
 
-            totalKm,
+                            totalKm,
 
-            status:
-                DUTY_STATUS.COMPLETED,
+                            status:
+                                DUTY_STATUS.COMPLETED,
 
-            dutyEndTime:
-                new Date(),
+                            dutyEndTime,
 
-            updatedBy:
-                userId,
-        },
-        session
-    );
+                            updatedBy:
+                                userId,
+                        },
+                        session
+                    );
 
                 if (!completedDuty) {
                     throw new AppError(
-                        "Failed to complete duty.",
-                        500
+                        "Duty was changed by another operation. Please refresh and try again.",
+                        409
                     );
                 }
 
                 const updatedAssignment =
-    await vehicleAssignmentRepository.updateByIdAndStatus(
-        duty.vehicleAssignment._id ||
-            duty.vehicleAssignment,
-        VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
-        {
-            endKm:
-                data.endKm,
+                    await vehicleAssignmentRepository.updateByIdAndStatus(
+                        duty.vehicleAssignment._id ||
+                            duty.vehicleAssignment,
 
-            totalKm,
+                        VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
 
-            dutyEndTime:
-                new Date(),
+                        {
+                            endKm:
+                                data.endKm,
 
-            status:
-                VEHICLE_ASSIGNMENT_STATUS.COMPLETED,
+                            totalKm,
 
-            updatedBy:
-                userId,
-        },
-        session
-    );
+                            dutyEndTime,
+
+                            status:
+                                VEHICLE_ASSIGNMENT_STATUS.COMPLETED,
+
+                            updatedBy:
+                                userId,
+                        },
+
+                        session
+                    );
 
                 if (!updatedAssignment) {
                     throw new AppError(
-                        "Failed to complete vehicle assignment.",
-                        500
+                        "Vehicle Assignment was changed by another operation. Please refresh and try again.",
+                        409
                     );
                 }
             }
@@ -372,27 +393,42 @@ const completeDuty = async (
 
     await notificationService.createNotification({
         recipientUser: userId,
-        title: "Duty Completed",
+
+        title:
+            "Duty Completed",
+
         message:
             "Duty completed successfully.",
-        type: "DUTY_COMPLETED",
-        referenceType: "DUTY",
+
+        type:
+            "DUTY_COMPLETED",
+
+        referenceType:
+            "DUTY",
+
         referenceId:
             completedDuty._id,
     });
 
     await auditLogService.createLog({
         user: userId,
-        action: "UPDATE",
-        module: "DUTY",
+
+        action:
+            "UPDATE",
+
+        module:
+            "DUTY",
+
         referenceId:
             completedDuty._id,
+
         description:
             "Duty completed.",
     });
 
     return completedDuty;
 };
+
 
 /**
  * Update Expenses
@@ -403,8 +439,11 @@ const updateExpenses = async (
     userId,
     driverId
 ) => {
+
     const duty =
-        await dutyRepository.findById(id);
+        await dutyRepository.findById(
+            id
+        );
 
     if (!duty) {
         throw new AppError(
@@ -439,7 +478,8 @@ const updateExpenses = async (
     }
 
     const expenseData = {
-        updatedBy: userId,
+        updatedBy:
+            userId,
     };
 
     if (expenses.DA !== undefined) {
@@ -482,16 +522,23 @@ const updateExpenses = async (
 
     await auditLogService.createLog({
         user: userId,
-        action: "UPDATE",
-        module: "DUTY",
+
+        action:
+            "UPDATE",
+
+        module:
+            "DUTY",
+
         referenceId:
             updatedDuty._id,
+
         description:
             "Duty expenses updated.",
     });
 
     return updatedDuty;
 };
+
 
 module.exports = {
     startDuty,
