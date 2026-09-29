@@ -161,6 +161,18 @@ const getTrackingHistory = async (
     dutyId
 ) => {
 
+    const duty =
+        await dutyRepository.findById(
+            dutyId
+        );
+
+    if (!duty) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
+
     return driverTrackingRepository.findHistoryByDuty(
         dutyId
     );
