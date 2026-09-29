@@ -5,47 +5,76 @@ const {
     EVENT_STATUS,
 } = require("../constants/status");
 
-/**
- * Create Event
- */
-const create = async (eventData) => {
+
+const create = async (
+    eventData,
+    session = null
+) => {
+
+    if (session) {
+        const [event] =
+            await Event.create(
+                [eventData],
+                { session }
+            );
+
+        return event;
+    }
+
     return Event.create(eventData);
 };
 
-/**
- * Find Event By ID
- */
-const findById = async (id) => {
-    return Event.findOne({
-        _id: id,
-        isDeleted: false,
-    })
-        .populate(
-            "client",
-            "clientCode companyName"
-        )
-        .populate(
-            "venue",
-            "locationCode name city state"
-        );
-};
 
-/**
- * Find Event By Code
- */
-const findByEventCode = async (
-    eventCode
+const findById = async (
+    id,
+    session = null
 ) => {
-    return Event.findOne({
-        eventCode,
-        isDeleted: false,
-    });
+
+    const query =
+        Event.findOne({
+            _id: id,
+            isDeleted: false,
+        })
+            .populate(
+                "client",
+                "clientCode companyName"
+            )
+            .populate(
+                "venue",
+                "locationCode name city state"
+            );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-/**
- * Get All Events
- */
-const findAll = async (filter = {}) => {
+
+const findByEventCode = async (
+    eventCode,
+    session = null
+) => {
+
+    const query =
+        Event.findOne({
+            eventCode,
+            isDeleted: false,
+        });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
+const findAll = async (
+    filter = {}
+) => {
+
     return Event.find({
         isDeleted: false,
         ...filter,
@@ -63,10 +92,11 @@ const findAll = async (filter = {}) => {
         });
 };
 
-/**
- * Get Events By Client
- */
-const findByClient = async (clientId) => {
+
+const findByClient = async (
+    clientId
+) => {
+
     return Event.find({
         client: clientId,
         isDeleted: false,
@@ -85,39 +115,46 @@ const findByClient = async (clientId) => {
         .lean();
 };
 
-/**
- * Update Event
- */
+
 const updateById = async (
     id,
-    updateData
+    updateData,
+    session = null
 ) => {
-    return Event.findOneAndUpdate(
-        {
-            _id: id,
-            isDeleted: false,
-        },
-        updateData,
-        {
-            new: true,
-            runValidators: true,
-        }
-    );
+
+    const query =
+        Event.findOneAndUpdate(
+            {
+                _id: id,
+                isDeleted: false,
+            },
+            updateData,
+            {
+                new: true,
+                runValidators: true,
+                ...(session
+                    ? { session }
+                    : {}),
+            }
+        );
+
+    return query;
 };
 
-/**
- * Soft Delete Event
- */
+
 const softDelete = async (
     id,
-    updatedBy = null
+    updatedBy = null,
+    session = null
 ) => {
+
     const updateData = {
         isDeleted: true,
     };
 
     if (updatedBy) {
-        updateData.updatedBy = updatedBy;
+        updateData.updatedBy =
+            updatedBy;
     }
 
     return Event.findOneAndUpdate(
@@ -129,24 +166,28 @@ const softDelete = async (
         {
             new: true,
             runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
         }
     );
 };
 
-/**
- * Update Event Status
- */
+
 const updateStatus = async (
     id,
     status,
-    updatedBy = null
+    updatedBy = null,
+    session = null
 ) => {
+
     const updateData = {
         status,
     };
 
     if (updatedBy) {
-        updateData.updatedBy = updatedBy;
+        updateData.updatedBy =
+            updatedBy;
     }
 
     return Event.findOneAndUpdate(
@@ -158,53 +199,75 @@ const updateStatus = async (
         {
             new: true,
             runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
         }
     );
 };
 
-/**
- * Find Active Events By Client
- */
+
 const findActiveByClient = async (
-    clientId
+    clientId,
+    session = null
 ) => {
-    return Event.find({
-        client: clientId,
-        status: EVENT_STATUS.ONGOING,
-        isDeleted: false,
-    });
-};
 
-/**
- * Find Events By Status
- */
-const findByStatus = async (status) => {
-    return Event.find({
-        status,
-        isDeleted: false,
-    })
-        .populate(
-            "client",
-            "clientCode companyName"
-        )
-        .populate(
-            "venue",
-            "locationCode name city state"
-        )
-        .sort({
-            startDate: -1,
+    const query =
+        Event.find({
+            client: clientId,
+            status:
+                EVENT_STATUS.ONGOING,
+            isDeleted: false,
         });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-/**
- * Count Events
- */
-const count = async (filter = {}) => {
+
+const findByStatus = async (
+    status,
+    session = null
+) => {
+
+    const query =
+        Event.find({
+            status,
+            isDeleted: false,
+        })
+            .populate(
+                "client",
+                "clientCode companyName"
+            )
+            .populate(
+                "venue",
+                "locationCode name city state"
+            )
+            .sort({
+                startDate: -1,
+            });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
+const count = async (
+    filter = {}
+) => {
+
     return Event.countDocuments({
         isDeleted: false,
         ...filter,
     });
 };
+
 
 module.exports = {
     create,
