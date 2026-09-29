@@ -25,9 +25,14 @@ const findById = (
                 },
                 {
                     path: "event",
-                    populate: {
-                        path: "client",
-                    },
+                    populate: [
+                        {
+                            path: "client",
+                        },
+                        {
+                            path: "venue",
+                        },
+                    ],
                 },
             ],
         });
