@@ -1,4 +1,4 @@
-```js
+
 const { body, param } = require("express-validator");
 
 const { STATUS } = require("../constants/status");
@@ -232,4 +232,4 @@ module.exports = {
     driverStatusValidator,
 
 };
-```
+
