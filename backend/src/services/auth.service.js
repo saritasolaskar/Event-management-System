@@ -25,11 +25,7 @@ const {
 } = require("../constants/roles");
 
 
-/**
- * Register User
- */
 const register = async (userData) => {
-
     const existingEmail =
         await userRepository.findByEmail(
             userData.email
@@ -54,23 +50,20 @@ const register = async (userData) => {
         );
     }
 
-    const user = await userRepository.create({
-    name: userData.name,
-    email: userData.email,
-    phone: userData.phone,
-    password: userData.password,
-    avatar: userData.avatar || null,
-
-    role: ROLES.CLIENT,
-    status: STATUS.ACTIVE,
-
-    isEmailVerified: false,
-
-    failedLoginAttempts: 0,
-    lockUntil: null,
-
-    isDeleted: false,
-});
+    const user =
+        await userRepository.create({
+            name: userData.name,
+            email: userData.email,
+            phone: userData.phone,
+            password: userData.password,
+            avatar: userData.avatar || null,
+            role: ROLES.CLIENT,
+            status: STATUS.ACTIVE,
+            isEmailVerified: false,
+            failedLoginAttempts: 0,
+            lockUntil: null,
+            isDeleted: false,
+        });
 
     const accessToken =
         generateAccessToken(user);
@@ -97,14 +90,10 @@ const register = async (userData) => {
 };
 
 
-/**
- * Login User
- */
 const login = async ({
     email,
     password,
 }) => {
-
     const user =
         await userRepository.findByEmailWithPassword(
             email
@@ -117,11 +106,6 @@ const login = async ({
         );
     }
 
-
-    /**
-     * Check account lock before
-     * performing password authentication.
-     */
     if (
         user.lockUntil &&
         user.lockUntil > new Date()
@@ -132,10 +116,6 @@ const login = async ({
         );
     }
 
-
-    /**
-     * Clear expired lock state.
-     */
     if (
         user.lockUntil &&
         user.lockUntil <= new Date()
@@ -145,18 +125,10 @@ const login = async ({
         );
     }
 
-
     const isPasswordValid =
-        await user.comparePassword(
-            password
-        );
+        await user.comparePassword(password);
 
-
-    /**
-     * Invalid password
-     */
     if (!isPasswordValid) {
-
         await userRepository.recordFailedLoginAttempt(
             user._id
         );
@@ -167,10 +139,6 @@ const login = async ({
         );
     }
 
-
-    /**
-     * Account must be active.
-     */
     if (
         user.status !== STATUS.ACTIVE ||
         user.isDeleted
@@ -181,15 +149,9 @@ const login = async ({
         );
     }
 
-
-    /**
-     * Successful login:
-     * reset brute-force protection state.
-     */
     await userRepository.resetLoginAttempts(
         user._id
     );
-
 
     const accessToken =
         generateAccessToken(user);
@@ -207,7 +169,6 @@ const login = async ({
         user._id
     );
 
-
     const userObject =
         user.toObject();
 
@@ -224,16 +185,18 @@ const login = async ({
 /**
  * Create Password Setup Token
  *
- * Used when an Admin/Operations Manager
- * creates a Driver account.
+ * Optional session allows Driver creation
+ * to keep token creation inside the same
+ * MongoDB transaction.
  */
 const createPasswordSetupToken = async (
-    userId
+    userId,
+    session = null
 ) => {
-
     const user =
         await userRepository.findById(
-            userId
+            userId,
+            session
         );
 
     if (!user) {
@@ -260,29 +223,34 @@ const createPasswordSetupToken = async (
             30 * 60 * 1000
         );
 
-    await userRepository.updateById(
-        userId,
-        {
-            passwordResetToken:
-                hashedToken,
+    const updatedUser =
+        await userRepository.updateById(
+            userId,
+            {
+                passwordResetToken:
+                    hashedToken,
 
-            passwordResetExpires:
-                expiresAt,
-        }
-    );
+                passwordResetExpires:
+                    expiresAt,
+            },
+            session
+        );
+
+    if (!updatedUser) {
+        throw new AppError(
+            "Failed to create password setup token.",
+            500
+        );
+    }
 
     return rawToken;
 };
 
 
-/**
- * Set Password Using Setup Token
- */
 const setPassword = async (
     token,
     password
 ) => {
-
     const hashedToken =
         crypto
             .createHash("sha256")
@@ -322,19 +290,9 @@ const setPassword = async (
     }
 
     user.password = password;
-
-    user.passwordResetToken =
-        undefined;
-
-    user.passwordResetExpires =
-        undefined;
-
-    /**
-     * Invalidate all existing sessions
-     * after password creation/change.
-     */
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
     user.refreshTokens = [];
-
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
 
@@ -347,13 +305,7 @@ const setPassword = async (
 };
 
 
-/**
- * Refresh Access Token
- */
-const refreshToken = async (
-    token
-) => {
-
+const refreshToken = async (token) => {
     verifyRefreshToken(token);
 
     const user =
@@ -378,13 +330,6 @@ const refreshToken = async (
         );
     }
 
-
-    /**
-     * Token rotation.
-     *
-     * The old refresh token is removed
-     * before the new one is stored.
-     */
     await userRepository.removeRefreshToken(
         user._id,
         token
@@ -410,16 +355,8 @@ const refreshToken = async (
 };
 
 
-/**
- * Logout User
- */
-const logout = async (
-    refreshToken
-) => {
-
-    verifyRefreshToken(
-        refreshToken
-    );
+const logout = async (refreshToken) => {
+    verifyRefreshToken(refreshToken);
 
     const user =
         await userRepository.findByRefreshToken(
@@ -445,13 +382,7 @@ const logout = async (
 };
 
 
-/**
- * Logout From All Devices
- */
-const logoutAllDevices = async (
-    userId
-) => {
-
+const logoutAllDevices = async (userId) => {
     await userRepository.removeAllRefreshTokens(
         userId
     );

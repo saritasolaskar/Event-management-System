@@ -99,15 +99,13 @@ const createDriver = async (
     await mongoose.startSession();
 
   let driver = null;
+  let passwordSetupToken = null;
 
   try {
 
     await session.withTransaction(
       async () => {
 
-        /*
-         * Check Vendor
-         */
         const vendor =
           await vendorRepository.findById(
             driverData.vendor,
@@ -121,10 +119,6 @@ const createDriver = async (
           );
         }
 
-
-        /*
-         * Check Phone
-         */
         const existingPhone =
           await driverRepository.findByPhone(
             driverData.phone,
@@ -138,10 +132,6 @@ const createDriver = async (
           );
         }
 
-
-        /*
-         * Check Email
-         */
         if (driverData.email) {
 
           const existingEmail =
@@ -158,10 +148,6 @@ const createDriver = async (
           }
         }
 
-
-        /*
-         * Check License
-         */
         const existingLicense =
           await driverRepository.findByLicenseNumber(
             driverData.licenseNumber,
@@ -175,10 +161,6 @@ const createDriver = async (
           );
         }
 
-
-        /*
-         * Validate Current Vehicle
-         */
         if (driverData.currentVehicle) {
 
           const vehicle =
@@ -226,12 +208,7 @@ const createDriver = async (
           }
         }
 
-
-        /*
-         * Whitelist Driver Data
-         */
         const sanitizedDriverData = {
-
           firstName:
             driverData.firstName,
 
@@ -289,20 +266,12 @@ const createDriver = async (
             false,
         };
 
-
-        /*
-         * Create Driver
-         */
         driver =
           await driverRepository.create(
             sanitizedDriverData,
             session
           );
 
-
-        /*
-         * Link Vehicle
-         */
         if (driver.currentVehicle) {
 
           const linkedVehicle =
@@ -329,13 +298,8 @@ const createDriver = async (
           }
         }
 
-
-        /*
-         * Create / Link Login User
-         */
         const driverName =
           `${driver.firstName} ${driver.lastName}`.trim();
-
 
         const existingUser =
           await User.findOne({
@@ -356,10 +320,6 @@ const createDriver = async (
             isDeleted: false,
           }).session(session);
 
-
-        /*
-         * Existing Driver User
-         */
         if (existingUser) {
 
           if (
@@ -372,7 +332,6 @@ const createDriver = async (
             );
           }
 
-
           if (
             existingUser.driver &&
             getId(existingUser.driver) !==
@@ -384,7 +343,6 @@ const createDriver = async (
             );
           }
 
-
           existingUser.driver =
             driver._id;
 
@@ -395,90 +353,71 @@ const createDriver = async (
             session,
           });
 
+        } else {
 
-          /*
-           * Password setup token is generated
-           * after the transaction commits.
-           *
-           * The user remains linked and active.
-           */
-          return;
+          const temporaryPassword =
+            crypto
+              .randomBytes(24)
+              .toString("hex");
+
+          await User.create(
+            [
+              {
+                name:
+                  driverName,
+
+                email:
+                  driver.email ||
+                  `${driver.phone}@driver.local`,
+
+                phone:
+                  driver.phone,
+
+                password:
+                  temporaryPassword,
+
+                role:
+                  ROLES.DRIVER,
+
+                driver:
+                  driver._id,
+
+                status:
+                  STATUS.ACTIVE,
+
+                isDeleted:
+                  false,
+              },
+            ],
+            {
+              session,
+            }
+          );
         }
 
+        const linkedUser =
+          await User.findOne({
+            driver:
+              driver._id,
 
-        /*
-         * New Driver Login User
-         */
-        const temporaryPassword =
-          crypto
-            .randomBytes(24)
-            .toString("hex");
+            isDeleted:
+              false,
+          }).session(session);
 
+        if (!linkedUser) {
+          throw new AppError(
+            "Driver login account could not be created.",
+            500
+          );
+        }
 
-        await User.create(
-          [
-            {
-              name:
-                driverName,
-
-              email:
-                driver.email ||
-                `${driver.phone}@driver.local`,
-
-              phone:
-                driver.phone,
-
-              password:
-                temporaryPassword,
-
-              role:
-                ROLES.DRIVER,
-
-              driver:
-                driver._id,
-
-              status:
-                STATUS.ACTIVE,
-
-              isDeleted:
-                false,
-            },
-          ],
-          {
-            session,
-          }
-        );
+        passwordSetupToken =
+          await authService.createPasswordSetupToken(
+            linkedUser._id,
+            session
+          );
       }
     );
-
-
-    /*
-     * Transaction has successfully committed.
-     *
-     * Now create the password setup token.
-     */
-    const linkedUser =
-      await User.findOne({
-        driver:
-          driver._id,
-
-        isDeleted:
-          false,
-      });
-
-    if (!linkedUser) {
-      throw new AppError(
-        "Driver login account could not be created.",
-        500
-      );
-    }
-
-
-    const passwordSetupToken =
-      await authService.createPasswordSetupToken(
-        linkedUser._id
-      );
-
 
     return {
       driver,
@@ -486,16 +425,8 @@ const createDriver = async (
     };
 
   } catch (error) {
-
-    /*
-     * If transaction fails, MongoDB
-     * automatically rolls back Driver,
-     * Vehicle and User changes.
-     */
     throw error;
-
   } finally {
-
     await session.endSession();
   }
 };
@@ -547,7 +478,6 @@ const updateDriver = async (
       DRIVER_UPDATE_FIELDS
     );
 
-
   if (
     Object.keys(
       sanitizedUpdateData
@@ -559,22 +489,16 @@ const updateDriver = async (
     );
   }
 
-
   const session =
     await mongoose.startSession();
 
-
   let updatedDriver;
-
 
   try {
 
     await session.withTransaction(
       async () => {
 
-        /*
-         * Fetch current Driver
-         */
         const driver =
           await driverRepository.findById(
             driverId,
@@ -588,10 +512,6 @@ const updateDriver = async (
           );
         }
 
-
-        /*
-         * Vendor Validation
-         */
         if (
           Object.prototype.hasOwnProperty.call(
             sanitizedUpdateData,
@@ -613,38 +533,24 @@ const updateDriver = async (
           }
         }
 
-
-        /*
-         * Effective Vendor
-         */
         const effectiveVendorId =
           sanitizedUpdateData.vendor ||
           getId(driver.vendor);
 
-
-        /*
-         * Determine Vehicle Change
-         */
         const vehicleWasUpdated =
           Object.prototype.hasOwnProperty.call(
             sanitizedUpdateData,
             "currentVehicle"
           );
 
-
         const oldVehicleId =
           getId(driver.currentVehicle);
-
 
         const newVehicleId =
           vehicleWasUpdated
             ? sanitizedUpdateData.currentVehicle
             : oldVehicleId;
 
-
-        /*
-         * Validate New Vehicle
-         */
         if (newVehicleId) {
 
           const vehicle =
@@ -660,7 +566,6 @@ const updateDriver = async (
             );
           }
 
-
           if (
             getId(vehicle.vendor) !==
             getId(effectiveVendorId)
@@ -670,7 +575,6 @@ const updateDriver = async (
               400
             );
           }
-
 
           if (
             vehicle.currentDriver &&
@@ -683,11 +587,6 @@ const updateDriver = async (
             );
           }
 
-
-          /*
-           * If vehicle already belongs to this
-           * driver, it is allowed.
-           */
           if (
             getId(vehicle.currentDriver) !==
               getId(driverId) &&
@@ -701,10 +600,6 @@ const updateDriver = async (
           }
         }
 
-
-        /*
-         * Phone Validation
-         */
         if (
           sanitizedUpdateData.phone &&
           sanitizedUpdateData.phone !==
@@ -729,10 +624,6 @@ const updateDriver = async (
           }
         }
 
-
-        /*
-         * Email Validation
-         */
         if (
           sanitizedUpdateData.email &&
           sanitizedUpdateData.email !==
@@ -757,10 +648,6 @@ const updateDriver = async (
           }
         }
 
-
-        /*
-         * License Validation
-         */
         if (
           sanitizedUpdateData.licenseNumber &&
           sanitizedUpdateData.licenseNumber !==
@@ -785,10 +672,6 @@ const updateDriver = async (
           }
         }
 
-
-        /*
-         * Normalize explicitly cleared values.
-         */
         if (
           Object.prototype.hasOwnProperty.call(
             sanitizedUpdateData,
@@ -798,7 +681,6 @@ const updateDriver = async (
           sanitizedUpdateData.email =
             sanitizedUpdateData.email || null;
         }
-
 
         if (
           Object.prototype.hasOwnProperty.call(
@@ -811,22 +693,16 @@ const updateDriver = async (
             null;
         }
 
-
-        /*
-         * Update Driver
-         */
         updatedDriver =
           await driverRepository.updateById(
             driverId,
             {
               ...sanitizedUpdateData,
-
               updatedBy:
                 userId,
             },
             session
           );
-
 
         if (!updatedDriver) {
           throw new AppError(
@@ -835,15 +711,8 @@ const updateDriver = async (
           );
         }
 
-
-        /*
-         * Vehicle Synchronization
-         */
         if (vehicleWasUpdated) {
 
-          /*
-           * Release old vehicle.
-           */
           if (
             oldVehicleId &&
             (
@@ -869,10 +738,6 @@ const updateDriver = async (
             );
           }
 
-
-          /*
-           * Assign new vehicle.
-           */
           if (
             newVehicleId &&
             (
@@ -898,7 +763,6 @@ const updateDriver = async (
                 session
               );
 
-
             if (!linkedVehicle) {
               throw new AppError(
                 "Failed to link vehicle to driver.",
@@ -908,10 +772,6 @@ const updateDriver = async (
           }
         }
 
-
-        /*
-         * Synchronize linked login User.
-         */
         const linkedUser =
           await User.findOne({
             driver:
@@ -921,16 +781,11 @@ const updateDriver = async (
               false,
           }).session(session);
 
-
         if (linkedUser) {
 
           let userChanged =
             false;
 
-
-          /*
-           * Phone
-           */
           if (
             Object.prototype.hasOwnProperty.call(
               sanitizedUpdateData,
@@ -954,14 +809,12 @@ const updateDriver = async (
                   false,
               }).session(session);
 
-
             if (existingUserPhone) {
               throw new AppError(
                 "Phone number already exists for another user account.",
                 409
               );
             }
-
 
             linkedUser.phone =
               sanitizedUpdateData.phone;
@@ -970,10 +823,6 @@ const updateDriver = async (
               true;
           }
 
-
-          /*
-           * Email
-           */
           if (
             Object.prototype.hasOwnProperty.call(
               sanitizedUpdateData,
@@ -985,7 +834,6 @@ const updateDriver = async (
               sanitizedUpdateData.email
                 ? sanitizedUpdateData.email.toLowerCase()
                 : `${sanitizedUpdateData.phone || linkedUser.phone}@driver.local`;
-
 
             if (
               newEmail !==
@@ -1006,14 +854,12 @@ const updateDriver = async (
                     false,
                 }).session(session);
 
-
               if (existingUserEmail) {
                 throw new AppError(
                   "Email already exists for another user account.",
                   409
                 );
               }
-
 
               linkedUser.email =
                 newEmail;
@@ -1022,7 +868,6 @@ const updateDriver = async (
                 true;
             }
           }
-
 
           if (userChanged) {
             await linkedUser.save({
@@ -1033,11 +878,9 @@ const updateDriver = async (
       }
     );
 
-
     return updatedDriver;
 
   } finally {
-
     await session.endSession();
   }
 };
@@ -1053,7 +896,6 @@ const deleteDriver = async (
 
   const session =
     await mongoose.startSession();
-
 
   try {
 
@@ -1073,16 +915,12 @@ const deleteDriver = async (
           );
         }
 
-
-        /*
-         * Prevent deletion during active duty.
-         */
         const activeAssignment =
           await vehicleAssignmentRepository.findActiveByDriver(
             driverId,
+            null,
             session
           );
-
 
         if (activeAssignment) {
           throw new AppError(
@@ -1091,10 +929,6 @@ const deleteDriver = async (
           );
         }
 
-
-        /*
-         * Disable linked User.
-         */
         await User.updateMany(
           {
             driver:
@@ -1119,15 +953,10 @@ const deleteDriver = async (
           }
         );
 
-
-        /*
-         * Release Vehicle.
-         */
         if (driver.currentVehicle) {
 
           const vehicleId =
             getId(driver.currentVehicle);
-
 
           await vehicleRepository.updateById(
             vehicleId,
@@ -1145,10 +974,6 @@ const deleteDriver = async (
           );
         }
 
-
-        /*
-         * Soft delete Driver.
-         */
         await driverRepository.softDelete(
           driverId,
           userId,
@@ -1157,14 +982,12 @@ const deleteDriver = async (
       }
     );
 
-
     return {
       message:
         "Driver deleted successfully.",
     };
 
   } finally {
-
     await session.endSession();
   }
 };
@@ -1182,11 +1005,9 @@ const updateDriverStatus = async (
   const session =
     await mongoose.startSession();
 
-
   try {
 
     let updatedDriver;
-
 
     await session.withTransaction(
       async () => {
@@ -1204,7 +1025,6 @@ const updateDriverStatus = async (
           );
         }
 
-
         if (
           !Object.values(STATUS).includes(
             status
@@ -1216,12 +1036,6 @@ const updateDriverStatus = async (
           );
         }
 
-
-        /*
-         * Driver cannot become inactive,
-         * suspended or blocked while actively
-         * assigned to a duty.
-         */
         if (
           status !== STATUS.ACTIVE
         ) {
@@ -1229,9 +1043,9 @@ const updateDriverStatus = async (
           const activeAssignment =
             await vehicleAssignmentRepository.findActiveByDriver(
               driverId,
+              null,
               session
             );
-
 
           if (activeAssignment) {
             throw new AppError(
@@ -1241,7 +1055,6 @@ const updateDriverStatus = async (
           }
         }
 
-
         updatedDriver =
           await driverRepository.updateStatus(
             driverId,
@@ -1250,7 +1063,6 @@ const updateDriverStatus = async (
             session
           );
 
-
         if (!updatedDriver) {
           throw new AppError(
             "Failed to update driver status.",
@@ -1258,10 +1070,6 @@ const updateDriverStatus = async (
           );
         }
 
-
-        /*
-         * Keep linked login account synchronized.
-         */
         const linkedUser =
           await User.findOne({
             driver:
@@ -1271,14 +1079,12 @@ const updateDriverStatus = async (
               false,
           }).session(session);
 
-
         if (linkedUser) {
 
           const userStatus =
             status === STATUS.ACTIVE
               ? STATUS.ACTIVE
               : STATUS.INACTIVE;
-
 
           if (
             linkedUser.status !==
@@ -1296,28 +1102,19 @@ const updateDriverStatus = async (
       }
     );
 
-
     return updatedDriver;
 
   } finally {
-
     await session.endSession();
   }
 };
 
 
 module.exports = {
-
   createDriver,
-
   getAllDrivers,
-
   getDriverById,
-
   updateDriver,
-
   deleteDriver,
-
   updateDriverStatus,
-
 };
