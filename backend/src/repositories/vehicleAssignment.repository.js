@@ -84,11 +84,23 @@ const softDelete = async (
 };
 
 const findTodayByDriver = async (driverId) => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(
+        startOfTomorrow.getDate() + 1
+    );
+
     return VehicleAssignment.findOne({
         driver: driverId,
         isDeleted: false,
         status: {
             $in: ["ASSIGNED", "ON_DUTY"],
+        },
+        reportingTime: {
+            $gte: startOfToday,
+            $lt: startOfTomorrow,
         },
     })
         .populate("vehicle")
