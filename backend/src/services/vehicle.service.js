@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const vehicleRepository =
@@ -18,10 +17,10 @@ const AppError =
 
 const {
     VEHICLE_STATUS,
-} = require("../constants/vehicleStatus");
+} = require("../constants/status");
 
 const {
-    createAuditLog,
+    createLog,
 } = require("./auditLog.service");
 
 const {
@@ -29,10 +28,6 @@ const {
 } = require("./notification.service");
 
 
-/*
- * Fields that are allowed while creating a vehicle.
- * Everything else from req.body is ignored.
- */
 const CREATE_FIELDS = [
     "vehicleNumber",
     "vehicleType",
@@ -53,13 +48,6 @@ const CREATE_FIELDS = [
 ];
 
 
-/*
- * Fields that can be modified through the normal
- * vehicle update endpoint.
- *
- * Status is intentionally excluded.
- * Status has its own endpoint.
- */
 const UPDATE_FIELDS = [
     "vehicleNumber",
     "vehicleType",
@@ -80,17 +68,23 @@ const UPDATE_FIELDS = [
 ];
 
 
-const pickFields = (data, fields) => {
+const pickFields = (
+    data,
+    fields
+) => {
+
     const result = {};
 
     for (const field of fields) {
+
         if (
             Object.prototype.hasOwnProperty.call(
                 data,
                 field
             )
         ) {
-            result[field] = data[field];
+            result[field] =
+                data[field];
         }
     }
 
@@ -99,11 +93,15 @@ const pickFields = (data, fields) => {
 
 
 const getId = (value) => {
+
     if (!value) {
         return null;
     }
 
-    if (typeof value === "object" && value._id) {
+    if (
+        typeof value === "object" &&
+        value._id
+    ) {
         return value._id.toString();
     }
 
@@ -111,15 +109,13 @@ const getId = (value) => {
 };
 
 
-/*
- * Validate that the driver can be assigned to the vehicle.
- */
 const validateDriver = async (
     driverId,
     vendorId,
     vehicleId = null,
     session = null
 ) => {
+
     if (!driverId) {
         return null;
     }
@@ -144,7 +140,9 @@ const validateDriver = async (
         );
     }
 
-    if (driver.status !== "ACTIVE") {
+    if (
+        driver.status !== "ACTIVE"
+    ) {
         throw new AppError(
             "Only active drivers can be assigned to a vehicle.",
             400
@@ -154,7 +152,7 @@ const validateDriver = async (
     if (
         vendorId &&
         getId(driver.vendor) !==
-        getId(vendorId)
+            getId(vendorId)
     ) {
         throw new AppError(
             "Driver does not belong to the selected vendor.",
@@ -162,15 +160,10 @@ const validateDriver = async (
         );
     }
 
-    /*
-     * A driver can have only one current vehicle.
-     *
-     * Allow the same vehicle, but reject another vehicle.
-     */
     if (
         driver.currentVehicle &&
         getId(driver.currentVehicle) !==
-        getId(vehicleId)
+            getId(vehicleId)
     ) {
         throw new AppError(
             "Driver is already assigned to another vehicle.",
@@ -182,9 +175,6 @@ const validateDriver = async (
 };
 
 
-/*
- * Create vehicle
- */
 const createVehicle = async (
     vehicleData,
     userId
@@ -213,9 +203,6 @@ const createVehicle = async (
                     );
                 }
 
-                /*
-                 * Vehicle number must be unique.
-                 */
                 const existingVehicle =
                     await vehicleRepository.findByVehicleNumber(
                         data.vehicleNumber,
@@ -229,9 +216,6 @@ const createVehicle = async (
                     );
                 }
 
-                /*
-                 * Validate vendor.
-                 */
                 if (!data.vendor) {
                     throw new AppError(
                         "Vendor is required.",
@@ -259,10 +243,6 @@ const createVehicle = async (
                     );
                 }
 
-                /*
-                 * If a driver is provided,
-                 * validate vendor relationship.
-                 */
                 if (data.currentDriver) {
 
                     await validateDriver(
@@ -273,17 +253,19 @@ const createVehicle = async (
                     );
                 }
 
-                /*
-                 * Status is controlled by the server.
-                 */
                 data.status =
                     data.currentDriver
                         ? VEHICLE_STATUS.ASSIGNED
                         : VEHICLE_STATUS.AVAILABLE;
 
-                data.createdBy = userId;
-                data.updatedBy = userId;
-                data.isDeleted = false;
+                data.createdBy =
+                    userId;
+
+                data.updatedBy =
+                    userId;
+
+                data.isDeleted =
+                    false;
 
                 vehicle =
                     await vehicleRepository.create(
@@ -291,10 +273,6 @@ const createVehicle = async (
                         session
                     );
 
-                /*
-                 * Keep Driver.currentVehicle
-                 * synchronized with Vehicle.currentDriver.
-                 */
                 if (data.currentDriver) {
 
                     await driverRepository.updateById(
@@ -309,11 +287,13 @@ const createVehicle = async (
             }
         );
 
-        await createAuditLog({
+        await createLog({
+            user: userId,
             action: "CREATE",
             module: "VEHICLE",
-            entityId: vehicle._id,
-            userId,
+            referenceId: vehicle._id,
+            description:
+                `Vehicle ${vehicle.vehicleNumber} was created.`,
             metadata: {
                 vehicleNumber:
                     vehicle.vehicleNumber,
@@ -321,14 +301,13 @@ const createVehicle = async (
         });
 
         await createNotification({
-            type: "VEHICLE_CREATED",
+            recipientUser: userId,
             title: "Vehicle Created",
             message:
                 `Vehicle ${vehicle.vehicleNumber} was created.`,
-            recipient: userId,
-            metadata: {
-                vehicleId: vehicle._id,
-            },
+            type: "SYSTEM",
+            referenceType: "VEHICLE",
+            referenceId: vehicle._id,
         });
 
         return vehicle;
@@ -340,9 +319,6 @@ const createVehicle = async (
 };
 
 
-/*
- * Get all vehicles
- */
 const getAllVehicles = async (
     filter = {}
 ) => {
@@ -353,9 +329,6 @@ const getAllVehicles = async (
 };
 
 
-/*
- * Get vehicle by ID
- */
 const getVehicleById = async (
     vehicleId
 ) => {
@@ -376,9 +349,6 @@ const getVehicleById = async (
 };
 
 
-/*
- * Update vehicle
- */
 const updateVehicle = async (
     vehicleId,
     vehicleData,
@@ -415,7 +385,8 @@ const updateVehicle = async (
                     );
 
                 if (
-                    Object.keys(data).length === 0
+                    Object.keys(data).length ===
+                    0
                 ) {
                     throw new AppError(
                         "No valid fields provided for update.",
@@ -431,10 +402,9 @@ const updateVehicle = async (
                         ? getId(data.vendor)
                         : oldVendorId;
 
-                /*
-                 * Validate new vendor.
-                 */
-                if (data.vendor !== undefined) {
+                if (
+                    data.vendor !== undefined
+                ) {
 
                     const vendor =
                         await vendorRepository.findById(
@@ -457,13 +427,10 @@ const updateVehicle = async (
                     }
                 }
 
-                /*
-                 * Handle vehicle number change.
-                 */
                 if (
                     data.vehicleNumber &&
                     data.vehicleNumber !==
-                    vehicle.vehicleNumber
+                        vehicle.vehicleNumber
                 ) {
 
                     const existingVehicle =
@@ -474,8 +441,10 @@ const updateVehicle = async (
 
                     if (
                         existingVehicle &&
-                        getId(existingVehicle._id) !==
-                        getId(vehicleId)
+                        getId(
+                            existingVehicle._id
+                        ) !==
+                            getId(vehicleId)
                     ) {
                         throw new AppError(
                             "Vehicle with this vehicle number already exists.",
@@ -497,41 +466,28 @@ const updateVehicle = async (
 
                 const newDriverId =
                     driverWasUpdated
-                        ? getId(data.currentDriver)
+                        ? getId(
+                            data.currentDriver
+                        )
                         : oldDriverId;
 
-                /*
-                 * Validate the new driver against
-                 * the effective vendor.
-                 */
-                if (driverWasUpdated) {
-
-                    if (newDriverId) {
-
-                        await validateDriver(
-                            newDriverId,
-                            newVendorId,
-                            vehicleId,
-                            session
-                        );
-                    }
-                }
-
-                /*
-                 * IMPORTANT FIX:
-                 *
-                 * If currentDriver is explicitly changed,
-                 * vehicle status must be synchronized.
-                 *
-                 * Assigning a driver -> ASSIGNED
-                 * Removing a driver -> AVAILABLE
-                 *
-                 * But if the vehicle is ON_DUTY, do not allow
-                 * driver replacement/removal.
-                 */
                 if (
                     driverWasUpdated &&
-                    oldDriverId !== newDriverId
+                    newDriverId
+                ) {
+
+                    await validateDriver(
+                        newDriverId,
+                        newVendorId,
+                        vehicleId,
+                        session
+                    );
+                }
+
+                if (
+                    driverWasUpdated &&
+                    oldDriverId !==
+                        newDriverId
                 ) {
 
                     if (
@@ -554,38 +510,15 @@ const updateVehicle = async (
                         );
                     }
 
-                    /*
-                     * Do NOT accept status from req.body.
-                     * Status is derived from currentDriver here.
-                     */
                     data.status =
                         newDriverId
                             ? VEHICLE_STATUS.ASSIGNED
                             : VEHICLE_STATUS.AVAILABLE;
                 }
 
-                /*
-                 * Status is never directly accepted from
-                 * the normal update request.
-                 *
-                 * However, when currentDriver changes,
-                 * the internally derived status must be preserved.
-                 */
-                const statusToApply =
-                    data.status;
+                data.updatedBy =
+                    userId;
 
-                delete data.status;
-
-                if (statusToApply) {
-                    data.status =
-                        statusToApply;
-                }
-
-                data.updatedBy = userId;
-
-                /*
-                 * Update vehicle.
-                 */
                 updatedVehicle =
                     await vehicleRepository.updateById(
                         vehicleId,
@@ -600,31 +533,28 @@ const updateVehicle = async (
                     );
                 }
 
-                /*
-                 * Release old driver's vehicle reference.
-                 */
                 if (
                     driverWasUpdated &&
                     oldDriverId &&
-                    oldDriverId !== newDriverId
+                    oldDriverId !==
+                        newDriverId
                 ) {
 
                     await driverRepository.updateById(
                         oldDriverId,
                         {
-                            currentVehicle: null,
+                            currentVehicle:
+                                null,
                         },
                         session
                     );
                 }
 
-                /*
-                 * Assign new driver's vehicle reference.
-                 */
                 if (
                     driverWasUpdated &&
                     newDriverId &&
-                    oldDriverId !== newDriverId
+                    oldDriverId !==
+                        newDriverId
                 ) {
 
                     await driverRepository.updateById(
@@ -639,11 +569,13 @@ const updateVehicle = async (
             }
         );
 
-        await createAuditLog({
+        await createLog({
+            user: userId,
             action: "UPDATE",
             module: "VEHICLE",
-            entityId: vehicleId,
-            userId,
+            referenceId: vehicleId,
+            description:
+                "Vehicle updated.",
             metadata: {
                 updatedFields:
                     Object.keys(
@@ -664,9 +596,6 @@ const updateVehicle = async (
 };
 
 
-/*
- * Delete vehicle
- */
 const deleteVehicle = async (
     vehicleId,
     userId
@@ -695,10 +624,6 @@ const deleteVehicle = async (
                     );
                 }
 
-                /*
-                 * Do not delete a vehicle currently
-                 * assigned to an active duty.
-                 */
                 if (
                     vehicle.status ===
                     VEHICLE_STATUS.ON_DUTY
@@ -709,10 +634,6 @@ const deleteVehicle = async (
                     );
                 }
 
-                /*
-                 * Prevent deletion when active
-                 * vehicle assignments exist.
-                 */
                 const activeAssignments =
                     await vehicleAssignmentRepository.findByVehicle(
                         vehicleId,
@@ -740,15 +661,13 @@ const deleteVehicle = async (
                         session
                     );
 
-                /*
-                 * Release driver's vehicle reference.
-                 */
                 if (driverId) {
 
                     await driverRepository.updateById(
                         driverId,
                         {
-                            currentVehicle: null,
+                            currentVehicle:
+                                null,
                         },
                         session
                     );
@@ -756,11 +675,13 @@ const deleteVehicle = async (
             }
         );
 
-        await createAuditLog({
+        await createLog({
+            user: userId,
             action: "DELETE",
             module: "VEHICLE",
-            entityId: vehicleId,
-            userId,
+            referenceId: vehicleId,
+            description:
+                "Vehicle deleted.",
         });
 
         return deletedVehicle;
@@ -772,9 +693,6 @@ const deleteVehicle = async (
 };
 
 
-/*
- * Update vehicle status
- */
 const updateVehicleStatus = async (
     vehicleId,
     status,
@@ -815,13 +733,9 @@ const updateVehicleStatus = async (
                     );
                 }
 
-                /*
-                 * Cannot mark vehicle AVAILABLE
-                 * when it still has a driver.
-                 */
                 if (
                     status ===
-                    VEHICLE_STATUS.AVAILABLE &&
+                        VEHICLE_STATUS.AVAILABLE &&
                     existingVehicle.currentDriver
                 ) {
                     throw new AppError(
@@ -830,13 +744,9 @@ const updateVehicleStatus = async (
                     );
                 }
 
-                /*
-                 * Cannot mark vehicle ASSIGNED
-                 * without a driver.
-                 */
                 if (
                     status ===
-                    VEHICLE_STATUS.ASSIGNED &&
+                        VEHICLE_STATUS.ASSIGNED &&
                     !existingVehicle.currentDriver
                 ) {
                     throw new AppError(
@@ -845,16 +755,11 @@ const updateVehicleStatus = async (
                     );
                 }
 
-                /*
-                 * Do not manually change an ON_DUTY
-                 * vehicle through the generic status endpoint.
-                 * Duty service controls ON_DUTY/COMPLETED transitions.
-                 */
                 if (
                     existingVehicle.status ===
-                    VEHICLE_STATUS.ON_DUTY &&
+                        VEHICLE_STATUS.ON_DUTY &&
                     status !==
-                    VEHICLE_STATUS.ON_DUTY
+                        VEHICLE_STATUS.ON_DUTY
                 ) {
                     throw new AppError(
                         "Vehicle status cannot be changed while the vehicle is on duty.",
@@ -879,11 +784,13 @@ const updateVehicleStatus = async (
             }
         );
 
-        await createAuditLog({
+        await createLog({
+            user: userId,
             action: "STATUS_UPDATE",
             module: "VEHICLE",
-            entityId: vehicleId,
-            userId,
+            referenceId: vehicleId,
+            description:
+                `Vehicle status changed to ${status}.`,
             metadata: {
                 status,
             },
