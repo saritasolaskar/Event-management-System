@@ -21,9 +21,6 @@ const {
 } = require("../constants/status");
 
 
-/**
- * Start Duty
- */
 const startDuty = async (
     data,
     userId,
@@ -49,7 +46,7 @@ const startDuty = async (
     if (
         !assignedDriver ||
         assignedDriver.toString() !==
-        driverId.toString()
+            driverId.toString()
     ) {
         throw new AppError(
             "You are not authorized to start duty for this assignment.",
@@ -155,7 +152,8 @@ const startDuty = async (
     }
 
     await notificationService.createNotification({
-        recipientUser: userId,
+        recipientUser:
+            userId,
 
         title:
             "Duty Started",
@@ -174,7 +172,8 @@ const startDuty = async (
     });
 
     await auditLogService.createLog({
-        user: userId,
+        user:
+            userId,
 
         action:
             "CREATE",
@@ -193,9 +192,6 @@ const startDuty = async (
 };
 
 
-/**
- * Get Duty
- */
 const getDuty = async (
     id,
     driverId = null
@@ -222,7 +218,7 @@ const getDuty = async (
         if (
             !assignedDriver ||
             assignedDriver.toString() !==
-            driverId.toString()
+                driverId.toString()
         ) {
             throw new AppError(
                 "You are not authorized to view this duty.",
@@ -235,9 +231,6 @@ const getDuty = async (
 };
 
 
-/**
- * Complete Duty
- */
 const completeDuty = async (
     id,
     data,
@@ -264,7 +257,7 @@ const completeDuty = async (
     if (
         !assignedDriver ||
         assignedDriver.toString() !==
-        driverId.toString()
+            driverId.toString()
     ) {
         throw new AppError(
             "You are not authorized to complete this duty.",
@@ -392,7 +385,8 @@ const completeDuty = async (
     }
 
     await notificationService.createNotification({
-        recipientUser: userId,
+        recipientUser:
+            userId,
 
         title:
             "Duty Completed",
@@ -411,7 +405,8 @@ const completeDuty = async (
     });
 
     await auditLogService.createLog({
-        user: userId,
+        user:
+            userId,
 
         action:
             "UPDATE",
@@ -430,9 +425,6 @@ const completeDuty = async (
 };
 
 
-/**
- * Update Expenses
- */
 const updateExpenses = async (
     id,
     expenses,
@@ -459,7 +451,7 @@ const updateExpenses = async (
     if (
         !assignedDriver ||
         assignedDriver.toString() !==
-        driverId.toString()
+            driverId.toString()
     ) {
         throw new AppError(
             "You are not authorized to update this duty.",
@@ -508,20 +500,22 @@ const updateExpenses = async (
     }
 
     const updatedDuty =
-        await dutyRepository.updateById(
+        await dutyRepository.updateByIdAndStatus(
             id,
+            DUTY_STATUS.STARTED,
             expenseData
         );
 
     if (!updatedDuty) {
         throw new AppError(
-            "Failed to update duty expenses.",
-            500
+            "Expenses cannot be modified after duty completion.",
+            400
         );
     }
 
     await auditLogService.createLog({
-        user: userId,
+        user:
+            userId,
 
         action:
             "UPDATE",

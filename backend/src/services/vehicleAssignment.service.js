@@ -37,9 +37,27 @@ const {
 } = require("../constants/status");
 
 
+const getId = (value) => {
+
+    if (!value) {
+        return null;
+    }
+
+    if (
+        typeof value === "object" &&
+        value._id
+    ) {
+        return value._id.toString();
+    }
+
+    return value.toString();
+};
+
+
 const validateDriverForAssignment = async (
     driverId,
     vendorId,
+    vehicleId = null,
     session = null
 ) => {
 
@@ -56,7 +74,10 @@ const validateDriverForAssignment = async (
         );
     }
 
-    if (driver.status !== STATUS.ACTIVE) {
+    if (
+        driver.status !==
+        STATUS.ACTIVE
+    ) {
         throw new AppError(
             `Driver cannot be assigned because driver status is ${driver.status}.`,
             400
@@ -78,6 +99,17 @@ const validateDriverForAssignment = async (
         );
     }
 
+    if (
+        driver.currentVehicle &&
+        getId(driver.currentVehicle) !==
+            getId(vehicleId)
+    ) {
+        throw new AppError(
+            "Driver is already assigned to another vehicle.",
+            409
+        );
+    }
+
     return driver;
 };
 
@@ -85,6 +117,7 @@ const validateDriverForAssignment = async (
 const validateVehicleForAssignment = async (
     vehicleId,
     vendorId,
+    driverId = null,
     session = null
 ) => {
 
@@ -116,19 +149,24 @@ const validateVehicleForAssignment = async (
         );
     }
 
-    const allowedStatuses = [
-        VEHICLE_STATUS.AVAILABLE,
-        VEHICLE_STATUS.ASSIGNED,
-    ];
-
     if (
-        !allowedStatuses.includes(
-            vehicle.status
-        )
+        vehicle.status !==
+        VEHICLE_STATUS.ASSIGNED
     ) {
         throw new AppError(
-            `Vehicle cannot be assigned because vehicle status is ${vehicle.status}.`,
+            "Only a vehicle with an assigned driver can be used for a vehicle assignment.",
             400
+        );
+    }
+
+    if (
+        driverId &&
+        getId(vehicle.currentDriver) !==
+            getId(driverId)
+    ) {
+        throw new AppError(
+            "Selected vehicle is assigned to a different driver.",
+            409
         );
     }
 
@@ -296,6 +334,7 @@ const createVehicleAssignment = async (
                     await validateDriverForAssignment(
                         data.driver,
                         vendor._id,
+                        data.vehicle,
                         session
                     );
 
@@ -303,6 +342,7 @@ const createVehicleAssignment = async (
                     await validateVehicleForAssignment(
                         data.vehicle,
                         vendor._id,
+                        data.driver,
                         session
                     );
 
@@ -413,9 +453,7 @@ const createVehicleAssignment = async (
         await session.endSession();
     }
 
-
     await notificationService.createNotification({
-
         recipientUser:
             userId,
 
@@ -435,9 +473,7 @@ const createVehicleAssignment = async (
             assignment._id,
     });
 
-
     await auditLogService.createLog({
-
         user:
             userId,
 
@@ -451,9 +487,8 @@ const createVehicleAssignment = async (
             assignment._id,
 
         description:
-            `Assigned vehicle ${vehicle.registrationNumber} to driver ${driver.firstName} ${driver.lastName}.`,
+            `Assigned vehicle ${vehicle.vehicleNumber} to driver ${driver.firstName} ${driver.lastName}.`,
     });
-
 
     return assignment;
 };
@@ -513,12 +548,9 @@ const updateVehicleAssignment = async (
     }
 
     if (
-        assignment.status ===
-            "ON_DUTY" ||
-        assignment.status ===
-            "COMPLETED" ||
-        assignment.status ===
-            "CANCELLED"
+        assignment.status === "ON_DUTY" ||
+        assignment.status === "COMPLETED" ||
+        assignment.status === "CANCELLED"
     ) {
         throw new AppError(
             "Vehicle Assignment cannot be modified after duty has started.",
@@ -552,11 +584,9 @@ const updateVehicleAssignment = async (
     updateData =
         sanitizedUpdateData;
 
-
     const vendorId =
         assignment.vendor?._id ||
         assignment.vendor;
-
 
     if (!vendorId) {
         throw new AppError(
@@ -565,13 +595,29 @@ const updateVehicleAssignment = async (
         );
     }
 
+    const effectiveDriverId =
+        updateData.driver ||
+        getId(assignment.driver);
+
+    const effectiveVehicleId =
+        updateData.vehicle ||
+        getId(assignment.vehicle);
+
+    const driver =
+        await validateDriverForAssignment(
+            effectiveDriverId,
+            vendorId,
+            effectiveVehicleId
+        );
+
+    const vehicle =
+        await validateVehicleForAssignment(
+            effectiveVehicleId,
+            vendorId,
+            effectiveDriverId
+        );
 
     if (updateData.driver) {
-
-        await validateDriverForAssignment(
-            updateData.driver,
-            vendorId
-        );
 
         const existingDriverAssignment =
             await vehicleAssignmentRepository.findActiveByDriver(
@@ -587,13 +633,7 @@ const updateVehicleAssignment = async (
         }
     }
 
-
     if (updateData.vehicle) {
-
-        await validateVehicleForAssignment(
-            updateData.vehicle,
-            vendorId
-        );
 
         const existingVehicleAssignment =
             await vehicleAssignmentRepository.findActiveByVehicle(
@@ -609,27 +649,6 @@ const updateVehicleAssignment = async (
         }
     }
 
-
-    if (!updateData.driver) {
-
-        await validateDriverForAssignment(
-            assignment.driver._id ||
-                assignment.driver,
-            vendorId
-        );
-    }
-
-
-    if (!updateData.vehicle) {
-
-        await validateVehicleForAssignment(
-            assignment.vehicle._id ||
-                assignment.vehicle,
-            vendorId
-        );
-    }
-
-
     if (
         updateData.reportingLocation
     ) {
@@ -639,10 +658,8 @@ const updateVehicleAssignment = async (
         );
     }
 
-
     updateData.updatedBy =
         userId;
-
 
     const expectedStatus =
         assignment.status;
@@ -673,7 +690,6 @@ const updateVehicleAssignment = async (
         throw error;
     }
 
-
     if (!updatedAssignment) {
         throw new AppError(
             "Vehicle Assignment was changed by another operation. Please refresh and try again.",
@@ -681,9 +697,7 @@ const updateVehicleAssignment = async (
         );
     }
 
-
     await auditLogService.createLog({
-
         user:
             userId,
 
@@ -699,7 +713,6 @@ const updateVehicleAssignment = async (
         description:
             "Vehicle Assignment updated.",
     });
-
 
     return updatedAssignment;
 };
@@ -726,12 +739,9 @@ const deleteVehicleAssignment = async (
     }
 
     if (
-        assignment.status ===
-            "ON_DUTY" ||
-        assignment.status ===
-            "COMPLETED" ||
-        assignment.status ===
-            "CANCELLED"
+        assignment.status === "ON_DUTY" ||
+        assignment.status === "COMPLETED" ||
+        assignment.status === "CANCELLED"
     ) {
         throw new AppError(
             "Vehicle Assignment cannot be deleted after duty has started.",
@@ -754,7 +764,6 @@ const deleteVehicleAssignment = async (
     }
 
     await auditLogService.createLog({
-
         user:
             userId,
 
@@ -819,10 +828,8 @@ const updateVehicleAssignmentStatus = async (
     }
 
     if (
-        assignment.status ===
-            "COMPLETED" ||
-        assignment.status ===
-            "CANCELLED"
+        assignment.status === "COMPLETED" ||
+        assignment.status === "CANCELLED"
     ) {
         throw new AppError(
             `Cannot cancel an assignment with status ${assignment.status}.`,
@@ -833,38 +840,18 @@ const updateVehicleAssignmentStatus = async (
     const expectedStatus =
         assignment.status;
 
-    let updatedAssignment;
+    const updatedAssignment =
+        await vehicleAssignmentRepository.updateByIdAndStatus(
+            id,
+            expectedStatus,
+            {
+                status:
+                    "CANCELLED",
 
-    try {
-
-        updatedAssignment =
-            await vehicleAssignmentRepository.updateByIdAndStatus(
-                id,
-                expectedStatus,
-                {
-                    status:
-                        "CANCELLED",
-
-                    updatedBy:
-                        userId,
-                }
-            );
-
-    } catch (error) {
-
-        if (
-            error.code ===
-            11000
-        ) {
-            throw new AppError(
-                "Driver or vehicle is already assigned to another active assignment.",
-                409
-            );
-        }
-
-        throw error;
-    }
-
+                updatedBy:
+                    userId,
+            }
+        );
 
     if (!updatedAssignment) {
         throw new AppError(
@@ -873,9 +860,7 @@ const updateVehicleAssignmentStatus = async (
         );
     }
 
-
     await notificationService.createNotification({
-
         recipientUser:
             userId,
 
@@ -895,9 +880,7 @@ const updateVehicleAssignmentStatus = async (
             updatedAssignment._id,
     });
 
-
     await auditLogService.createLog({
-
         user:
             userId,
 
@@ -914,22 +897,15 @@ const updateVehicleAssignmentStatus = async (
             "Vehicle assignment cancelled.",
     });
 
-
     return updatedAssignment;
 };
 
 
 module.exports = {
-
     createVehicleAssignment,
-
     getAllVehicleAssignments,
-
     getVehicleAssignmentById,
-
     updateVehicleAssignment,
-
     deleteVehicleAssignment,
-
     updateVehicleAssignmentStatus,
 };
