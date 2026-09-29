@@ -1,210 +1,211 @@
-const crypto = require("crypto");
-
 const clientInvoiceRepository =
-    require("../repositories/clientInvoice.repository");
+    require("../../repositories/clientInvoice.repository");
 
-const billingService =
-    require("./billing.service");
+const pdfGenerator =
+    require("../pdfGenerator");
 
-const dutyRepository =
-    require("../repositories/duty.repository");
+const config =
+    require("../../config/env");
 
 const AppError =
-    require("../utils/AppError");
+    require("../../utils/AppError");
 
-    const notificationService =
-    require("./notification.service");
-
-const auditLogService =
-    require("./auditLog.service");
-
-const generateInvoiceNumber = () => {
-
-    const timestamp =
-        Date.now().toString(36).toUpperCase();
-
-    const random =
-        crypto
-            .randomBytes(4)
-            .toString("hex")
-            .toUpperCase();
-
-    return `INV-${timestamp}-${random}`;
-};
-
-
-/**
- * Create Client Invoice
- */
-const createClientInvoice = async (
-    dutyId,
-    userId
+const generateClientInvoicePdf = async (
+    invoiceId,
+    user
 ) => {
 
-    const existingInvoice =
-        await clientInvoiceRepository.findByDuty(
-            dutyId
+    const invoice =
+        await clientInvoiceRepository.findById(
+            invoiceId
         );
 
-    if (existingInvoice) {
+    if (!invoice) {
         throw new AppError(
-            "Client Invoice already exists for this duty.",
-            409
-        );
-    }
-
-    const draft =
-        await billingService.generateDraftBill(
-            dutyId
-        );
-
-    const duty =
-        await dutyRepository.findById(
-            dutyId
-        );
-
-    if (!duty) {
-        throw new AppError(
-            "Duty not found.",
+            "Client Invoice not found.",
             404
         );
     }
 
-    const event =
-        duty.vehicleAssignment?.event;
-
-    if (!event) {
+    if (!invoice.client) {
         throw new AppError(
-            "Event not found for this duty.",
+            "Client not found.",
             404
         );
     }
 
-    if (!event.client) {
+    if (
+        user.role === "CLIENT" &&
+        (
+            !user.client ||
+            invoice.client._id.toString() !==
+                user.client.toString()
+        )
+    ) {
         throw new AppError(
-            "Client not found for this event.",
+            "Unauthorized.",
+            403
+        );
+    }
+
+    if (!invoice.event) {
+        throw new AppError(
+            "Event not found.",
             404
         );
     }
 
-    try {
+    if (!invoice.vehicleAssignment) {
+        throw new AppError(
+            "Vehicle Assignment not found.",
+            404
+        );
+    }
 
-        return await clientInvoiceRepository.create({
+    const driver =
+        invoice.vehicleAssignment.driver;
 
-            duty:
-                duty._id,
+    const driverData =
+        driver
+            ? {
+                ...(
+                    driver.toObject
+                        ? driver.toObject()
+                        : driver
+                ),
 
-            client:
-                event.client,
+                name:
+                    `${driver.firstName || ""} ${
+                        driver.lastName || ""
+                    }`.trim(),
 
-            event:
-                event._id,
+                phone:
+                    driver.phone || "",
+            }
+            : null;
 
-            vehicleAssignment:
-                draft.assignment._id,
+    const company = {
 
-            packageName:
-                draft.assignment
-                    .commercialPackageSnapshot
-                    ?.name,
+        name:
+            config.COMPANY_NAME ||
+            "Transit Fleets",
 
-            packageKm:
-                draft.assignment
-                    .commercialPackageSnapshot
-                    ?.clientIncludedKm,
+        address:
+            config.COMPANY_ADDRESS ||
+            "",
 
-            packageHours:
-                draft.assignment
-                    .commercialPackageSnapshot
-                    ?.clientIncludedHours,
+        phone:
+            config.COMPANY_PHONE ||
+            "",
+
+        email:
+            config.COMPANY_EMAIL ||
+            "",
+
+        gst:
+            config.COMPANY_GST ||
+            "",
+    };
+
+    const data = {
+
+        company,
+
+        invoice: {
 
             invoiceNumber:
-                generateInvoiceNumber(),
+                invoice.invoiceNumber,
 
             invoiceDate:
-                new Date(),
+                invoice.invoiceDate
+                    ? invoice.invoiceDate.toLocaleDateString()
+                    : "",
+
+            status:
+                invoice.status,
+
+            packageName:
+                invoice.packageName || "",
+
+            packageKm:
+                invoice.packageKm || 0,
+
+            packageHours:
+                invoice.packageHours || 0,
 
             totalKm:
-                draft.totalKm,
+                invoice.totalKm,
 
             totalHours:
-                draft.totalHours,
+                invoice.totalHours,
 
             clientRate:
-                draft.clientBill.clientRate,
+                invoice.clientRate,
 
             extraKm:
-                draft.clientBill.extraKm,
+                invoice.extraKm,
 
             extraHour:
-                draft.clientBill.extraHour,
+                invoice.extraHour,
 
             parkingCharges:
-                draft.clientBill.parkingCharges,
+                invoice.parkingCharges,
 
             tollCharges:
-                draft.clientBill.tollCharges,
+                invoice.tollCharges,
 
             entryCharges:
-                draft.clientBill.entryCharges,
+                invoice.entryCharges,
 
             daCharges:
-                draft.clientBill.daCharges,
+                invoice.daCharges,
 
             subtotal:
-                draft.clientBill.amount,
+                invoice.subtotal,
 
             discount:
-                0,
+                invoice.discount,
 
             gstPercentage:
-                0,
+                invoice.gstPercentage,
 
             gstAmount:
-                0,
+                invoice.gstAmount,
 
             totalAmount:
-                draft.clientBill.amount,
+                invoice.totalAmount,
 
-            createdBy:
-                userId,
+            approvedAtFormatted:
+                invoice.approvedAt
+                    ? invoice.approvedAt.toLocaleString()
+                    : "",
+        },
 
-            updatedBy:
-                userId,
+        client:
+            invoice.client,
 
-        });
+        event:
+            invoice.event,
 
-    } catch (error) {
+        vehicle:
+            invoice.vehicleAssignment.vehicle,
 
-        // Unique duty/invoice number protection
-        if (error?.code === 11000) {
+        driver:
+            driverData,
 
-            if (
-                error.keyPattern?.duty ||
-                error.keyValue?.duty
-            ) {
-                throw new AppError(
-                    "Client Invoice already exists for this duty.",
-                    409
-                );
-            }
+        approvedBy:
+            invoice.approvedBy,
 
-            if (
-                error.keyPattern?.invoiceNumber ||
-                error.keyValue?.invoiceNumber
-            ) {
-                throw new AppError(
-                    "Invoice number collision occurred. Please try again.",
-                    409
-                );
-            }
-        }
+        generatedAt:
+            new Date().toLocaleString(),
+    };
 
-        throw error;
-    }
+    return pdfGenerator.generatePdf(
+        "clientInvoice",
+        data
+    );
 };
 
-
 module.exports = {
-    createClientInvoice,
+    generateClientInvoicePdf,
 };
