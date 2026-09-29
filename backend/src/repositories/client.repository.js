@@ -96,13 +96,22 @@ const softDelete = async (id, userId) => {
 };
 
 /**
- * Update Client Status
+ * Atomically update Client Status
+ *
+ * The status is updated only if the client's current status
+ * still matches the status that was originally read.
  */
-const updateStatus = async (id, status, userId) => {
+const updateStatusIfCurrent = async (
+  id,
+  currentStatus,
+  status,
+  userId
+) => {
   return Client.findOneAndUpdate(
     {
       _id: id,
       isDeleted: false,
+      status: currentStatus,
     },
     {
       status,
@@ -124,5 +133,5 @@ module.exports = {
   findAll,
   updateById,
   softDelete,
-  updateStatus,
+  updateStatusIfCurrent,
 };

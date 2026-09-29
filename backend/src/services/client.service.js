@@ -247,8 +247,9 @@ const updateClientStatus = async (
   }
 
   const updatedClient =
-    await clientRepository.updateStatus(
+    await clientRepository.updateStatusIfCurrent(
       clientId,
+      client.status,
       status,
       userId
     );
