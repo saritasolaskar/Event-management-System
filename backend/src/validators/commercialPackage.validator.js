@@ -74,7 +74,10 @@ const updateCommercialPackageValidator = [
     body("name")
         .optional()
         .isString()
+        .withMessage("Package name must be a string.")
         .trim()
+        .notEmpty()
+        .withMessage("Package name cannot be empty.")
         .isLength({ max: 150 })
         .withMessage("Package name cannot exceed 150 characters."),
 
