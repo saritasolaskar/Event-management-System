@@ -148,8 +148,15 @@ const softDelete = async (
 };
 
 
-const updateStatus = async (
+/**
+ * Atomically update Location Status
+ *
+ * The status is updated only if the location's current
+ * status still matches the status originally read.
+ */
+const updateStatusIfCurrent = async (
     id,
+    currentStatus,
     status,
     userId,
     session = null
@@ -159,6 +166,7 @@ const updateStatus = async (
         {
             _id: id,
             isDeleted: false,
+            status: currentStatus,
         },
         {
             status,
@@ -184,5 +192,5 @@ module.exports = {
     count,
     updateById,
     softDelete,
-    updateStatus,
+    updateStatusIfCurrent,
 };

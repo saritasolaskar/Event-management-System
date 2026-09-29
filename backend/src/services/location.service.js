@@ -271,11 +271,22 @@ const updateLocationStatus = async (
         );
     }
 
-    return locationRepository.updateStatus(
+    const updatedLocation =
+    await locationRepository.updateStatusIfCurrent(
         locationId,
+        location.status,
         status,
         userId
     );
+
+if (!updatedLocation) {
+    throw new AppError(
+        "Location status changed before it could be updated.",
+        409
+    );
+}
+
+return updatedLocation;
 };
 
 module.exports = {
