@@ -1,11 +1,16 @@
 const VehicleAssignment = require("../models/vehicleAssignment.model");
 
-const create = async (data) => {
-    return VehicleAssignment.create(data);
+const create = async (data, session = null) => {
+    const [assignment] = await VehicleAssignment.create(
+        [data],
+        session ? { session } : {}
+    );
+
+    return assignment;
 };
 
-const findById = async (id) => {
-    return VehicleAssignment.findOne({
+const findById = async (id, session = null) => {
+    const query = VehicleAssignment.findOne({
         _id: id,
         isDeleted: false,
     })
@@ -15,6 +20,12 @@ const findById = async (id) => {
         .populate("commercialPackage")
         .populate("vehicle")
         .populate("reportingLocation");
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 const findAll = async () => {
@@ -44,9 +55,7 @@ const updateById = (
         {
             new: true,
             runValidators: true,
-            ...(session
-                ? { session }
-                : {}),
+            ...(session ? { session } : {}),
         }
     );
 };
@@ -70,9 +79,7 @@ const softDelete = async (
         {
             new: true,
             runValidators: true,
-            ...(session
-                ? { session }
-                : {}),
+            ...(session ? { session } : {}),
         }
     );
 
@@ -83,7 +90,10 @@ const softDelete = async (
     return query;
 };
 
-const findTodayByDriver = async (driverId) => {
+const findTodayByDriver = async (
+    driverId,
+    session = null
+) => {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
@@ -92,7 +102,7 @@ const findTodayByDriver = async (driverId) => {
         startOfTomorrow.getDate() + 1
     );
 
-    return VehicleAssignment.findOne({
+    const query = VehicleAssignment.findOne({
         driver: driverId,
         isDeleted: false,
         status: {
@@ -110,6 +120,12 @@ const findTodayByDriver = async (driverId) => {
             reportingTime: 1,
             createdAt: -1,
         });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 const findByEvent = async (eventId) => {
@@ -131,9 +147,9 @@ const findByEvent = async (eventId) => {
  */
 const findActiveByDriver = async (
     driverId,
-    excludeAssignmentId = null
+    excludeAssignmentId = null,
+    session = null
 ) => {
-
     const query = {
         driver: driverId,
         isDeleted: false,
@@ -148,8 +164,14 @@ const findActiveByDriver = async (
         };
     }
 
-    return VehicleAssignment.findOne(query);
+    const mongoQuery =
+        VehicleAssignment.findOne(query);
 
+    if (session) {
+        mongoQuery.session(session);
+    }
+
+    return mongoQuery;
 };
 
 /**
@@ -158,9 +180,9 @@ const findActiveByDriver = async (
  */
 const findActiveByVehicle = async (
     vehicleId,
-    excludeAssignmentId = null
+    excludeAssignmentId = null,
+    session = null
 ) => {
-
     const query = {
         vehicle: vehicleId,
         isDeleted: false,
@@ -175,8 +197,14 @@ const findActiveByVehicle = async (
         };
     }
 
-    return VehicleAssignment.findOne(query);
+    const mongoQuery =
+        VehicleAssignment.findOne(query);
 
+    if (session) {
+        mongoQuery.session(session);
+    }
+
+    return mongoQuery;
 };
 
 const findByCommercialPackage = async (
@@ -204,9 +232,7 @@ const updateByIdAndStatus = (
         {
             new: true,
             runValidators: true,
-            ...(session
-                ? { session }
-                : {}),
+            ...(session ? { session } : {}),
         }
     );
 };
@@ -254,9 +280,7 @@ const softDeleteByStatus = async (
         {
             new: true,
             runValidators: true,
-            ...(session
-                ? { session }
-                : {}),
+            ...(session ? { session } : {}),
         }
     );
 
