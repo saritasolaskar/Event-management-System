@@ -520,18 +520,19 @@ const updateGuestStatus = async (
     }
 
     const updatedGuest =
-        await guestRepository.updateStatus(
-            guestId,
-            status,
-            userId
-        );
+    await guestRepository.updateStatusIfCurrent(
+        guestId,
+        currentStatus,
+        status,
+        userId
+    );
 
-    if (!updatedGuest) {
-        throw new AppError(
-            "Guest status could not be updated.",
-            409
-        );
-    }
+if (!updatedGuest) {
+    throw new AppError(
+        "Guest status changed before it could be updated.",
+        409
+    );
+}
 
     return updatedGuest;
 };

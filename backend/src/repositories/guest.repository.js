@@ -150,6 +150,39 @@ const updateStatus = async (
     );
 };
 
+
+/**
+ * Atomically update Guest status only when the current status matches.
+ */
+const updateStatusIfCurrent = async (
+    id,
+    currentStatus,
+    status,
+    userId,
+    session = null
+) => {
+    return Guest.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            status: currentStatus,
+        },
+        {
+            status,
+            updatedBy: userId,
+        },
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
+};
+
+
+
 /**
  * Find Guests By Event With Assignment
  *
@@ -184,4 +217,5 @@ module.exports = {
     softDelete,
     updateStatus,
     count,
+    updateStatusIfCurrent,
 };
