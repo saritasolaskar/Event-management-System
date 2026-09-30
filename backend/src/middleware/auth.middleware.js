@@ -1,5 +1,5 @@
-const AppError =
-    require("../utils/AppError");
+
+const AppError = require("../utils/AppError");
 
 const {
     verifyAccessToken,
@@ -16,19 +16,13 @@ const asyncHandler =
     require("../utils/asyncHandler");
 
 const protect =
-    asyncHandler(async (
-        req,
-        res,
-        next
-    ) => {
+    asyncHandler(async (req, res, next) => {
 
         let token;
 
         if (
             req.headers.authorization &&
-            req.headers.authorization.startsWith(
-                "Bearer "
-            )
+            req.headers.authorization.startsWith("Bearer ")
         ) {
             token =
                 req.headers.authorization
@@ -44,8 +38,27 @@ const protect =
             );
         }
 
-        const payload =
-            verifyAccessToken(token);
+        let payload;
+
+        try {
+            payload = verifyAccessToken(token);
+        } catch (error) {
+            return next(
+                new AppError(
+                    "Invalid or expired access token.",
+                    401
+                )
+            );
+        }
+
+        if (!payload || !payload.id) {
+            return next(
+                new AppError(
+                    "Invalid access token.",
+                    401
+                )
+            );
+        }
 
         const user =
             await userRepository.findById(
@@ -62,8 +75,7 @@ const protect =
         }
 
         if (
-            user.status !==
-            STATUS.ACTIVE
+            user.status !== STATUS.ACTIVE
         ) {
             return next(
                 new AppError(

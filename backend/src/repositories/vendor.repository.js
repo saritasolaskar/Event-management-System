@@ -1,3 +1,4 @@
+
 const Vendor = require("../models/vendor.model");
 
 /**
@@ -128,11 +129,19 @@ const updateById = async (
 
 /**
  * Soft Delete Vendor
+ *
+ * Argument order:
+ *   id
+ *   updatedBy
+ *   session
+ *
+ * This matches the service layer:
+ * vendorRepository.softDelete(vendorId, userId)
  */
 const softDelete = async (
     id,
-    session = null,
-    updatedBy = null
+    updatedBy = null,
+    session = null
 ) => {
     const query = Vendor.findOneAndUpdate(
         {
@@ -242,6 +251,7 @@ module.exports = {
     findAll,
     updateById,
     softDelete,
-    updateStatus,  
+    updateStatus,
     updateStatusIfCurrent,
 };
+

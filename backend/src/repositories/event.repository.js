@@ -1,3 +1,4 @@
+
 const Event =
     require("../models/event.model");
 
@@ -37,7 +38,7 @@ const findById = async (
         })
             .populate(
                 "client",
-                "clientCode companyName"
+                "companyName email phone gstNumber panNumber"
             )
             .populate(
                 "venue",
@@ -81,7 +82,7 @@ const findAll = async (
     })
         .populate(
             "client",
-            "clientCode companyName"
+            "companyName email phone gstNumber panNumber"
         )
         .populate(
             "venue",
@@ -103,7 +104,7 @@ const findByClient = async (
     })
         .populate(
             "client",
-            "clientCode companyName"
+            "companyName email phone gstNumber panNumber"
         )
         .populate(
             "venue",
@@ -240,7 +241,7 @@ const findByStatus = async (
         })
             .populate(
                 "client",
-                "clientCode companyName"
+                "companyName email phone gstNumber panNumber"
             )
             .populate(
                 "venue",
