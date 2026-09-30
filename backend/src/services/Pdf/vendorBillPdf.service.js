@@ -1,34 +1,16 @@
+
 const vendorBillRepository =
     require("../../repositories/vendorBill.repository");
 
 const pdfGenerator =
     require("../pdfGenerator");
 
+const config =
+    require("../../config/env");
+
 const AppError =
     require("../../utils/AppError");
 
-const COMPANY = {
-
-    name:
-        process.env.COMPANY_NAME ||
-        "Transit Fleets",
-
-    address:
-        process.env.COMPANY_ADDRESS ||
-        "Your Company Address",
-
-    phone:
-        process.env.COMPANY_PHONE ||
-        "Your Phone",
-
-    email:
-        process.env.COMPANY_EMAIL ||
-        "info@transitfleets.com",
-
-    gst:
-        process.env.COMPANY_GST ||
-        "",
-};
 
 const generateVendorBillPdf = async (
     billId
@@ -91,7 +73,11 @@ const generateVendorBillPdf = async (
 
     const duty = {
 
-        ...bill.duty.toObject(),
+        ...(
+            bill.duty.toObject
+                ? bill.duty.toObject()
+                : bill.duty
+        ),
 
         dutyDateFormatted:
             bill.duty.dutyStartTime
@@ -99,14 +85,49 @@ const generateVendorBillPdf = async (
                 : "",
     };
 
+    const company = {
+
+        name:
+            config.COMPANY_NAME ||
+            "Transit Fleets",
+
+        address:
+            config.COMPANY_ADDRESS ||
+            "",
+
+        phone:
+            config.COMPANY_PHONE ||
+            "",
+
+        email:
+            config.COMPANY_EMAIL ||
+            "",
+
+        gst:
+            config.COMPANY_GST ||
+            "",
+
+        pan:
+            config.COMPANY_PAN ||
+            "",
+
+        website:
+            config.COMPANY_WEBSITE ||
+            "",
+
+    };
+
     const data = {
 
-        company:
-            COMPANY,
+        company,
 
         bill: {
 
-            ...bill.toObject(),
+            ...(
+                bill.toObject
+                    ? bill.toObject()
+                    : bill
+            ),
 
             billNumber:
                 bill.billNumber ||
@@ -141,13 +162,16 @@ const generateVendorBillPdf = async (
         package: {
 
             name:
-                bill.packageName || "",
+                bill.packageName ||
+                "",
 
             km:
-                bill.packageKm || 0,
+                bill.packageKm ||
+                0,
 
             hours:
-                bill.packageHours || 0,
+                bill.packageHours ||
+                0,
         },
 
         approvedBy:
