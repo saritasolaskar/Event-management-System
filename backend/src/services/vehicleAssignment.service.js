@@ -518,6 +518,7 @@ const getVehicleAssignmentById = async (
 /**
  * Update Assignment
  */
+
 const updateVehicleAssignment = async (
     id,
     updateData,
@@ -590,19 +591,17 @@ const updateVehicleAssignment = async (
         updateData.vehicle ||
         getId(assignment.vehicle);
 
-    const driver =
-        await validateDriverForAssignment(
-            effectiveDriverId,
-            vendorId,
-            effectiveVehicleId
-        );
+    await validateDriverForAssignment(
+        effectiveDriverId,
+        vendorId,
+        effectiveVehicleId
+    );
 
-    const vehicle =
-        await validateVehicleForAssignment(
-            effectiveVehicleId,
-            vendorId,
-            effectiveDriverId
-        );
+    await validateVehicleForAssignment(
+        effectiveVehicleId,
+        vendorId,
+        effectiveDriverId
+    );
 
     if (updateData.driver) {
         const existingDriverAssignment =
@@ -645,18 +644,221 @@ const updateVehicleAssignment = async (
     updateData.updatedBy =
         userId;
 
-    const expectedStatus =
-        assignment.status;
+    const driverWasUpdated =
+        Object.prototype.hasOwnProperty.call(
+            updateData,
+            "driver"
+        );
+
+    const vehicleWasUpdated =
+        Object.prototype.hasOwnProperty.call(
+            updateData,
+            "vehicle"
+        );
+
+    const oldDriverId =
+        getId(assignment.driver);
+
+    const oldVehicleId =
+        getId(assignment.vehicle);
+
+    const newDriverId =
+        getId(
+            updateData.driver ||
+            oldDriverId
+        );
+
+    const newVehicleId =
+        getId(
+            updateData.vehicle ||
+            oldVehicleId
+        );
+
+    const session =
+        await mongoose.startSession();
 
     let updatedAssignment;
 
     try {
-        updatedAssignment =
-            await vehicleAssignmentRepository.updateByIdAndStatus(
-                id,
-                expectedStatus,
-                updateData
-            );
+        await session.withTransaction(
+            async () => {
+
+                updatedAssignment =
+                    await vehicleAssignmentRepository.updateByIdAndStatus(
+                        id,
+                        assignment.status,
+                        updateData,
+                        session
+                    );
+
+                if (!updatedAssignment) {
+                    throw new AppError(
+                        "Vehicle Assignment was changed by another operation. Please refresh and try again.",
+                        409
+                    );
+                }
+
+                /*
+                 * If the driver changes, release the
+                 * old driver's vehicle relationship.
+                 */
+                if (
+                    driverWasUpdated &&
+                    oldDriverId !== newDriverId
+                ) {
+                    const oldDriver =
+                        await driverRepository.findById(
+                            oldDriverId,
+                            session
+                        );
+
+                    if (
+                        oldDriver &&
+                        getId(
+                            oldDriver.currentVehicle
+                        ) === oldVehicleId
+                    ) {
+                        await driverRepository.updateById(
+                            oldDriverId,
+                            {
+                                currentVehicle:
+                                    null,
+
+                                updatedBy:
+                                    userId,
+                            },
+                            session
+                        );
+                    }
+                }
+
+                /*
+                 * If the vehicle changes, release the
+                 * old vehicle relationship.
+                 */
+                if (
+                    vehicleWasUpdated &&
+                    oldVehicleId !== newVehicleId
+                ) {
+                    const oldVehicle =
+                        await vehicleRepository.findById(
+                            oldVehicleId,
+                            session
+                        );
+
+                    if (
+                        oldVehicle &&
+                        getId(
+                            oldVehicle.currentDriver
+                        ) === oldDriverId
+                    ) {
+                        await vehicleRepository.updateById(
+                            oldVehicleId,
+                            {
+                                currentDriver:
+                                    null,
+
+                                status:
+                                    VEHICLE_STATUS.AVAILABLE,
+
+                                updatedBy:
+                                    userId,
+                            },
+                            session
+                        );
+                    }
+                }
+
+                /*
+                 * Ensure the new driver points to
+                 * the vehicle used by this assignment.
+                 */
+                if (
+                    newDriverId &&
+                    (
+                        driverWasUpdated ||
+                        vehicleWasUpdated
+                    )
+                ) {
+                    const linkedDriver =
+                        await driverRepository.findById(
+                            newDriverId,
+                            session
+                        );
+
+                    if (!linkedDriver) {
+                        throw new AppError(
+                            "Driver not found while synchronizing vehicle assignment.",
+                            404
+                        );
+                    }
+
+                    if (
+                        getId(
+                            linkedDriver.currentVehicle
+                        ) !== newVehicleId
+                    ) {
+                        await driverRepository.updateById(
+                            newDriverId,
+                            {
+                                currentVehicle:
+                                    newVehicleId,
+
+                                updatedBy:
+                                    userId,
+                            },
+                            session
+                        );
+                    }
+                }
+
+                /*
+                 * Ensure the new vehicle points to
+                 * the driver used by this assignment.
+                 */
+                if (
+                    newVehicleId &&
+                    (
+                        driverWasUpdated ||
+                        vehicleWasUpdated
+                    )
+                ) {
+                    const linkedVehicle =
+                        await vehicleRepository.findById(
+                            newVehicleId,
+                            session
+                        );
+
+                    if (!linkedVehicle) {
+                        throw new AppError(
+                            "Vehicle not found while synchronizing vehicle assignment.",
+                            404
+                        );
+                    }
+
+                    if (
+                        getId(
+                            linkedVehicle.currentDriver
+                        ) !== newDriverId
+                    ) {
+                        await vehicleRepository.updateById(
+                            newVehicleId,
+                            {
+                                currentDriver:
+                                    newDriverId,
+
+                                status:
+                                    VEHICLE_STATUS.ASSIGNED,
+
+                                updatedBy:
+                                    userId,
+                            },
+                            session
+                        );
+                    }
+                }
+            }
+        );
     } catch (error) {
         if (
             error.code ===
@@ -669,13 +871,8 @@ const updateVehicleAssignment = async (
         }
 
         throw error;
-    }
-
-    if (!updatedAssignment) {
-        throw new AppError(
-            "Vehicle Assignment was changed by another operation. Please refresh and try again.",
-            409
-        );
+    } finally {
+        await session.endSession();
     }
 
     await auditLogService.createLog({
