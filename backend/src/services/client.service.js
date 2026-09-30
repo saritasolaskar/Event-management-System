@@ -1,628 +1,898 @@
+
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 
 const clientRepository =
-  require("../repositories/client.repository");
+    require("../repositories/client.repository");
 
 const userRepository =
-  require("../repositories/user.repository");
+    require("../repositories/user.repository");
 
 const authService =
-  require("./auth.service");
+    require("./auth.service");
 
 const AppError =
-  require("../utils/AppError");
+    require("../utils/AppError");
 
 const eventRepository =
-  require("../repositories/event.repository");
+    require("../repositories/event.repository");
 
 const { ROLES } =
-  require("../constants/roles");
+    require("../constants/roles");
 
 const { STATUS } =
-  require("../constants/status");
+    require("../constants/status");
+
 
 const CLIENT_FIELDS = [
-  "companyName",
-  "email",
-  "phone",
-  "gstNumber",
-  "panNumber",
-  "industry",
-  "address",
-  "city",
-  "state",
-  "country",
-  "pincode",
-  "agreementStartDate",
-  "agreementEndDate",
-  "paymentTerms",
-  "creditLimit",
+    "companyName",
+    "email",
+    "phone",
+    "gstNumber",
+    "panNumber",
+    "industry",
+    "address",
+    "city",
+    "state",
+    "country",
+    "pincode",
+    "agreementStartDate",
+    "agreementEndDate",
+    "paymentTerms",
+    "creditLimit",
 ];
 
-const pickClientFields = (data = {}) =>
-  Object.fromEntries(
-    Object.entries(data).filter(([key]) =>
-      CLIENT_FIELDS.includes(key)
-    )
-  );
 
-const normalizeClientData = (data) => ({
-  ...data,
+/**
+ * Pick allowed Client fields
+ */
+const pickClientFields = (
+    data = {}
+) =>
+    Object.fromEntries(
+        Object.entries(data).filter(
+            ([key]) =>
+                CLIENT_FIELDS.includes(key)
+        )
+    );
 
-  ...(data.email && {
-    email: data.email.toLowerCase(),
-  }),
 
-  ...(data.gstNumber && {
-    gstNumber: data.gstNumber.toUpperCase(),
-  }),
+/**
+ * Normalize Client data
+ */
+const normalizeClientData = (
+    data
+) => ({
+    ...data,
 
-  ...(data.panNumber && {
-    panNumber: data.panNumber.toUpperCase(),
-  }),
+    ...(data.email && {
+        email:
+            data.email.toLowerCase(),
+    }),
+
+    ...(data.gstNumber && {
+        gstNumber:
+            data.gstNumber.toUpperCase(),
+    }),
+
+    ...(data.panNumber && {
+        panNumber:
+            data.panNumber.toUpperCase(),
+    }),
 });
 
+
+/**
+ * Validate Agreement Dates
+ */
 const validateAgreementDates = (
-  startDate,
-  endDate
+    startDate,
+    endDate
 ) => {
-  if (
-    startDate &&
-    endDate &&
-    new Date(endDate).getTime() <
-      new Date(startDate).getTime()
-  ) {
-    throw new AppError(
-      "Agreement end date cannot be before its start date.",
-      422
-    );
-  }
+    if (
+        startDate &&
+        endDate &&
+        new Date(endDate).getTime() <
+            new Date(startDate).getTime()
+    ) {
+        throw new AppError(
+            "Agreement end date cannot be before its start date.",
+            422
+        );
+    }
 };
+
 
 /**
  * Create Client and Client Portal Account
  *
- * Both operations are performed inside one MongoDB
- * transaction so we never end up with a Client without
- * the corresponding portal account.
+ * Client and portal account are created
+ * inside one MongoDB transaction.
  */
 const createClient = async (
-  clientData,
-  userId
+    clientData,
+    userId
 ) => {
-  const data =
-    normalizeClientData(
-      pickClientFields(clientData)
+    const data =
+        normalizeClientData(
+            pickClientFields(clientData)
+        );
+
+    validateAgreementDates(
+        data.agreementStartDate,
+        data.agreementEndDate
     );
 
-  validateAgreementDates(
-    data.agreementStartDate,
-    data.agreementEndDate
-  );
+    const session =
+        await mongoose.startSession();
 
-  const session =
-    await mongoose.startSession();
+    let createdClient = null;
+    let passwordSetupToken = null;
+    let accountCreated = false;
 
-  let createdClient = null;
-  let passwordSetupToken = null;
-  let accountCreated = false;
+    try {
+        await session.withTransaction(
+            async () => {
 
-  try {
-    await session.withTransaction(
-      async () => {
+                /**
+                 * ----------------------------------------
+                 * 1. Duplicate Client checks
+                 * ----------------------------------------
+                 */
 
-        /**
-         * ---------------------------------------------
-         * 1. Validate duplicate Client information
-         * ---------------------------------------------
-         */
+                const existingCompany =
+                    await clientRepository.findByCompanyName(
+                        data.companyName,
+                        session
+                    );
 
-        const existingCompany =
-          await clientRepository.findByCompanyName(
-            data.companyName,
-            session
-          );
+                if (existingCompany) {
+                    throw new AppError(
+                        "Company name already exists.",
+                        409
+                    );
+                }
 
-        if (existingCompany) {
-          throw new AppError(
-            "Company name already exists.",
-            409
-          );
-        }
+                const existingClientEmail =
+                    await clientRepository.findByEmail(
+                        data.email,
+                        session
+                    );
 
-        const existingClientEmail =
-          await clientRepository.findByEmail(
-            data.email,
-            session
-          );
+                if (existingClientEmail) {
+                    throw new AppError(
+                        "Email already exists.",
+                        409
+                    );
+                }
 
-        if (existingClientEmail) {
-          throw new AppError(
-            "Email already exists.",
-            409
-          );
-        }
+                if (data.gstNumber) {
+                    const existingGST =
+                        await clientRepository.findByGST(
+                            data.gstNumber,
+                            session
+                        );
 
-        if (data.gstNumber) {
-          const existingGST =
-            await clientRepository.findByGST(
-              data.gstNumber,
-              session
-            );
+                    if (existingGST) {
+                        throw new AppError(
+                            "GST Number already exists.",
+                            409
+                        );
+                    }
+                }
 
-          if (existingGST) {
-            throw new AppError(
-              "GST Number already exists.",
-              409
-            );
-          }
-        }
 
-        /**
-         * ---------------------------------------------
-         * 2. Create Client
-         * ---------------------------------------------
-         */
+                /**
+                 * ----------------------------------------
+                 * 2. Create Client
+                 * ----------------------------------------
+                 */
 
-        createdClient =
-          await clientRepository.create(
-            {
-              ...data,
+                createdClient =
+                    await clientRepository.create(
+                        {
+                            ...data,
 
-              status:
-                STATUS.ACTIVE,
+                            status:
+                                STATUS.ACTIVE,
 
-              createdBy:
-                userId,
+                            createdBy:
+                                userId,
 
-              updatedBy:
-                userId,
+                            updatedBy:
+                                userId,
 
-              isDeleted:
-                false,
+                            isDeleted:
+                                false,
 
-              deletedAt:
-                null,
+                            deletedAt:
+                                null,
+                        },
+                        session
+                    );
+
+
+                /**
+                 * ----------------------------------------
+                 * 3. Check existing User
+                 * ----------------------------------------
+                 */
+
+                const existingUser =
+                    await userRepository.findByEmail(
+                        data.email,
+                        session
+                    );
+
+                if (existingUser) {
+
+                    /**
+                     * Email belongs to another role.
+                     */
+                    if (
+                        existingUser.role !==
+                        ROLES.CLIENT
+                    ) {
+                        throw new AppError(
+                            "A user with this email already exists with a different role.",
+                            409
+                        );
+                    }
+
+
+                    /**
+                     * CLIENT account already belongs
+                     * to another Client.
+                     */
+                    if (
+                        existingUser.client &&
+                        existingUser.client
+                            .toString() !==
+                            createdClient._id.toString()
+                    ) {
+                        throw new AppError(
+                            "This user account is already linked to another client.",
+                            409
+                        );
+                    }
+
+
+                    /**
+                     * Link existing CLIENT user.
+                     */
+                    existingUser.client =
+                        createdClient._id;
+
+                    existingUser.status =
+                        STATUS.ACTIVE;
+
+                    await existingUser.save({
+                        session,
+                    });
+
+                    return;
+                }
+
+
+                /**
+                 * ----------------------------------------
+                 * 4. Check phone collision
+                 * ----------------------------------------
+                 */
+
+                const existingPhone =
+                    await userRepository.findByPhone(
+                        data.phone,
+                        session
+                    );
+
+                if (existingPhone) {
+                    throw new AppError(
+                        "A user with this phone number already exists.",
+                        409
+                    );
+                }
+
+
+                /**
+                 * ----------------------------------------
+                 * 5. Create Client User
+                 * ----------------------------------------
+                 */
+
+                const temporaryPassword =
+                    crypto
+                        .randomBytes(24)
+                        .toString("hex");
+
+                const clientUser =
+                    await userRepository.create(
+                        {
+                            name:
+                                data.companyName,
+
+                            email:
+                                data.email,
+
+                            phone:
+                                data.phone,
+
+                            password:
+                                temporaryPassword,
+
+                            role:
+                                ROLES.CLIENT,
+
+                            status:
+                                STATUS.ACTIVE,
+
+                            client:
+                                createdClient._id,
+
+                            isEmailVerified:
+                                false,
+
+                            failedLoginAttempts:
+                                0,
+
+                            lockUntil:
+                                null,
+
+                            isDeleted:
+                                false,
+                        },
+                        session
+                    );
+
+
+                /**
+                 * ----------------------------------------
+                 * 6. Generate Password Setup Token
+                 * ----------------------------------------
+                 */
+
+                passwordSetupToken =
+                    await authService.createPasswordSetupToken(
+                        clientUser._id,
+                        session
+                    );
+
+                accountCreated =
+                    true;
+            }
+        );
+
+        return {
+            client:
+                createdClient,
+
+            portalAccount: {
+                created:
+                    accountCreated,
+
+                ...(passwordSetupToken && {
+                    passwordSetupToken,
+                }),
             },
-            session
-          );
+        };
 
-        /**
-         * ---------------------------------------------
-         * 3. Check existing User account
-         * ---------------------------------------------
-         */
-
-        const existingUser =
-          await userRepository.findByEmail(
-            data.email,
-            session
-          );
-
-        if (existingUser) {
-
-          /**
-           * The email already belongs to another
-           * application role.
-           */
-          if (
-            existingUser.role !==
-            ROLES.CLIENT
-          ) {
-            throw new AppError(
-              "A user with this email already exists with a different role.",
-              409
-            );
-          }
-
-          /**
-           * The CLIENT account is already connected
-           * to another Client.
-           */
-          if (
-            existingUser.client &&
-            existingUser.client.toString() !==
-              createdClient._id.toString()
-          ) {
-            throw new AppError(
-              "This user account is already linked to another client.",
-              409
-            );
-          }
-
-          /**
-           * Existing CLIENT account was previously
-           * created through public registration.
-           *
-           * Link it to the newly created Client.
-           */
-          existingUser.client =
-            createdClient._id;
-
-          existingUser.status =
-            STATUS.ACTIVE;
-
-          await existingUser.save({
-            session,
-          });
-
-          return;
-        }
-
-        /**
-         * ---------------------------------------------
-         * 4. Check User phone collision
-         * ---------------------------------------------
-         */
-
-        const existingPhone =
-          await userRepository.findByPhone(
-            data.phone,
-            session
-          );
-
-        if (existingPhone) {
-          throw new AppError(
-            "A user with this phone number already exists.",
-            409
-          );
-        }
-
-        /**
-         * ---------------------------------------------
-         * 5. Create Client User
-         * ---------------------------------------------
-         *
-         * A random temporary password is used because
-         * the client will establish their real password
-         * through the password setup token.
-         */
-
-        const temporaryPassword =
-          crypto
-            .randomBytes(24)
-            .toString("hex");
-
-        const clientUser =
-          await userRepository.create(
-            {
-              name:
-                data.companyName,
-
-              email:
-                data.email,
-
-              phone:
-                data.phone,
-
-              password:
-                temporaryPassword,
-
-              role:
-                ROLES.CLIENT,
-
-              status:
-                STATUS.ACTIVE,
-
-              client:
-                createdClient._id,
-
-              isEmailVerified:
-                false,
-
-              failedLoginAttempts:
-                0,
-
-              lockUntil:
-                null,
-
-              isDeleted:
-                false,
-            },
-            session
-          );
-
-        /**
-         * ---------------------------------------------
-         * 6. Generate password setup token
-         * ---------------------------------------------
-         */
-
-        passwordSetupToken =
-          await authService.createPasswordSetupToken(
-            clientUser._id,
-            session
-          );
-
-        accountCreated =
-          true;
-      }
-    );
-
-    return {
-      client:
-        createdClient,
-
-      portalAccount: {
-        created:
-          accountCreated,
-
-        ...(passwordSetupToken && {
-          passwordSetupToken,
-        }),
-      },
-    };
-
-  } finally {
-    await session.endSession();
-  }
+    } finally {
+        await session.endSession();
+    }
 };
+
 
 /**
  * Get All Clients
  */
 const getAllClients = async (
-  filter = {}
+    filter = {}
 ) => {
-  return clientRepository.findAll(
-    filter
-  );
+    return clientRepository.findAll(
+        filter
+    );
 };
+
 
 /**
  * Get Client By ID
  */
 const getClientById = async (
-  clientId
+    clientId
 ) => {
-  const client =
-    await clientRepository.findById(
-      clientId
-    );
+    const client =
+        await clientRepository.findById(
+            clientId
+        );
 
-  if (!client) {
-    throw new AppError(
-      "Client not found.",
-      404
-    );
-  }
+    if (!client) {
+        throw new AppError(
+            "Client not found.",
+            404
+        );
+    }
 
-  return client;
+    return client;
 };
+
 
 /**
  * Update Client
+ *
+ * Keeps the linked CLIENT portal account
+ * synchronized with:
+ * - companyName
+ * - email
+ * - phone
  */
 const updateClient = async (
-  clientId,
-  updateData,
-  userId
-) => {
-  const client =
-    await clientRepository.findById(
-      clientId
-    );
-
-  if (
-    Object.prototype.hasOwnProperty.call(
-      updateData,
-      "status"
-    )
-  ) {
-    throw new AppError(
-      "Client status must be changed using the status endpoint.",
-      400
-    );
-  }
-
-  if (!client) {
-    throw new AppError(
-      "Client not found.",
-      404
-    );
-  }
-
-  const data =
-    normalizeClientData(
-      pickClientFields(updateData)
-    );
-
-  const startDate =
-    Object.hasOwn(
-      data,
-      "agreementStartDate"
-    )
-      ? data.agreementStartDate
-      : client.agreementStartDate;
-
-  const endDate =
-    Object.hasOwn(
-      data,
-      "agreementEndDate"
-    )
-      ? data.agreementEndDate
-      : client.agreementEndDate;
-
-  validateAgreementDates(
-    startDate,
-    endDate
-  );
-
-  if (
-    data.companyName &&
-    data.companyName !==
-      client.companyName
-  ) {
-    const existingCompany =
-      await clientRepository.findByCompanyName(
-        data.companyName
-      );
-
-    if (
-      existingCompany &&
-      existingCompany._id.toString() !==
-        client._id.toString()
-    ) {
-      throw new AppError(
-        "Company name already exists.",
-        409
-      );
-    }
-  }
-
-  if (
-    data.email &&
-    data.email !== client.email
-  ) {
-    const existingEmail =
-      await clientRepository.findByEmail(
-        data.email
-      );
-
-    if (
-      existingEmail &&
-      existingEmail._id.toString() !==
-        client._id.toString()
-    ) {
-      throw new AppError(
-        "Email already exists.",
-        409
-      );
-    }
-  }
-
-  if (
-    data.gstNumber &&
-    data.gstNumber !==
-      client.gstNumber
-  ) {
-    const existingGST =
-      await clientRepository.findByGST(
-        data.gstNumber
-      );
-
-    if (
-      existingGST &&
-      existingGST._id.toString() !==
-        client._id.toString()
-    ) {
-      throw new AppError(
-        "GST Number already exists.",
-        409
-      );
-    }
-  }
-
-  return clientRepository.updateById(
     clientId,
-    {
-      ...data,
-      updatedBy: userId,
+    updateData,
+    userId
+) => {
+
+    /**
+     * ----------------------------------------
+     * 1. Get existing Client
+     * ----------------------------------------
+     */
+
+    const client =
+        await clientRepository.findById(
+            clientId
+        );
+
+    if (!client) {
+        throw new AppError(
+            "Client not found.",
+            404
+        );
     }
-  );
+
+
+    /**
+     * Status must use dedicated endpoint.
+     */
+    if (
+        Object.prototype.hasOwnProperty.call(
+            updateData,
+            "status"
+        )
+    ) {
+        throw new AppError(
+            "Client status must be changed using the status endpoint.",
+            400
+        );
+    }
+
+
+    /**
+     * ----------------------------------------
+     * 2. Normalize update data
+     * ----------------------------------------
+     */
+
+    const data =
+        normalizeClientData(
+            pickClientFields(updateData)
+        );
+
+
+    /**
+     * ----------------------------------------
+     * 3. Validate agreement dates
+     * ----------------------------------------
+     */
+
+    const startDate =
+        Object.hasOwn(
+            data,
+            "agreementStartDate"
+        )
+            ? data.agreementStartDate
+            : client.agreementStartDate;
+
+    const endDate =
+        Object.hasOwn(
+            data,
+            "agreementEndDate"
+        )
+            ? data.agreementEndDate
+            : client.agreementEndDate;
+
+    validateAgreementDates(
+        startDate,
+        endDate
+    );
+
+
+    /**
+     * ----------------------------------------
+     * 4. Check duplicate company name
+     * ----------------------------------------
+     */
+
+    if (
+        data.companyName &&
+        data.companyName !==
+            client.companyName
+    ) {
+        const existingCompany =
+            await clientRepository.findByCompanyName(
+                data.companyName
+            );
+
+        if (
+            existingCompany &&
+            existingCompany._id.toString() !==
+                client._id.toString()
+        ) {
+            throw new AppError(
+                "Company name already exists.",
+                409
+            );
+        }
+    }
+
+
+    /**
+     * ----------------------------------------
+     * 5. Check duplicate Client email
+     * ----------------------------------------
+     */
+
+    if (
+        data.email &&
+        data.email !== client.email
+    ) {
+        const existingEmail =
+            await clientRepository.findByEmail(
+                data.email
+            );
+
+        if (
+            existingEmail &&
+            existingEmail._id.toString() !==
+                client._id.toString()
+        ) {
+            throw new AppError(
+                "Email already exists.",
+                409
+            );
+        }
+    }
+
+
+    /**
+     * ----------------------------------------
+     * 6. Check duplicate GST
+     * ----------------------------------------
+     */
+
+    if (
+        data.gstNumber &&
+        data.gstNumber !==
+            client.gstNumber
+    ) {
+        const existingGST =
+            await clientRepository.findByGST(
+                data.gstNumber
+            );
+
+        if (
+            existingGST &&
+            existingGST._id.toString() !==
+                client._id.toString()
+        ) {
+            throw new AppError(
+                "GST Number already exists.",
+                409
+            );
+        }
+    }
+
+
+    /**
+     * ----------------------------------------
+     * 7. Start transaction
+     * ----------------------------------------
+     */
+
+    const session =
+        await mongoose.startSession();
+
+    let updatedClient;
+
+    try {
+        await session.withTransaction(
+            async () => {
+
+                /**
+                 * ----------------------------------------
+                 * Find linked portal account
+                 * ----------------------------------------
+                 */
+
+                const portalUser =
+                    await userRepository.findByClient(
+                        clientId,
+                        session
+                    );
+
+
+                /**
+                 * ----------------------------------------
+                 * If email changes, make sure the
+                 * new email isn't already used by
+                 * another User.
+                 * ----------------------------------------
+                 */
+
+                if (
+                    portalUser &&
+                    data.email &&
+                    data.email !==
+                        portalUser.email
+                ) {
+                    const existingUserEmail =
+                        await userRepository.findByEmail(
+                            data.email,
+                            session
+                        );
+
+                    if (
+                        existingUserEmail &&
+                        existingUserEmail._id
+                            .toString() !==
+                            portalUser._id.toString()
+                    ) {
+                        throw new AppError(
+                            "This email is already used by another user account.",
+                            409
+                        );
+                    }
+                }
+
+
+                /**
+                 * ----------------------------------------
+                 * If phone changes, make sure the
+                 * new phone isn't already used by
+                 * another User.
+                 * ----------------------------------------
+                 */
+
+                if (
+                    portalUser &&
+                    data.phone &&
+                    data.phone !==
+                        portalUser.phone
+                ) {
+                    const existingUserPhone =
+                        await userRepository.findByPhone(
+                            data.phone,
+                            session
+                        );
+
+                    if (
+                        existingUserPhone &&
+                        existingUserPhone._id
+                            .toString() !==
+                            portalUser._id.toString()
+                    ) {
+                        throw new AppError(
+                            "This phone number is already used by another user account.",
+                            409
+                        );
+                    }
+                }
+
+
+                /**
+                 * ----------------------------------------
+                 * Update Client
+                 * ----------------------------------------
+                 */
+
+                updatedClient =
+                    await clientRepository.updateById(
+                        clientId,
+                        {
+                            ...data,
+
+                            updatedBy:
+                                userId,
+                        },
+                        session
+                    );
+
+                if (!updatedClient) {
+                    throw new AppError(
+                        "Client could not be updated.",
+                        409
+                    );
+                }
+
+
+                /**
+                 * ----------------------------------------
+                 * Synchronize portal account
+                 * ----------------------------------------
+                 */
+
+                if (portalUser) {
+
+                    const userUpdate = {};
+
+                    /**
+                     * Client company name
+                     * → Portal user name
+                     */
+                    if (
+                        data.companyName !==
+                        undefined
+                    ) {
+                        userUpdate.name =
+                            data.companyName;
+                    }
+
+
+                    /**
+                     * Client email
+                     * → Portal user email
+                     */
+                    if (
+                        data.email !==
+                        undefined
+                    ) {
+                        userUpdate.email =
+                            data.email;
+                    }
+
+
+                    /**
+                     * Client phone
+                     * → Portal user phone
+                     */
+                    if (
+                        data.phone !==
+                        undefined
+                    ) {
+                        userUpdate.phone =
+                            data.phone;
+                    }
+
+
+                    /**
+                     * Only update User when
+                     * something actually changed.
+                     */
+                    if (
+                        Object.keys(
+                            userUpdate
+                        ).length > 0
+                    ) {
+                        await userRepository.updateById(
+                            portalUser._id,
+                            userUpdate,
+                            session
+                        );
+                    }
+                }
+            }
+        );
+
+    } finally {
+        await session.endSession();
+    }
+
+
+    return updatedClient;
 };
+
 
 /**
  * Delete Client
  */
 const deleteClient = async (
-  clientId,
-  userId
+    clientId,
+    userId
 ) => {
-  const client =
-    await clientRepository.findById(
-      clientId
-    );
+    const client =
+        await clientRepository.findById(
+            clientId
+        );
 
-  if (!client) {
-    throw new AppError(
-      "Client not found.",
-      404
-    );
-  }
+    if (!client) {
+        throw new AppError(
+            "Client not found.",
+            404
+        );
+    }
 
-  const events =
-    await eventRepository.findByClient(
-      clientId
-    );
+    const events =
+        await eventRepository.findByClient(
+            clientId
+        );
 
-  if (events.length > 0) {
-    throw new AppError(
-      "Client cannot be deleted because events already exist for this client.",
-      409
-    );
-  }
+    if (events.length > 0) {
+        throw new AppError(
+            "Client cannot be deleted because events already exist for this client.",
+            409
+        );
+    }
 
-  const deleted =
-    await clientRepository.softDelete(
-      clientId,
-      userId
-    );
+    const deleted =
+        await clientRepository.softDelete(
+            clientId,
+            userId
+        );
 
-  if (!deleted) {
-    throw new AppError(
-      "Client could not be deleted.",
-      409
-    );
-  }
+    if (!deleted) {
+        throw new AppError(
+            "Client could not be deleted.",
+            409
+        );
+    }
 
-  return {
-    message:
-      "Client deleted successfully.",
-  };
+    return {
+        message:
+            "Client deleted successfully.",
+    };
 };
+
 
 /**
  * Update Client Status
  */
 const updateClientStatus = async (
-  clientId,
-  status,
-  userId
+    clientId,
+    status,
+    userId
 ) => {
-  const client =
-    await clientRepository.findById(
-      clientId
-    );
+    const client =
+        await clientRepository.findById(
+            clientId
+        );
 
-  if (!client) {
-    throw new AppError(
-      "Client not found.",
-      404
-    );
-  }
+    if (!client) {
+        throw new AppError(
+            "Client not found.",
+            404
+        );
+    }
 
-  if (client.status === status) {
-    throw new AppError(
-      `Client is already ${status}.`,
-      400
-    );
-  }
+    if (client.status === status) {
+        throw new AppError(
+            `Client is already ${status}.`,
+            400
+        );
+    }
 
-  const updatedClient =
-    await clientRepository.updateStatusIfCurrent(
-      clientId,
-      client.status,
-      status,
-      userId
-    );
+    const updatedClient =
+        await clientRepository.updateStatusIfCurrent(
+            clientId,
+            client.status,
+            status,
+            userId
+        );
 
-  if (!updatedClient) {
-    throw new AppError(
-      "Client status could not be updated.",
-      409
-    );
-  }
+    if (!updatedClient) {
+        throw new AppError(
+            "Client status could not be updated.",
+            409
+        );
+    }
 
-  return updatedClient;
+    return updatedClient;
 };
 
+
 module.exports = {
-  createClient,
-  getAllClients,
-  getClientById,
-  updateClient,
-  deleteClient,
-  updateClientStatus,
+    createClient,
+    getAllClients,
+    getClientById,
+    updateClient,
+    deleteClient,
+    updateClientStatus,
 };

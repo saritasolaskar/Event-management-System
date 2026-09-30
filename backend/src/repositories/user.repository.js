@@ -296,6 +296,24 @@ const resetLoginAttempts = async (userId) => {
     );
 };
 
+
+const findByClient = async (
+    clientId,
+    session = null
+) => {
+    const query = User.findOne({
+        client: clientId,
+        role: "CLIENT",
+        isDeleted: false,
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
 module.exports = {
     create,
     findById,
@@ -312,4 +330,5 @@ module.exports = {
     findByPasswordResetToken,
     recordFailedLoginAttempt,
     resetLoginAttempts,
+    findByClient,
 };
