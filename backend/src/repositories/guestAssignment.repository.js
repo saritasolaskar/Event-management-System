@@ -188,10 +188,14 @@ const softDeleteIfPending = async (
 const findByEvent = async (
     eventId
 ) => {
-    const vehicleAssignments =
-    await VehicleAssignment.find({
-        event: eventId,
-    }).select("_id");
+   
+const vehicleAssignments =
+        await VehicleAssignment.find({
+            event: eventId,
+            isDeleted: false,
+        }).select("_id");
+
+
 
     const assignmentIds =
         vehicleAssignments.map(
