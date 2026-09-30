@@ -8,11 +8,31 @@ const dutyRepository =
 const User =
     require("../models/user.model");
 
+const Event =
+    require("../models/event.model");
+
 const auditLogService =
     require("./auditLog.service");
 
 const AppError =
     require("../utils/AppError");
+
+const {
+    TRIP_STAGE,
+} = require("../constants/status");
+
+const STAGE_ORDER = [
+    TRIP_STAGE.NOT_STARTED,
+    TRIP_STAGE.PICKUP_STARTED,
+    TRIP_STAGE.PICKUP_COMPLETED,
+    TRIP_STAGE.EVENT_DUTY,
+    TRIP_STAGE.RETURN_STARTED,
+    TRIP_STAGE.RETURN_COMPLETED,
+    TRIP_STAGE.COMPLETED,
+];
+
+const getStageIndex = (stage) =>
+    STAGE_ORDER.indexOf(stage);
 
 /**
  * Driver Updates Live Location
@@ -44,6 +64,43 @@ const updateLocation = async (
         );
     }
 
+    const latest =
+        await trackingRepository.findLatestByDuty(
+            duty._id
+        );
+
+    const stage =
+        location.stage ||
+        latest?.stage ||
+        TRIP_STAGE.NOT_STARTED;
+
+    if (!Object.values(TRIP_STAGE).includes(stage)) {
+        throw new AppError(
+            "Invalid tracking stage.",
+            400
+        );
+    }
+
+    if (latest?.stage) {
+
+        const previousIndex =
+            getStageIndex(latest.stage);
+
+        const currentIndex =
+            getStageIndex(stage);
+
+        if (
+            previousIndex === -1 ||
+            currentIndex === -1 ||
+            currentIndex < previousIndex
+        ) {
+            throw new AppError(
+                "Invalid tracking stage progression.",
+                400
+            );
+        }
+    }
+
     const tracking =
         await trackingRepository.create({
 
@@ -54,27 +111,28 @@ const updateLocation = async (
             vehicleAssignment:
                 duty.vehicleAssignment._id,
 
-            latitude: location.latitude,
+            latitude:
+                Number(location.latitude),
 
-            longitude: location.longitude,
+            longitude:
+                Number(location.longitude),
 
-            accuracy: location.accuracy,
+            accuracy:
+                location.accuracy ?? 0,
 
-            speed: location.speed,
+            speed:
+                location.speed ?? 0,
 
-            heading: location.heading,
+            heading:
+                location.heading ?? 0,
 
-            stage: location.stage,
+            stage,
 
+            recordedAt:
+                new Date(),
         });
 
-    // Log only the first tracking record
-    const history =
-        await trackingRepository.findHistoryByDuty(
-            duty._id
-        );
-
-    if (history.length === 1) {
+    if (!latest) {
 
         const driverUser =
             await User.findOne({
@@ -86,17 +144,20 @@ const updateLocation = async (
 
             await auditLogService.createLog({
 
-                user: driverUser._id,
+                user:
+                    driverUser._id,
 
-                action: "CREATE",
+                action:
+                    "CREATE",
 
-                module: "TRACKING",
+                module:
+                    "TRACKING",
 
-                referenceId: tracking._id,
+                referenceId:
+                    tracking._id,
 
                 description:
                     "Live tracking started.",
-
             });
         }
     }
@@ -112,7 +173,6 @@ const getDutyLiveLocation = async (
     user
 ) => {
 
-    // Validate duty first
     const duty =
         await dutyRepository.findById(
             dutyId
@@ -128,7 +188,6 @@ const getDutyLiveLocation = async (
         );
     }
 
-    // Get latest tracking record
     const tracking =
         await trackingRepository.findLatestByDuty(
             dutyId
@@ -141,8 +200,6 @@ const getDutyLiveLocation = async (
         );
     }
 
-    // CLIENT can only view tracking
-    // belonging to their own event
     if (user.role === "CLIENT") {
 
         if (!user.client) {
@@ -151,9 +208,6 @@ const getDutyLiveLocation = async (
                 403
             );
         }
-
-        const Event =
-            require("../models/event.model");
 
         const event =
             await Event.findOne({
@@ -184,7 +238,6 @@ const getAllLiveLocations = async () => {
 
     return trackingRepository
         .findLatestActiveLocations();
-
 };
 
 /**
@@ -213,14 +266,8 @@ const getTrackingHistory = async (
 };
 
 module.exports = {
-
     updateLocation,
-
     getDutyLiveLocation,
-
     getAllLiveLocations,
-
     getTrackingHistory,
-
 };
-
