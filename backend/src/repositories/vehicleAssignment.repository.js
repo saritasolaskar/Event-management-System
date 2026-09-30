@@ -97,6 +97,7 @@ const softDelete = async (
     return query;
 };
 
+
 const findTodayByDriver = async (
     driverId,
     session = null
@@ -112,18 +113,24 @@ const findTodayByDriver = async (
     const query = VehicleAssignment.findOne({
         driver: driverId,
         isDeleted: false,
-        status: {
-            $in: ["ASSIGNED", "ON_DUTY"],
-        },
-        reportingTime: {
-            $gte: startOfToday,
-            $lt: startOfTomorrow,
-        },
+        $or: [
+            {
+                status: "ON_DUTY",
+            },
+            {
+                status: "ASSIGNED",
+                reportingTime: {
+                    $gte: startOfToday,
+                    $lt: startOfTomorrow,
+                },
+            },
+        ],
     })
         .populate("vehicle")
         .populate("event")
         .populate("vendor")
         .sort({
+            status: -1,
             reportingTime: 1,
             createdAt: -1,
         });
@@ -134,6 +141,8 @@ const findTodayByDriver = async (
 
     return query;
 };
+
+
 
 const findByEvent = async (eventId) => {
     return VehicleAssignment.find({
