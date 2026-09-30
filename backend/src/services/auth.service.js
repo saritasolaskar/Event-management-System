@@ -30,7 +30,7 @@ await userRepository.findByEmail(
 userData.email
 );
 
-```
+
 if (existingEmail) {
     throw new AppError(
         "Email already exists.",
@@ -87,7 +87,7 @@ return {
     accessToken,
     refreshToken,
 };
-```
+
 
 };
 
@@ -100,7 +100,7 @@ await userRepository.findByEmailWithPassword(
 email
 );
 
-```
+
 if (!user) {
     throw new AppError(
         "Invalid email or password.",
@@ -181,7 +181,7 @@ return {
     accessToken,
     refreshToken,
 };
-```
+
 
 };
 
@@ -234,13 +234,13 @@ return {
   passwordResetToken:
   hashedToken,
 
-  ```
+  
            passwordResetExpires:
                expiresAt,
        },
        session
    );
-  ```
+  
 
   if (!updatedUser) {
   throw new AppError(
@@ -262,7 +262,7 @@ crypto
 .update(token)
 .digest("hex");
 
-```
+
 const user =
     await userRepository.findByPasswordResetToken(
         hashedToken
@@ -308,7 +308,7 @@ return {
     message:
         "Password set successfully. You can now log in.",
 };
-```
+
 
 };
 
@@ -342,7 +342,7 @@ return {
 const refreshToken = async (token) => {
 verifyRefreshTokenSafely(token);
 
-```
+
 const user =
     await userRepository.findByRefreshToken(
         token
@@ -387,14 +387,14 @@ return {
     refreshToken:
         newRefreshToken,
 };
-```
+
 
 };
 
 const logout = async (refreshToken) => {
 verifyRefreshTokenSafely(refreshToken);
 
-```
+
 const user =
     await userRepository.findByRefreshToken(
         refreshToken
@@ -416,7 +416,7 @@ return {
     message:
         "Logged out successfully.",
 };
-```
+
 
 };
 
@@ -425,12 +425,12 @@ await userRepository.removeAllRefreshTokens(
 userId
 );
 
-```
+
 return {
     message:
         "Logged out from all devices.",
 };
-```
+
 
 };
 

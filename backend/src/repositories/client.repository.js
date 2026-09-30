@@ -3,48 +3,89 @@ const Client = require("../models/client.model");
 /**
  * Create Client
  */
-const create = async (clientData) => {
+const create = async (clientData, session = null) => {
+  if (session) {
+    const [client] = await Client.create(
+      [clientData],
+      { session }
+    );
+    return client;
+  }
+
   return Client.create(clientData);
 };
 
 /**
  * Find Client By ID
  */
-const findById = async (id) => {
-  return Client.findOne({
+const findById = async (id, session = null) => {
+  const query = Client.findOne({
     _id: id,
     isDeleted: false,
   });
+
+  if (session) {
+    query.session(session);
+  }
+
+  return query;
 };
 
 /**
  * Find Client By Company Name
  */
-const findByCompanyName = async (companyName) => {
-  return Client.findOne({
+const findByCompanyName = async (
+  companyName,
+  session = null
+) => {
+  const query = Client.findOne({
     companyName,
     isDeleted: false,
   });
+
+  if (session) {
+    query.session(session);
+  }
+
+  return query;
 };
 
 /**
  * Find Client By Email
  */
-const findByEmail = async (email) => {
-  return Client.findOne({
+const findByEmail = async (
+  email,
+  session = null
+) => {
+  const query = Client.findOne({
     email,
     isDeleted: false,
   });
+
+  if (session) {
+    query.session(session);
+  }
+
+  return query;
 };
 
 /**
  * Find Client By GST Number
  */
-const findByGST = async (gstNumber) => {
-  return Client.findOne({
+const findByGST = async (
+  gstNumber,
+  session = null
+) => {
+  const query = Client.findOne({
     gstNumber,
     isDeleted: false,
   });
+
+  if (session) {
+    query.session(session);
+  }
+
+  return query;
 };
 
 /**
@@ -97,9 +138,6 @@ const softDelete = async (id, userId) => {
 
 /**
  * Atomically update Client Status
- *
- * The status is updated only if the client's current status
- * still matches the status that was originally read.
  */
 const updateStatusIfCurrent = async (
   id,
