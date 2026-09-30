@@ -1,5 +1,6 @@
+
 {
-  "name": "event management system backend",
+  "name": "event-management-system-backend",
   "version": "1.0.0",
   "main": "server.js",
   "directories": {
@@ -26,11 +27,14 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "express-validator": "^7.3.2",
+    "fs-extra": "^11.3.1",
+    "handlebars": "^4.7.8",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.4",
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
+    "puppeteer": "^24.0.0",
     "socket.io": "^4.8.3",
     "uuid": "^14.0.1",
     "xlsx": "^0.18.5"
@@ -42,3 +46,4 @@
   },
   "description": "Backend API for Event Management System"
 }
+
