@@ -1,26 +1,27 @@
+
 const express = require("express");
 
 const router = express.Router();
 
 const controller =
-require("../controllers/tracking.controller");
+    require("../controllers/tracking.controller");
 
 const protect =
-require("../middleware/auth.middleware");
+    require("../middleware/auth.middleware");
 
 const authorize =
-require("../middleware/authorize.middleware");
+    require("../middleware/authorize.middleware");
 
 const validate =
-require("../middleware/validate");
+    require("../middleware/validate");
 
 const {
-    updateLocationValidator,
+    trackingLocationValidator,
     dutyIdValidator,
 } = require("../validators/tracking.validator");
 
 const { ROLES } =
-require("../constants/roles");
+    require("../constants/roles");
 
 /*
 |--------------------------------------------------------------------------
@@ -35,7 +36,7 @@ router.post(
     authorize(
         ROLES.DRIVER
     ),
-    updateLocationValidator,
+    trackingLocationValidator,
     validate,
     controller.updateLocation
 );
