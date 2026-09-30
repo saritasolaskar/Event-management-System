@@ -1,3 +1,4 @@
+
 const VehicleAssignment = require("../models/vehicleAssignment.model");
 
 const create = async (data, session = null) => {
@@ -33,9 +34,15 @@ const findAll = async () => {
         isDeleted: false,
     })
         .populate("event", "eventCode name")
-        .populate("vendor", "vendorCode companyName")
-        .populate("driver", "firstName lastName phone")
-        .populate("vehicle", "registrationNumber vehicleType")
+        .populate("vendor", "companyName")
+        .populate(
+            "driver",
+            "firstName lastName phone"
+        )
+        .populate(
+            "vehicle",
+            "vehicleNumber vehicleType"
+        )
         .sort({
             createdAt: -1,
         });
