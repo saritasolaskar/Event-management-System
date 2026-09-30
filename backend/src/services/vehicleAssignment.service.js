@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const vehicleAssignmentRepository =
@@ -21,6 +22,9 @@ const locationRepository =
 const commercialPackageRepository =
     require("../repositories/commercialPackage.repository");
 
+const guestAssignmentRepository =
+    require("../repositories/guestAssignment.repository");
+
 const notificationService =
     require("./notification.service");
 
@@ -38,7 +42,6 @@ const {
 
 
 const getId = (value) => {
-
     if (!value) {
         return null;
     }
@@ -60,7 +63,6 @@ const validateDriverForAssignment = async (
     vehicleId = null,
     session = null
 ) => {
-
     const driver =
         await driverRepository.findById(
             driverId,
@@ -120,7 +122,6 @@ const validateVehicleForAssignment = async (
     driverId = null,
     session = null
 ) => {
-
     const vehicle =
         await vehicleRepository.findById(
             vehicleId,
@@ -178,7 +179,6 @@ const validateEvent = async (
     eventId,
     session = null
 ) => {
-
     const event =
         await eventRepository.findById(
             eventId,
@@ -220,7 +220,6 @@ const validateCommercialPackage = async (
     packageId,
     session = null
 ) => {
-
     const commercialPackage =
         await commercialPackageRepository.findById(
             packageId,
@@ -252,7 +251,6 @@ const validateReportingLocation = async (
     locationId,
     session = null
 ) => {
-
     if (!locationId) {
         return null;
     }
@@ -281,7 +279,6 @@ const createVehicleAssignment = async (
     data,
     userId
 ) => {
-
     const session =
         await mongoose.startSession();
 
@@ -291,10 +288,8 @@ const createVehicleAssignment = async (
     let driver;
 
     try {
-
         await session.withTransaction(
             async () => {
-
                 event =
                     await validateEvent(
                         data.event,
@@ -425,15 +420,12 @@ const createVehicleAssignment = async (
                 };
 
                 try {
-
                     assignment =
                         await vehicleAssignmentRepository.create(
                             assignmentData,
                             session
                         );
-
                 } catch (error) {
-
                     if (
                         error.code ===
                         11000
@@ -448,7 +440,6 @@ const createVehicleAssignment = async (
                 }
             }
         );
-
     } finally {
         await session.endSession();
     }
@@ -498,7 +489,6 @@ const createVehicleAssignment = async (
  * Get All Assignments
  */
 const getAllVehicleAssignments = async () => {
-
     return vehicleAssignmentRepository.findAll();
 };
 
@@ -509,7 +499,6 @@ const getAllVehicleAssignments = async () => {
 const getVehicleAssignmentById = async (
     id
 ) => {
-
     const assignment =
         await vehicleAssignmentRepository.findById(
             id
@@ -534,7 +523,6 @@ const updateVehicleAssignment = async (
     updateData,
     userId
 ) => {
-
     const assignment =
         await vehicleAssignmentRepository.findById(
             id
@@ -571,7 +559,6 @@ const updateVehicleAssignment = async (
     for (
         const field of allowedFields
     ) {
-
         if (
             updateData[field] !==
             undefined
@@ -618,7 +605,6 @@ const updateVehicleAssignment = async (
         );
 
     if (updateData.driver) {
-
         const existingDriverAssignment =
             await vehicleAssignmentRepository.findActiveByDriver(
                 updateData.driver,
@@ -634,7 +620,6 @@ const updateVehicleAssignment = async (
     }
 
     if (updateData.vehicle) {
-
         const existingVehicleAssignment =
             await vehicleAssignmentRepository.findActiveByVehicle(
                 updateData.vehicle,
@@ -652,7 +637,6 @@ const updateVehicleAssignment = async (
     if (
         updateData.reportingLocation
     ) {
-
         await validateReportingLocation(
             updateData.reportingLocation
         );
@@ -667,16 +651,13 @@ const updateVehicleAssignment = async (
     let updatedAssignment;
 
     try {
-
         updatedAssignment =
             await vehicleAssignmentRepository.updateByIdAndStatus(
                 id,
                 expectedStatus,
                 updateData
             );
-
     } catch (error) {
-
         if (
             error.code ===
             11000
@@ -725,7 +706,6 @@ const deleteVehicleAssignment = async (
     id,
     userId
 ) => {
-
     const assignment =
         await vehicleAssignmentRepository.findById(
             id
@@ -746,6 +726,24 @@ const deleteVehicleAssignment = async (
         throw new AppError(
             "Vehicle Assignment cannot be deleted after duty has started.",
             400
+        );
+    }
+
+    /*
+     * A vehicle assignment cannot be deleted
+     * while guests are still assigned to it.
+     */
+    const guestAssignments =
+        await guestAssignmentRepository.findByVehicleAssignment(
+            id
+        );
+
+    if (
+        guestAssignments.length > 0
+    ) {
+        throw new AppError(
+            "Vehicle Assignment cannot be deleted because guests are assigned to it.",
+            409
         );
     }
 
@@ -795,7 +793,6 @@ const updateVehicleAssignmentStatus = async (
     status,
     userId
 ) => {
-
     const assignment =
         await vehicleAssignmentRepository.findById(
             id
@@ -834,6 +831,24 @@ const updateVehicleAssignmentStatus = async (
         throw new AppError(
             `Cannot cancel an assignment with status ${assignment.status}.`,
             400
+        );
+    }
+
+    /*
+     * A vehicle assignment cannot be cancelled
+     * while guests are still assigned to it.
+     */
+    const guestAssignments =
+        await guestAssignmentRepository.findByVehicleAssignment(
+            id
+        );
+
+    if (
+        guestAssignments.length > 0
+    ) {
+        throw new AppError(
+            "Vehicle Assignment cannot be cancelled because guests are assigned to it.",
+            409
         );
     }
 
@@ -894,7 +909,7 @@ const updateVehicleAssignmentStatus = async (
             updatedAssignment._id,
 
         description:
-            "Vehicle assignment cancelled.",
+            "Vehicle Assignment cancelled.",
     });
 
     return updatedAssignment;
