@@ -127,7 +127,7 @@ const guestSchema = new mongoose.Schema(
 );
 
 // Indexes
-guestSchema.index({ guestCode: 1 });
+
 guestSchema.index({ event: 1 });
 guestSchema.index({ phone: 1 });
 guestSchema.index({ status: 1 });

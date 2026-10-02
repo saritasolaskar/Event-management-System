@@ -80,7 +80,7 @@ const eventSchema = new mongoose.Schema(
 );
 
 // Indexes
-eventSchema.index({ eventCode: 1 });
+
 eventSchema.index({ client: 1 });
 eventSchema.index({ venue: 1 });
 eventSchema.index({ startDate: 1 });

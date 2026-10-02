@@ -120,7 +120,7 @@ const vehicleSchema = new mongoose.Schema(
 );
 
 // Indexes
-vehicleSchema.index({ vehicleNumber: 1 });
+
 vehicleSchema.index({ vendor: 1 });
 vehicleSchema.index(
     { currentDriver: 1 },

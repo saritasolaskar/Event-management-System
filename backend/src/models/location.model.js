@@ -87,7 +87,7 @@ const locationSchema = new mongoose.Schema(
 );
 
 // Indexes
-locationSchema.index({ locationCode: 1 });
+
 locationSchema.index({ city: 1 });
 locationSchema.index({ status: 1 });
 locationSchema.index({ latitude: 1, longitude: 1 });

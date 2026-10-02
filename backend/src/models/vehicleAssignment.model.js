@@ -182,8 +182,7 @@ const vehicleAssignmentSchema = new mongoose.Schema(
 
 vehicleAssignmentSchema.index({ event: 1 });
 vehicleAssignmentSchema.index({ vendor: 1 });
-vehicleAssignmentSchema.index({ driver: 1 });
-vehicleAssignmentSchema.index({ vehicle: 1 });
+
 vehicleAssignmentSchema.index({ status: 1 });
 
 vehicleAssignmentSchema.index(

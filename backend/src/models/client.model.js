@@ -121,9 +121,7 @@ const clientSchema = new mongoose.Schema(
 );
 
 // Indexes
-clientSchema.index({ companyName: 1 });
-clientSchema.index({ email: 1 });
-clientSchema.index({ gstNumber: 1 });
+
 clientSchema.index({ status: 1 });
 
 module.exports = mongoose.model("Client", clientSchema);

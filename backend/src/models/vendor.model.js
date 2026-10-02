@@ -94,9 +94,7 @@ const vendorSchema = new mongoose.Schema(
   }
 );
 
-vendorSchema.index({ companyName: 1 });
-vendorSchema.index({ email: 1 });
-vendorSchema.index({ gstNumber: 1 });
+
 vendorSchema.index({ status: 1 });
 
 module.exports = mongoose.model("Vendor", vendorSchema);
