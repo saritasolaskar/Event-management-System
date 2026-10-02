@@ -76,6 +76,9 @@ const validateVehicleAssignment =
 /**
  * Validate Guest belongs to Event
  */
+/**
+ * Validate Guest belongs to Event
+ */
 const validateGuestForEvent =
     async (
         guestId,
@@ -97,10 +100,15 @@ const validateGuestForEvent =
             guest.event?._id ||
             guest.event;
 
+        const targetEventId =
+            eventId?._id ||
+            eventId;
+
         if (
             !guestEventId ||
+            !targetEventId ||
             guestEventId.toString() !==
-                eventId.toString()
+                targetEventId.toString()
         ) {
             throw new AppError(
                 "Guest and Vehicle Assignment must belong to the same event.",
