@@ -1,102 +1,140 @@
-const clientService = require("../services/client.service");
+const clientService =
+  require("../services/client.service");
 
-const asyncHandler = require("../utils/asyncHandler");
-const { successResponse } = require("../utils/response.utils");
+const asyncHandler =
+  require("../utils/asyncHandler");
+
+const {
+  successResponse,
+} = require("../utils/response.utils");
 
 /**
  * Create Client
  */
-const createClient = asyncHandler(async (req, res) => {
-  const client = await clientService.createClient(
-    req.body,
-    req.user._id
-  );
+const createClient =
+  asyncHandler(
+    async (req, res) => {
 
-  return successResponse(
-    res,
-    201,
-    "Client created successfully.",
-    client
+      const result =
+        await clientService.createClient(
+          req.body,
+          req.user._id
+        );
+
+      return successResponse(
+        res,
+        201,
+        "Client and portal account created successfully.",
+        result
+      );
+    }
   );
-});
 
 /**
  * Get All Clients
  */
-const getAllClients = asyncHandler(async (req, res) => {
-  const clients = await clientService.getAllClients();
+const getAllClients =
+  asyncHandler(
+    async (req, res) => {
 
-  return successResponse(
-    res,
-    200,
-    "Clients fetched successfully.",
-    clients
+      const clients =
+        await clientService.getAllClients();
+
+      return successResponse(
+        res,
+        200,
+        "Clients fetched successfully.",
+        clients
+      );
+    }
   );
-});
 
 /**
  * Get Client By ID
  */
-const getClientById = asyncHandler(async (req, res) => {
-  const client = await clientService.getClientById(
-    req.params.id
-  );
+const getClientById =
+  asyncHandler(
+    async (req, res) => {
 
-  return successResponse(
-    res,
-    200,
-    "Client fetched successfully.",
-    client
+      const client =
+        await clientService.getClientById(
+          req.params.id
+        );
+
+      return successResponse(
+        res,
+        200,
+        "Client fetched successfully.",
+        client
+      );
+    }
   );
-});
 
 /**
  * Update Client
  */
-const updateClient = asyncHandler(async (req, res) => {
-  const client = await clientService.updateClient(
-    req.params.id,
-    req.body,
-    req.user._id
-  );
+const updateClient =
+  asyncHandler(
+    async (req, res) => {
 
-  return successResponse(
-    res,
-    200,
-    "Client updated successfully.",
-    client
+      const client =
+        await clientService.updateClient(
+          req.params.id,
+          req.body,
+          req.user._id
+        );
+
+      return successResponse(
+        res,
+        200,
+        "Client updated successfully.",
+        client
+      );
+    }
   );
-});
 
 /**
  * Delete Client
  */
-const deleteClient = asyncHandler(async (req, res) => {
-  await clientService.deleteClient(req.params.id);
+const deleteClient =
+  asyncHandler(
+    async (req, res) => {
 
-  return successResponse(
-    res,
-    200,
-    "Client deleted successfully."
+      await clientService.deleteClient(
+        req.params.id,
+        req.user._id
+      );
+
+      return successResponse(
+        res,
+        200,
+        "Client deleted successfully."
+      );
+    }
   );
-});
 
 /**
  * Update Client Status
  */
-const updateClientStatus = asyncHandler(async (req, res) => {
-  const client = await clientService.updateClientStatus(
-    req.params.id,
-    req.body.status
-  );
+const updateClientStatus =
+  asyncHandler(
+    async (req, res) => {
 
-  return successResponse(
-    res,
-    200,
-    "Client status updated successfully.",
-    client
+      const client =
+        await clientService.updateClientStatus(
+          req.params.id,
+          req.body.status,
+          req.user._id
+        );
+
+      return successResponse(
+        res,
+        200,
+        "Client status updated successfully.",
+        client
+      );
+    }
   );
-});
 
 module.exports = {
   createClient,

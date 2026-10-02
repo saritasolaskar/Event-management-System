@@ -1,26 +1,27 @@
+
 const express = require("express");
 
 const router = express.Router();
 
 const controller =
-require("../controllers/tracking.controller");
+    require("../controllers/tracking.controller");
 
 const protect =
-require("../middleware/auth.middleware");
+    require("../middleware/auth.middleware");
 
 const authorize =
-require("../middleware/authorize.middleware");
+    require("../middleware/authorize.middleware");
 
 const validate =
-require("../middleware/validate");
+    require("../middleware/validate");
 
 const {
-    updateLocationValidator,
+    trackingLocationValidator,
     dutyIdValidator,
 } = require("../validators/tracking.validator");
 
 const { ROLES } =
-require("../constants/roles");
+    require("../constants/roles");
 
 /*
 |--------------------------------------------------------------------------
@@ -30,21 +31,14 @@ require("../constants/roles");
 */
 
 router.post(
-
     "/location",
-
     protect,
-
     authorize(
         ROLES.DRIVER
     ),
-
-    updateLocationValidator,
-
+    trackingLocationValidator,
     validate,
-
     controller.updateLocation
-
 );
 
 /*
@@ -55,21 +49,34 @@ router.post(
 */
 
 router.get(
-
     "/live",
-
     protect,
-
     authorize(
-
         ROLES.ADMIN,
-
+        ROLES.OPERATIONS_MANAGER,
+        ROLES.DISPATCHER,
         ROLES.ACCOUNTS
-
     ),
-
     controller.getAllLiveLocations
+);
 
+/*
+|--------------------------------------------------------------------------
+| Complete Tracking History
+|--------------------------------------------------------------------------
+| IMPORTANT: Must come before /:dutyId
+*/
+
+router.get(
+    "/:dutyId/history",
+    protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.ACCOUNTS
+    ),
+    dutyIdValidator,
+    validate,
+    controller.getTrackingHistory
 );
 
 /*
@@ -79,55 +86,16 @@ router.get(
 */
 
 router.get(
-
     "/:dutyId",
-
     protect,
-
     authorize(
-
         ROLES.ADMIN,
-
         ROLES.ACCOUNTS,
-
         ROLES.CLIENT
-
     ),
-
     dutyIdValidator,
-
     validate,
-
     controller.getDutyLiveLocation
-
-);
-
-/*
-|--------------------------------------------------------------------------
-| Complete Tracking History
-|--------------------------------------------------------------------------
-*/
-
-router.get(
-
-    "/:dutyId/history",
-
-    protect,
-
-    authorize(
-
-        ROLES.ADMIN,
-
-        ROLES.ACCOUNTS
-
-    ),
-
-    dutyIdValidator,
-
-    validate,
-
-    controller.getTrackingHistory
-
 );
 
 module.exports = router;

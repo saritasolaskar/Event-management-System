@@ -1,6 +1,48 @@
-const locationRepository = require("../repositories/location.repository");
+const locationRepository =
+    require("../repositories/location.repository");
 
-const AppError = require("../utils/appError");
+const eventRepository =
+    require("../repositories/event.repository");
+
+const AppError =
+    require("../utils/AppError");
+const guestRepository =
+    require("../repositories/guest.repository");
+const {
+    STATUS,
+} = require("../constants/status");
+
+const LOCATION_FIELDS = [
+    "locationCode",
+    "name",
+    "address",
+    "city",
+    "state",
+    "country",
+    "pincode",
+    "latitude",
+    "longitude",
+    "landmark",
+];
+
+/**
+ * Pick only allowed fields.
+ */
+const pickLocationFields = (data) => {
+    return Object.fromEntries(
+        LOCATION_FIELDS
+            .filter((field) =>
+                Object.prototype.hasOwnProperty.call(
+                    data,
+                    field
+                )
+            )
+            .map((field) => [
+                field,
+                data[field],
+            ])
+    );
+};
 
 /**
  * Create Location
@@ -10,9 +52,12 @@ const createLocation = async (
     userId
 ) => {
 
+    const data =
+        pickLocationFields(locationData);
+
     const existingLocation =
         await locationRepository.findByLocationCode(
-            locationData.locationCode
+            data.locationCode
         );
 
     if (existingLocation) {
@@ -22,21 +67,18 @@ const createLocation = async (
         );
     }
 
-    locationData.createdBy = userId;
-    locationData.updatedBy = userId;
+    data.createdBy = userId;
+    data.updatedBy = userId;
+    data.isDeleted = false;
 
-    return await locationRepository.create(
-        locationData
-    );
+    return locationRepository.create(data);
 };
 
 /**
  * Get All Locations
  */
 const getAllLocations = async () => {
-
-    return await locationRepository.findAll();
-
+    return locationRepository.findAll();
 };
 
 /**
@@ -82,15 +124,18 @@ const updateLocation = async (
         );
     }
 
+    const data =
+        pickLocationFields(updateData);
+
     if (
-        updateData.locationCode &&
-        updateData.locationCode !==
+        data.locationCode &&
+        data.locationCode !==
             location.locationCode
     ) {
 
         const existingLocation =
             await locationRepository.findByLocationCode(
-                updateData.locationCode
+                data.locationCode
             );
 
         if (existingLocation) {
@@ -101,19 +146,30 @@ const updateLocation = async (
         }
     }
 
-    updateData.updatedBy = userId;
+    data.updatedBy = userId;
 
-    return await locationRepository.updateById(
-        locationId,
-        updateData
-    );
+    const updatedLocation =
+        await locationRepository.updateById(
+            locationId,
+            data
+        );
+
+    if (!updatedLocation) {
+        throw new AppError(
+            "Location not found.",
+            404
+        );
+    }
+
+    return updatedLocation;
 };
 
 /**
  * Delete Location
  */
 const deleteLocation = async (
-    locationId
+    locationId,
+    userId
 ) => {
 
     const location =
@@ -128,13 +184,55 @@ const deleteLocation = async (
         );
     }
 
-    await locationRepository.softDelete(
-        locationId
-    );
+    const eventCount =
+        await eventRepository.count({
+            venue: locationId,
+        });
+
+    if (eventCount > 0) {
+        throw new AppError(
+            "Location cannot be deleted because it is being used as an event venue.",
+            409
+        );
+    }
+
+    const guestCount =
+        await guestRepository.count({
+            $or: [
+                {
+                    pickupLocation:
+                        locationId,
+                },
+                {
+                    dropLocation:
+                        locationId,
+                },
+            ],
+        });
+
+    if (guestCount > 0) {
+        throw new AppError(
+            "Location cannot be deleted because it is being used by guests.",
+            409
+        );
+    }
+
+    const deletedLocation =
+        await locationRepository.softDelete(
+            locationId,
+            userId
+        );
+
+    if (!deletedLocation) {
+        throw new AppError(
+            "Location could not be deleted.",
+            409
+        );
+    }
 
     return {
         message:
-            "Location deleted successfully."
+            "Location deleted successfully.",
     };
 };
 
@@ -143,8 +241,16 @@ const deleteLocation = async (
  */
 const updateLocationStatus = async (
     locationId,
-    status
+    status,
+    userId
 ) => {
+
+    if (!Object.values(STATUS).includes(status)) {
+        throw new AppError(
+            "Invalid location status.",
+            400
+        );
+    }
 
     const location =
         await locationRepository.findById(
@@ -158,10 +264,29 @@ const updateLocationStatus = async (
         );
     }
 
-    return await locationRepository.updateStatus(
+    if (location.status === status) {
+        throw new AppError(
+            `Location is already ${status}.`,
+            400
+        );
+    }
+
+    const updatedLocation =
+    await locationRepository.updateStatusIfCurrent(
         locationId,
-        status
+        location.status,
+        status,
+        userId
     );
+
+if (!updatedLocation) {
+    throw new AppError(
+        "Location status changed before it could be updated.",
+        409
+    );
+}
+
+return updatedLocation;
 };
 
 module.exports = {

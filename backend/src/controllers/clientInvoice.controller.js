@@ -1,4 +1,5 @@
-const clientInvoicePdfService =  require("../services/pdf/clientInvoicePdf.service");
+const clientInvoicePdfService =
+    require("../services/Pdf/clientInvoicePdf.service");
  
 const clientInvoiceService = require("../services/clientInvoice.service");
 
@@ -35,26 +36,22 @@ const createClientInvoice =
 
 
 const downloadInvoicePdf =
-asyncHandler(async(req,res)=>{
+    asyncHandler(async (req, res) => {
 
-    const pdf =
-    await clientInvoicePdfService.generateInvoicePdf(
-        req.params.id
+        const pdf =
+    await clientInvoicePdfService.generateClientInvoicePdf(
+        req.params.invoiceId,
+        req.user
     );
 
-    res.set({
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition":
+                `attachment; filename=invoice-${req.params.invoiceId}.pdf`,
+        });
 
-        "Content-Type":"application/pdf",
-
-        "Content-Disposition":
-
-        `attachment; filename=invoice-${req.params.id}.pdf`
-
+        return res.send(pdf);
     });
-
-    return res.send(pdf);
-
-});
 
 module.exports = {
     createClientInvoice,

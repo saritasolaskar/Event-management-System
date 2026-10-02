@@ -1,113 +1,219 @@
+
 const Client = require("../models/client.model");
 
 /**
  * Create Client
  */
-const create = async (clientData) => {
-  return Client.create(clientData);
+const create = async (
+    clientData,
+    session = null
+) => {
+    if (session) {
+        const [client] =
+            await Client.create(
+                [clientData],
+                { session }
+            );
+
+        return client;
+    }
+
+    return Client.create(clientData);
 };
 
 /**
  * Find Client By ID
  */
-const findById = async (id) => {
-  return Client.findOne({
-    _id: id,
-    isDeleted: false,
-  });
+const findById = async (
+    id,
+    session = null
+) => {
+    const query = Client.findOne({
+        _id: id,
+        isDeleted: false,
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Find Client By Company Name
  */
-const findByCompanyName = async (companyName) => {
-  return Client.findOne({
+const findByCompanyName = async (
     companyName,
-    isDeleted: false,
-  });
+    session = null
+) => {
+    const query = Client.findOne({
+        companyName,
+        isDeleted: false,
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Find Client By Email
  */
-const findByEmail = async (email) => {
-  return Client.findOne({
+const findByEmail = async (
     email,
-    isDeleted: false,
-  });
+    session = null
+) => {
+    const query = Client.findOne({
+        email,
+        isDeleted: false,
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Find Client By GST Number
  */
-const findByGST = async (gstNumber) => {
-  return Client.findOne({
+const findByGST = async (
     gstNumber,
-    isDeleted: false,
-  });
+    session = null
+) => {
+    const query = Client.findOne({
+        gstNumber,
+        isDeleted: false,
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Get All Clients
  */
-const findAll = async (filter = {}) => {
-  return Client.find({
-    isDeleted: false,
-    ...filter,
-  }).sort({ createdAt: -1 });
+const findAll = async (
+    filter = {}
+) => {
+    return Client.find({
+        isDeleted: false,
+        ...filter,
+    }).sort({
+        createdAt: -1,
+    });
 };
 
 /**
  * Update Client
  */
-const updateById = async (id, updateData) => {
-  return Client.findByIdAndUpdate(
+const updateById = async (
     id,
     updateData,
-    {
-      new: true,
-      runValidators: true,
+    session = null
+) => {
+    const query =
+        Client.findOneAndUpdate(
+            {
+                _id: id,
+                isDeleted: false,
+            },
+            updateData,
+            {
+                new: true,
+                runValidators: true,
+            }
+        );
+
+    if (session) {
+        query.session(session);
     }
-  );
+
+    return query;
 };
 
 /**
  * Soft Delete Client
  */
-const softDelete = async (id) => {
-  return Client.findByIdAndUpdate(
+const softDelete = async (
     id,
-    {
-      isDeleted: true,
-    },
-    {
-      new: true,
+    userId,
+    session = null
+) => {
+    const query =
+        Client.findOneAndUpdate(
+            {
+                _id: id,
+                isDeleted: false,
+            },
+            {
+                isDeleted: true,
+                deletedAt: new Date(),
+                updatedBy: userId,
+            },
+            {
+                new: true,
+                runValidators: true,
+            }
+        );
+
+    if (session) {
+        query.session(session);
     }
-  );
+
+    return query;
 };
 
 /**
- * Update Client Status
+ * Atomically Update Client Status
  */
-const updateStatus = async (id, status) => {
-  return Client.findByIdAndUpdate(
+const updateStatusIfCurrent = async (
     id,
-    { status },
-    {
-      new: true,
-      runValidators: true,
+    currentStatus,
+    status,
+    userId,
+    session = null
+) => {
+
+    const query =
+        Client.findOneAndUpdate(
+            {
+                _id: id,
+                isDeleted: false,
+                status: currentStatus,
+            },
+            {
+                status,
+                updatedBy: userId,
+            },
+            {
+                new: true,
+                runValidators: true,
+            }
+        );
+
+    if (session) {
+        query.session(session);
     }
-  );
+
+    return query;
 };
 
 module.exports = {
-  create,
-  findById,
-  findByCompanyName,
-  findByEmail,
-  findByGST,
-  findAll,
-  updateById,
-  softDelete,
-  updateStatus,
+    create,
+    findById,
+    findByCompanyName,
+    findByEmail,
+    findByGST,
+    findAll,
+    updateById,
+    softDelete,
+    updateStatusIfCurrent,
 };

@@ -12,6 +12,7 @@ const {
   createClientValidator,
   updateClientValidator,
   clientIdValidator,
+  updateClientStatusValidator,
 } = require("../validators/client.validator");
 
 const router = express.Router();
@@ -82,7 +83,7 @@ router.patch(
   "/:id/status",
   protect,
   authorize(ROLES.ADMIN),
-  clientIdValidator,
+  updateClientStatusValidator,
   validate,
   clientController.updateClientStatus
 );

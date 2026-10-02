@@ -140,7 +140,16 @@ const driverSchema = new mongoose.Schema(
 
 // Indexes
 driverSchema.index({ vendor: 1 });
-driverSchema.index({ currentVehicle: 1 });
+driverSchema.index(
+  { currentVehicle: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      currentVehicle: { $type: "objectId" },
+      isDeleted: false,
+    },
+  }
+);
 driverSchema.index({ licenseExpiry: 1 });
 driverSchema.index({ status: 1 });
 

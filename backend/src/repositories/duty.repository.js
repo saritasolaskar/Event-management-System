@@ -1,27 +1,17 @@
 const Duty = require("../models/duty.model");
+const VehicleAssignment = require("../models/vehicleAssignment.model");
 
-const create = (data) => {
 
-    return Duty.create(data);
+const findById = (
+    id,
+    session = null
+) => {
 
-};
-
-const findById = (id) =>
-    Duty.findById(id)
-
-        .populate({
-            path: "event",
-            populate: [
-                {
-                    path: "client",
-                },
-                {
-                    path: "venue",
-                },
-            ],
-        })
-
-        .populate({
+    const query =
+        Duty.findOne({
+            _id: id,
+            isDeleted: false,
+        }).populate({
             path: "vehicleAssignment",
             populate: [
                 {
@@ -33,39 +23,197 @@ const findById = (id) =>
                 {
                     path: "vendor",
                 },
+                {
+                    path: "event",
+                    populate: [
+                        {
+                            path: "client",
+                        },
+                        {
+                            path: "venue",
+                        },
+                    ],
+                },
             ],
         });
 
-const findByVehicleAssignment = (assignmentId) => {
+    if (session) {
+        query.session(session);
+    }
 
-    return Duty.findOne({
-        vehicleAssignment: assignmentId,
-        isDeleted: false,
-    });
-
+    return query;
 };
 
-const updateById = (id, data) => {
 
-    return Duty.findByIdAndUpdate(
-        id,
-        data,
+const findByVehicleAssignment = (
+    assignmentId,
+    session = null
+) => {
+
+    const query =
+        Duty.findOne({
+            vehicleAssignment:
+                assignmentId,
+
+            isDeleted:
+                false,
+        });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
+const findActiveDutyByDriver = async (
+    driverId,
+    session = null
+) => {
+
+    const assignmentQuery =
+        VehicleAssignment.findOne({
+            driver:
+                driverId,
+
+            isDeleted:
+                false,
+
+            status:
+                "ON_DUTY",
+        });
+
+    if (session) {
+        assignmentQuery.session(session);
+    }
+
+    const activeAssignment =
+        await assignmentQuery;
+
+    if (!activeAssignment) {
+        return null;
+    }
+
+    const dutyQuery =
+        Duty.findOne({
+            vehicleAssignment:
+                activeAssignment._id,
+
+            status:
+                "STARTED",
+
+            isDeleted:
+                false,
+        }).populate({
+            path: "vehicleAssignment",
+            populate: [
+                {
+                    path: "driver",
+                },
+                {
+                    path: "vehicle",
+                },
+                {
+                    path: "vendor",
+                },
+                {
+                    path: "event",
+                },
+            ],
+        });
+
+    if (session) {
+        dutyQuery.session(session);
+    }
+
+    return dutyQuery;
+};
+
+
+const create = (
+    data,
+    session = null
+) => {
+
+    return Duty.create(
+        [data],
+        session
+            ? { session }
+            : {}
+    ).then(
+        (docs) => docs[0]
+    );
+};
+
+
+const updateById = (
+    id,
+    data,
+    session = null
+) => {
+
+    return Duty.findOneAndUpdate(
         {
-            new: true,
-            runValidators: true,
+            _id:
+                id,
+
+            isDeleted:
+                false,
+        },
+
+        data,
+
+        {
+            new:
+                true,
+
+            runValidators:
+                true,
+
+            ...(session
+                ? { session }
+                : {}),
         }
     );
-
 };
 
-const findActiveDutyByDriver = async (driverId) => {
 
-    return Duty.findOne({
-        driver: driverId,
-        isDeleted: false,
-    });
+const updateByIdAndStatus = (
+    id,
+    currentStatus,
+    data,
+    session = null
+) => {
 
+    return Duty.findOneAndUpdate(
+        {
+            _id:
+                id,
+
+            status:
+                currentStatus,
+
+            isDeleted:
+                false,
+        },
+
+        data,
+
+        {
+            new:
+                true,
+
+            runValidators:
+                true,
+
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
 };
+
 
 module.exports = {
     create,
@@ -73,4 +221,5 @@ module.exports = {
     findByVehicleAssignment,
     updateById,
     findActiveDutyByDriver,
+    updateByIdAndStatus,
 };

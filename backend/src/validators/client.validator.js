@@ -1,6 +1,6 @@
 const { body, param } = require("express-validator");
 
-const { CLIENT_STATUS } = require("../constants/status");
+const { STATUS } = require("../constants/status");
 
 /**
  * Create Client Validation
@@ -51,10 +51,7 @@ const createClientValidator = [
         .isFloat({ min: 0 })
         .withMessage("Credit limit cannot be negative."),
 
-    body("status")
-        .optional()
-        .isIn(Object.values(CLIENT_STATUS))
-        .withMessage("Invalid client status."),
+    
 
 ];
 
@@ -108,10 +105,7 @@ const updateClientValidator = [
         .isFloat({ min: 0 })
         .withMessage("Credit limit cannot be negative."),
 
-    body("status")
-        .optional()
-        .isIn(Object.values(CLIENT_STATUS))
-        .withMessage("Invalid client status."),
+    
 
 ];
 
@@ -126,12 +120,24 @@ const clientIdValidator = [
 
 ];
 
+const updateClientStatusValidator = [
+  param("id")
+    .isMongoId()
+    .withMessage("Invalid client ID."),
+
+  body("status")
+    .notEmpty()
+    .withMessage("Client status is required.")
+    .isIn(Object.values(STATUS))
+    .withMessage("Invalid client status."),
+];
+
 module.exports = {
 
     createClientValidator,
 
     updateClientValidator,
-
+    updateClientStatusValidator,
     clientIdValidator,
 
 };
