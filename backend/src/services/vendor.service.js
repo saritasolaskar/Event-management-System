@@ -257,13 +257,12 @@ const updateVendor = async (
         data
     );
 };
-
 /**
  * Delete Vendor
  */
 const deleteVendor = async (
     vendorId,
-     userId
+    userId
 ) => {
 
     const session =
@@ -329,11 +328,15 @@ const deleteVendor = async (
                     );
                 }
 
+                /*
+                 * Repository signature:
+                 * softDelete(id, updatedBy, session)
+                 */
                 deleted =
                     await vendorRepository.softDelete(
                         vendorId,
-                        session,
-                         userId
+                        userId,
+                        session
                     );
 
                 if (!deleted) {
@@ -356,7 +359,6 @@ const deleteVendor = async (
 
     }
 };
-
 /**
  * Update Vendor Status
  */
