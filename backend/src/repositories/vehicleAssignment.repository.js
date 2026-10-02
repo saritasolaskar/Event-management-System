@@ -307,6 +307,42 @@ const softDeleteByStatus = async (
     return query;
 };
 
+
+/**
+ * Find active vehicle assignments for an event.
+ *
+ * Used to prevent an event from being completed
+ * or cancelled while operational assignments are active.
+ */
+const findActiveByEvent = async (
+    eventId,
+    session = null
+) => {
+    const query =
+        VehicleAssignment.find({
+            event: eventId,
+            isDeleted: false,
+            status: {
+                $in: [
+                    "ASSIGNED",
+                    "ON_DUTY",
+                ],
+            },
+        });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
+
+
+
+
+
 module.exports = {
     create,
     findById,
@@ -321,4 +357,5 @@ module.exports = {
     updateByIdAndStatus,
     findByVehicle,
     softDeleteByStatus,
+    findActiveByEvent,
 };

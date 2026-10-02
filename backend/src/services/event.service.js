@@ -674,6 +674,35 @@ const updateEventStatus = async (
         event.status,
         status
     );
+    
+
+
+    /*
+     * Do not close an event while active vehicle
+     * assignments still exist.
+     *
+     * ASSIGNED = vehicle allocated but duty not started.
+     * ON_DUTY = duty is currently running.
+     */
+    
+    if (
+        status === EVENT_STATUS.CANCELLED ||
+        status === EVENT_STATUS.COMPLETED
+    ) {
+        const activeAssignments =
+            await vehicleAssignmentRepository.findActiveByEvent(
+                eventId
+            );
+
+        if (
+            activeAssignments.length > 0
+        ) {
+            throw new AppError(
+                `Event cannot be marked ${status} while active vehicle assignments exist. Complete or cancel the vehicle assignments first.`,
+                409
+            );
+        }
+    }
 
     const updatedEvent =
         await eventRepository.updateStatus(
