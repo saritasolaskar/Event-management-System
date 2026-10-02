@@ -77,9 +77,20 @@ const dutyIdValidator = [
         .withMessage("Invalid Duty ID."),
 ];
 
+
+/**
+ * Billing Duty ID Validation
+ */
+const billingDutyIdValidator = [
+    param("dutyId")
+        .isMongoId()
+        .withMessage("Invalid Duty ID."),
+];
+
 module.exports = {
     startDutyValidator,
     completeDutyValidator,
     updateExpensesValidator,
     dutyIdValidator,
+    billingDutyIdValidator,
 };

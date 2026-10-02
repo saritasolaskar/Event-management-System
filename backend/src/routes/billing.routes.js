@@ -10,6 +10,9 @@ const protect =
 
 const authorize =
     require("../middleware/authorize.middleware");
+const {
+    billingDutyIdValidator,
+} = require("../validators/duty.validator");
 
 const validate =
     require("../middleware/validate");
@@ -28,7 +31,7 @@ router.get(
         ROLES.ADMIN,
         ROLES.ACCOUNTS
     ),
-    dutyIdValidator,
+    billingDutyIdValidator,
     validate,
     billingController.generateDraftBill
 );
