@@ -1,5 +1,5 @@
-
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 
 const vehicleAssignmentRepository =
     require("../repositories/vehicleAssignment.repository");
@@ -39,6 +39,27 @@ const {
     VEHICLE_STATUS,
     EVENT_STATUS,
 } = require("../constants/status");
+
+
+/**
+ * Generate a unique Vehicle Assignment code.
+ *
+ * Example:
+ * VA-20261002-A7F39C21
+ */
+const generateAssignmentCode = () => {
+    const datePart = new Date()
+        .toISOString()
+        .slice(0, 10)
+        .replace(/-/g, "");
+
+    const randomPart = crypto
+        .randomBytes(4)
+        .toString("hex")
+        .toUpperCase();
+
+    return `VA-${datePart}-${randomPart}`;
+};
 
 
 const getId = (value) => {
@@ -377,6 +398,9 @@ const createVehicleAssignment = async (
                 const assignmentData = {
                     ...data,
 
+                    assignmentCode:
+                        generateAssignmentCode(),
+
                     commercialPackageSnapshot: {
                         name:
                             commercialPackage.name,
@@ -431,7 +455,7 @@ const createVehicleAssignment = async (
                         11000
                     ) {
                         throw new AppError(
-                            "Driver or vehicle is already assigned to another active assignment.",
+                            "Driver, vehicle, or assignment code is already in use.",
                             409
                         );
                     }
@@ -518,7 +542,6 @@ const getVehicleAssignmentById = async (
 /**
  * Update Assignment
  */
-
 const updateVehicleAssignment = async (
     id,
     updateData,
