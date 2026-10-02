@@ -142,9 +142,9 @@ const createGuestAssignment =
             getGuestDisplayName(guest);
 
         const alreadyAssigned =
-            await guestAssignmentRepository.findByGuest(
-                data.guest
-            );
+    await guestAssignmentRepository.findActiveByGuest(
+        data.guest
+    );
 
         if (alreadyAssigned) {
             throw new AppError(
@@ -296,9 +296,9 @@ const bulkAssignGuests =
                             );
 
                         const alreadyAssigned =
-                            await guestAssignmentRepository.findByGuest(
-                                guestId
-                            );
+    await guestAssignmentRepository.findActiveByGuest(
+        guestId
+    );
 
                         if (
                             alreadyAssigned
@@ -517,9 +517,9 @@ const updateGuestAssignment =
                 currentGuestId.toString()
         ) {
             const existingAssignment =
-                await guestAssignmentRepository.findByGuest(
-                    data.guest
-                );
+    await guestAssignmentRepository.findActiveByGuest(
+        data.guest
+    );
 
             if (
                 existingAssignment &&
@@ -544,9 +544,9 @@ const updateGuestAssignment =
                 currentVehicleAssignmentId.toString()
         ) {
             const existingAssignment =
-                await guestAssignmentRepository.findByGuest(
-                    targetGuestId
-                );
+    await guestAssignmentRepository.findActiveByGuest(
+        targetGuestId
+    );
 
             if (
                 existingAssignment &&
