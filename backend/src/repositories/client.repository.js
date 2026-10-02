@@ -144,23 +144,31 @@ const updateById = async (
  */
 const softDelete = async (
     id,
-    userId
+    userId,
+    session = null
 ) => {
-    return Client.findOneAndUpdate(
-        {
-            _id: id,
-            isDeleted: false,
-        },
-        {
-            isDeleted: true,
-            deletedAt: new Date(),
-            updatedBy: userId,
-        },
-        {
-            new: true,
-            runValidators: true,
-        }
-    );
+    const query =
+        Client.findOneAndUpdate(
+            {
+                _id: id,
+                isDeleted: false,
+            },
+            {
+                isDeleted: true,
+                deletedAt: new Date(),
+                updatedBy: userId,
+            },
+            {
+                new: true,
+                runValidators: true,
+            }
+        );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
@@ -170,23 +178,32 @@ const updateStatusIfCurrent = async (
     id,
     currentStatus,
     status,
-    userId
+    userId,
+    session = null
 ) => {
-    return Client.findOneAndUpdate(
-        {
-            _id: id,
-            isDeleted: false,
-            status: currentStatus,
-        },
-        {
-            status,
-            updatedBy: userId,
-        },
-        {
-            new: true,
-            runValidators: true,
-        }
-    );
+
+    const query =
+        Client.findOneAndUpdate(
+            {
+                _id: id,
+                isDeleted: false,
+                status: currentStatus,
+            },
+            {
+                status,
+                updatedBy: userId,
+            },
+            {
+                new: true,
+                runValidators: true,
+            }
+        );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 module.exports = {

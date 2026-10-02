@@ -790,7 +790,6 @@ const updateClient = async (
     return updatedClient;
 };
 
-
 /**
  * Delete Client
  */
@@ -798,49 +797,86 @@ const deleteClient = async (
     clientId,
     userId
 ) => {
-    const client =
-        await clientRepository.findById(
-            clientId
+
+    const session =
+        await mongoose.startSession();
+
+    try {
+
+        await session.withTransaction(
+            async () => {
+
+                const client =
+                    await clientRepository.findById(
+                        clientId,
+                        session
+                    );
+
+                if (!client) {
+                    throw new AppError(
+                        "Client not found.",
+                        404
+                    );
+                }
+
+                const events =
+                    await eventRepository.findByClient(
+                        clientId
+                    );
+
+                if (events.length > 0) {
+                    throw new AppError(
+                        "Client cannot be deleted because events already exist for this client.",
+                        409
+                    );
+                }
+
+                const deleted =
+                    await clientRepository.softDelete(
+                        clientId,
+                        userId,
+                        session
+                    );
+
+                if (!deleted) {
+                    throw new AppError(
+                        "Client could not be deleted.",
+                        409
+                    );
+                }
+
+                /*
+                 * Disable the linked client portal account
+                 * and invalidate all active refresh tokens.
+                 */
+                const portalUser =
+                    await userRepository.findByClient(
+                        clientId,
+                        session
+                    );
+
+                if (portalUser) {
+                    await userRepository.updateById(
+                        portalUser._id,
+                        {
+                            status: STATUS.INACTIVE,
+                            refreshTokens: [],
+                        },
+                        session
+                    );
+                }
+            }
         );
 
-    if (!client) {
-        throw new AppError(
-            "Client not found.",
-            404
-        );
+        return {
+            message:
+                "Client deleted successfully.",
+        };
+
+    } finally {
+        await session.endSession();
     }
-
-    const events =
-        await eventRepository.findByClient(
-            clientId
-        );
-
-    if (events.length > 0) {
-        throw new AppError(
-            "Client cannot be deleted because events already exist for this client.",
-            409
-        );
-    }
-
-    const deleted =
-        await clientRepository.softDelete(
-            clientId,
-            userId
-        );
-
-    if (!deleted) {
-        throw new AppError(
-            "Client could not be deleted.",
-            409
-        );
-    }
-
-    return {
-        message:
-            "Client deleted successfully.",
-    };
 };
-
 
 /**
  * Update Client Status
@@ -850,43 +886,115 @@ const updateClientStatus = async (
     status,
     userId
 ) => {
-    const client =
-        await clientRepository.findById(
-            clientId
-        );
 
-    if (!client) {
+    if (
+        !Object.values(STATUS).includes(
+            status
+        )
+    ) {
         throw new AppError(
-            "Client not found.",
-            404
-        );
-    }
-
-    if (client.status === status) {
-        throw new AppError(
-            `Client is already ${status}.`,
+            "Invalid client status.",
             400
         );
     }
 
-    const updatedClient =
-        await clientRepository.updateStatusIfCurrent(
-            clientId,
-            client.status,
-            status,
-            userId
+    const session =
+        await mongoose.startSession();
+
+    try {
+
+        let updatedClient;
+
+        await session.withTransaction(
+            async () => {
+
+                const client =
+                    await clientRepository.findById(
+                        clientId,
+                        session
+                    );
+
+                if (!client) {
+                    throw new AppError(
+                        "Client not found.",
+                        404
+                    );
+                }
+
+                if (
+                    client.status === status
+                ) {
+                    throw new AppError(
+                        `Client is already ${status}.`,
+                        400
+                    );
+                }
+
+                updatedClient =
+                    await clientRepository.updateStatusIfCurrent(
+                        clientId,
+                        client.status,
+                        status,
+                        userId,
+                        session
+                    );
+
+                if (!updatedClient) {
+                    throw new AppError(
+                        "Client status could not be updated.",
+                        409
+                    );
+                }
+
+                /*
+                 * Keep the client portal account synchronized
+                 * with the Client's active/inactive state.
+                 */
+                const portalUser =
+                    await userRepository.findByClient(
+                        clientId,
+                        session
+                    );
+
+                if (portalUser) {
+
+                    const userStatus =
+                        status === STATUS.ACTIVE
+                            ? STATUS.ACTIVE
+                            : STATUS.INACTIVE;
+
+                    const updateData = {
+                        status:
+                            userStatus,
+                    };
+
+                    /*
+                     * When disabling the client,
+                     * invalidate existing sessions.
+                     */
+                    if (
+                        userStatus ===
+                        STATUS.INACTIVE
+                    ) {
+                        updateData.refreshTokens =
+                            [];
+                    }
+
+                    await userRepository.updateById(
+                        portalUser._id,
+                        updateData,
+                        session
+                    );
+                }
+            }
         );
 
-    if (!updatedClient) {
-        throw new AppError(
-            "Client status could not be updated.",
-            409
-        );
+        return updatedClient;
+
+    } finally {
+        await session.endSession();
     }
-
-    return updatedClient;
 };
-
 
 module.exports = {
     createClient,
