@@ -1,6 +1,6 @@
 const GuestAssignment =
     require("../models/guestAssignment.model");
-
+const mongoose = require("mongoose");
 const VehicleAssignment =
     require("../models/vehicleAssignment.model");
 
@@ -231,6 +231,62 @@ const vehicleAssignments =
 };
 
 /**
+ * Find active Guest Assignment By Guest
+ *
+ * Historical assignments belonging to COMPLETED/CANCELLED
+ * vehicle assignments are intentionally ignored.
+ */
+const findActiveByGuest = async (
+    guestId
+) => {
+    const assignments =
+        await GuestAssignment.aggregate([
+            {
+                $match: {
+                    guest:
+                        new mongoose.Types.ObjectId(
+                            guestId
+                        ),
+                    isDeleted: false,
+                },
+            },
+            {
+                $lookup: {
+                    from: "vehicleassignments",
+                    localField:
+                        "vehicleAssignment",
+                    foreignField: "_id",
+                    as: "vehicleAssignment",
+                },
+            },
+            {
+                $unwind:
+                    "$vehicleAssignment",
+            },
+            {
+                $match: {
+                    "vehicleAssignment.isDeleted":
+                        false,
+
+                    "vehicleAssignment.status": {
+                        $in: [
+                            "ASSIGNED",
+                            "ON_DUTY",
+                        ],
+                    },
+                },
+            },
+            {
+                $limit: 1,
+            },
+        ]);
+
+    return assignments[0] || null;
+};
+
+
+
+/**
  * Find Guest Assignment By Guest
  */
 const findByGuest = async (
@@ -323,6 +379,7 @@ module.exports = {
     softDeleteIfPending,
     findByEvent,
     findByVehicleAssignment,
+    findActiveByGuest,
     findByGuest,
     findByDriver,
     updateByIdIfState,

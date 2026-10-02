@@ -32,16 +32,16 @@ const guestAssignmentSchema = new mongoose.Schema(
         },
 
         pickupStatus: {
-    type: String,
-    enum: Object.values(PICKUP_STATUS),
-    default: PICKUP_STATUS.PENDING,
-},
+            type: String,
+            enum: Object.values(PICKUP_STATUS),
+            default: PICKUP_STATUS.PENDING,
+        },
 
         returnStatus: {
-    type: String,
-    enum: Object.values(RETURN_STATUS),
-    default: RETURN_STATUS.NOT_STARTED,
-},
+            type: String,
+            enum: Object.values(RETURN_STATUS),
+            default: RETURN_STATUS.NOT_STARTED,
+        },
 
         pickupTime: {
             type: Date,
@@ -86,19 +86,8 @@ const guestAssignmentSchema = new mongoose.Schema(
 );
 
 guestAssignmentSchema.index({ vehicleAssignment: 1 });
-guestAssignmentSchema.index({ guest: 1 });
 guestAssignmentSchema.index({ pickupStatus: 1 });
 guestAssignmentSchema.index({ returnStatus: 1 });
-
-guestAssignmentSchema.index(
-    { guest: 1 },
-    {
-        unique: true,
-        partialFilterExpression: {
-            isDeleted: false,
-        },
-    }
-);
 
 module.exports = mongoose.model(
     "GuestAssignment",
