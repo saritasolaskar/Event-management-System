@@ -9,7 +9,7 @@ import {
 } from "react-router-dom";
 
 import api from "./services/api";
-
+import AdminDashboard from "./pages/admin/AdminDashboard";
 const STORAGE_KEYS = {
   accessToken: "ems_accessToken",
   refreshToken: "ems_refreshToken",
@@ -1035,77 +1035,6 @@ function DriverLayout({
   );
 }
 
-/* =========================================================
-   ADMIN DASHBOARD
-========================================================= */
-
-function AdminDashboard({ user }) {
-  return (
-    <>
-      <section className="hero">
-        <div>
-          <p className="eyebrow">
-            Administration
-          </p>
-
-          <h1>
-            Welcome,{" "}
-            {getFirstName(user)}
-          </h1>
-
-          <p>
-            Manage clients, events, guests,
-            vendors, vehicles and the entire
-            event operation from one workspace.
-          </p>
-        </div>
-      </section>
-
-      <section className="stats">
-        <StatCard
-          label="Clients"
-          value="—"
-        />
-
-        <StatCard
-          label="Active Events"
-          value="—"
-        />
-
-        <StatCard
-          label="Drivers"
-          value="—"
-        />
-
-        <StatCard
-          label="Vehicles"
-          value="—"
-        />
-      </section>
-
-      <section className="panel">
-        <div className="head">
-          <div>
-            <p className="eyebrow">
-              System
-            </p>
-
-            <h2>
-              Unified administration
-            </h2>
-          </div>
-        </div>
-
-        <p>
-          The authentication layer is now
-          connected to the backend. The
-          management modules will be connected
-          to their respective APIs next.
-        </p>
-      </section>
-    </>
-  );
-}
 
 /* =========================================================
    OPERATIONS DASHBOARD
