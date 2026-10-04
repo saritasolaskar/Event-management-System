@@ -40,6 +40,28 @@ const findById = async (
     return query;
 };
 
+
+/**
+ * Find Client By ID Including Deleted Clients
+ *
+ * Used for restore operations.
+ */
+const findByIdIncludingDeleted = async (
+    id,
+    session = null
+) => {
+    const query = Client.findOne({
+        _id: id,
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
 /**
  * Find Client By Company Name
  */
@@ -216,4 +238,5 @@ module.exports = {
     updateById,
     softDelete,
     updateStatusIfCurrent,
+    findByIdIncludingDeleted,
 };

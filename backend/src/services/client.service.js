@@ -1,6 +1,9 @@
 
 const mongoose = require("mongoose");
 const crypto = require("crypto");
+const Client =
+    require("../models/client.model");
+
 
 const clientRepository =
     require("../repositories/client.repository");
@@ -878,6 +881,139 @@ const deleteClient = async (
     }
 };
 
+
+/**
+ * Restore Client
+ *
+ * Restores a soft-deleted Client and reactivates
+ * the linked Client portal account.
+ */
+const restoreClient = async (
+    clientId,
+    userId
+) => {
+    const session =
+        await mongoose.startSession();
+
+    let restoredClient = null;
+
+    try {
+        await session.withTransaction(
+            async () => {
+
+                /**
+                 * ----------------------------------------
+                 * 1. Find deleted Client
+                 * ----------------------------------------
+                 */
+
+                const client =
+                    await clientRepository.findByIdIncludingDeleted(
+                        clientId,
+                        session
+                    );
+
+                if (!client) {
+                    throw new AppError(
+                        "Client not found.",
+                        404
+                    );
+                }
+
+                /**
+                 * Client is already active.
+                 */
+                if (!client.isDeleted) {
+                    throw new AppError(
+                        "Client is already active.",
+                        400
+                    );
+                }
+
+
+                /**
+                 * ----------------------------------------
+                 * 2. Restore Client
+                 * ----------------------------------------
+                 */
+
+                restoredClient =
+                    await Client.findOneAndUpdate(
+                        {
+                            _id: clientId,
+                            isDeleted: true,
+                        },
+                        {
+                            isDeleted: false,
+                            deletedAt: null,
+                            status: STATUS.ACTIVE,
+                            updatedBy: userId,
+                        },
+                        {
+                            new: true,
+                            runValidators: true,
+                            session,
+                        }
+                    );
+
+                if (!restoredClient) {
+                    throw new AppError(
+                        "Client could not be restored.",
+                        409
+                    );
+                }
+
+
+                /**
+                 * ----------------------------------------
+                 * 3. Restore linked Client portal account
+                 * ----------------------------------------
+                 *
+                 * The portal User itself is not deleted
+                 * during Client deletion. It is only made
+                 * INACTIVE.
+                 */
+
+                const portalUser =
+                    await userRepository.findByClient(
+                        clientId,
+                        session
+                    );
+
+                if (portalUser) {
+
+                    await userRepository.updateById(
+                        portalUser._id,
+                        {
+                            status:
+                                STATUS.ACTIVE,
+
+                            /*
+                             * Do not restore old refresh
+                             * tokens. The user must log in
+                             * again after restoration.
+                             */
+                            refreshTokens: [],
+                        },
+                        session
+                    );
+                }
+            }
+        );
+
+        return {
+            message:
+                "Client restored successfully.",
+
+            client:
+                restoredClient,
+        };
+
+    } finally {
+        await session.endSession();
+    }
+};
+
 /**
  * Update Client Status
  */
@@ -1002,5 +1138,6 @@ module.exports = {
     getClientById,
     updateClient,
     deleteClient,
+    restoreClient,
     updateClientStatus,
 };

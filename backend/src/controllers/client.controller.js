@@ -113,6 +113,29 @@ const deleteClient =
     }
   );
 
+
+  /**
+ * Restore Client
+ */
+const restoreClient =
+  asyncHandler(
+    async (req, res) => {
+
+      const result =
+        await clientService.restoreClient(
+          req.params.id,
+          req.user._id
+        );
+
+      return successResponse(
+        res,
+        200,
+        result.message,
+        result.client
+      );
+    }
+  );
+
 /**
  * Update Client Status
  */
@@ -143,4 +166,5 @@ module.exports = {
   updateClient,
   deleteClient,
   updateClientStatus,
+  restoreClient,
 };

@@ -76,6 +76,19 @@ router.delete(
   clientController.deleteClient
 );
 
+
+/**
+ * Restore Client
+ */
+router.patch(
+  "/:id/restore",
+  protect,
+  authorize(ROLES.ADMIN),
+  clientIdValidator,
+  validate,
+  clientController.restoreClient
+);
+
 /**
  * Update Client Status
  */
