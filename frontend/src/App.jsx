@@ -10,6 +10,7 @@ import {
 
 import api from "./services/api";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import Clients from "./pages/admin/Clients";
 const STORAGE_KEYS = {
   accessToken: "ems_accessToken",
   refreshToken: "ems_refreshToken",
@@ -208,15 +209,7 @@ export default function App() {
             }
           />
 
-          <Route
-            path="clients"
-            element={
-              <PlaceholderPage
-                title="Clients"
-                description="Client management workspace."
-              />
-            }
-          />
+          <Route path="clients" element={<Clients />} />
 
           <Route
             path="events"

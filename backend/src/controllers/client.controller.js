@@ -38,8 +38,10 @@ const getAllClients =
     async (req, res) => {
 
       const clients =
-        await clientService.getAllClients();
-
+    await clientService.getAllClients(
+        req.query
+    );
+    
       return successResponse(
         res,
         200,
