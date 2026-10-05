@@ -43,6 +43,19 @@ router.get(
   vehicleController.getAllVehicles
 );
 
+
+router.get(
+    "/event/:eventId",
+    protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.OPERATIONS_MANAGER,
+        ROLES.DISPATCHER
+    ),
+    vehicleController.getVehiclesByEvent
+);
+
+
 /**
  * Get Vehicle By ID
  */
@@ -94,5 +107,7 @@ router.patch(
     validate,
     vehicleController.updateVehicleStatus
 );
+
+
 
 module.exports = router;

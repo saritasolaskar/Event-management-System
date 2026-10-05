@@ -102,6 +102,26 @@ const updateVehicleStatus = asyncHandler(async (req, res) => {
         vehicle
     );
 });
+
+
+
+const getVehiclesByEvent = asyncHandler(
+  async (req, res) => {
+    const vehicles =
+      await vehicleService.getVehiclesByEvent(
+        req.params.eventId
+      );
+
+    return successResponse(
+      res,
+      200,
+      "Event vehicles fetched successfully.",
+      vehicles
+    );
+  }
+);
+
+
 module.exports = {
   createVehicle,
   getAllVehicles,
@@ -109,4 +129,5 @@ module.exports = {
   updateVehicle,
   deleteVehicle,
   updateVehicleStatus,
+  getVehiclesByEvent,
 };

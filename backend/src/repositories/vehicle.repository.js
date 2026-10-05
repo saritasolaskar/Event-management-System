@@ -192,6 +192,65 @@ const findByVendor = async (
     return query;
 };
 
+
+const addEventUsage = async (
+    vehicleId,
+    eventId,
+    session = null
+) => {
+    const query =
+        Vehicle.findOneAndUpdate(
+            {
+                _id: vehicleId,
+                isDeleted: false,
+                eventsUsedFor: {
+                    $ne: eventId,
+                },
+            },
+            {
+                $addToSet: {
+                    eventsUsedFor: eventId,
+                },
+            },
+            {
+                new: true,
+            }
+        );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
+const findByEvent = async (
+    eventId,
+    session = null
+) => {
+    const query =
+        Vehicle.find({
+            eventsUsedFor: eventId,
+            isDeleted: false,
+        })
+        .populate("vendor", "companyName")
+        .populate(
+            "currentDriver",
+            "firstName lastName phone"
+        )
+        .sort({
+            vehicleNumber: 1,
+        });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
 module.exports = {
     create,
     findById,
@@ -202,4 +261,6 @@ module.exports = {
     updateStatus,
     findByCurrentDriver,
     findByVendor,
+    addEventUsage,
+    findByEvent,
 };

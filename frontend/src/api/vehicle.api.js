@@ -37,3 +37,33 @@ export const updateVehicleStatus = async (id, status) => {
 
   return response.data;
 };
+
+export const getVehiclesByEvent = async (eventId) => {
+  const response = await api.get(
+    `/vehicles/event/${eventId}`
+  );
+
+  return response.data;
+};
+
+export const importEventVehicles = async (
+  eventId,
+  file
+) => {
+  const formData = new FormData();
+
+  formData.append("eventId", eventId);
+  formData.append("file", file);
+
+  const response = await api.post(
+    "/vehicles/import",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return response.data;
+};

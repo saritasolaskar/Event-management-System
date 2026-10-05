@@ -69,6 +69,13 @@ const vehicleSchema = new mongoose.Schema(
       default: null,
     },
 
+    eventsUsedFor: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Event",
+  },
+],
+
     rcExpiry: {
       type: Date,
     },

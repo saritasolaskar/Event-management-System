@@ -11,6 +11,8 @@ export const ROUTES = {
   ADMIN_CLIENTS: "/admin/clients",
   ADMIN_EVENTS: "/admin/events",
   ADMIN_GUESTS: "/admin/guests",
+  ADMIN_EVENT_VEHICLES:
+  "/admin/events/:eventId/vehicles",
 
   CLIENT: "/client",
   CLIENT_DASHBOARD: "/client/dashboard",
@@ -71,6 +73,16 @@ export const ADMIN_ROUTES = [
   {
     path: ROUTES.ADMIN_GUESTS,
     label: "Guests",
+    roles: [
+      ROLES.ADMIN,
+      ROLES.OPERATIONS_MANAGER,
+      ROLES.DISPATCHER,
+    ],
+  },
+
+  {
+    path: ROUTES.ADMIN_VEHICLES,
+    label: "Vehicles",
     roles: [
       ROLES.ADMIN,
       ROLES.OPERATIONS_MANAGER,

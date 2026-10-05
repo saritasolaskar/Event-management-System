@@ -27,6 +27,12 @@ const {
     createNotification,
 } = require("./notification.service");
 
+const eventRepository =
+    require("../repositories/event.repository");
+
+const {
+    EVENT_STATUS,
+} = require("../constants/status");
 
 const CREATE_FIELDS = [
     "vehicleNumber",
@@ -45,6 +51,7 @@ const CREATE_FIELDS = [
     "pucExpiry",
     "gpsEnabled",
     "remarks",
+    "event",
 ];
 
 
@@ -106,6 +113,44 @@ const getId = (value) => {
     }
 
     return value.toString();
+};
+
+
+const validateEventForVehicle = async (
+    eventId,
+    session = null
+) => {
+    if (!eventId) {
+        throw new AppError(
+            "Event is required when adding a vehicle.",
+            400
+        );
+    }
+
+    const event =
+        await eventRepository.findById(
+            eventId,
+            session
+        );
+
+    if (!event) {
+        throw new AppError(
+            "Event not found.",
+            404
+        );
+    }
+
+    if (
+        event.status === EVENT_STATUS.CANCELLED ||
+        event.status === EVENT_STATUS.COMPLETED
+    ) {
+        throw new AppError(
+            "Vehicles cannot be added to a completed or cancelled event.",
+            400
+        );
+    }
+
+    return event;
 };
 
 
@@ -196,6 +241,12 @@ const createVehicle = async (
                         CREATE_FIELDS
                     );
 
+                const event =
+    await validateEventForVehicle(
+        data.event,
+        session
+    );    
+
                 if (!data.vehicleNumber) {
                     throw new AppError(
                         "Vehicle number is required.",
@@ -272,6 +323,12 @@ const createVehicle = async (
                         data,
                         session
                     );
+
+                await vehicleRepository.addEventUsage(
+    vehicle._id,
+    event._id,
+    session
+);    
 
                 if (data.currentDriver) {
 
@@ -805,6 +862,28 @@ const updateVehicleStatus = async (
 };
 
 
+
+const getVehiclesByEvent = async (
+    eventId
+) => {
+
+    const event =
+        await eventRepository.findById(
+            eventId
+        );
+
+    if (!event) {
+        throw new AppError(
+            "Event not found.",
+            404
+        );
+    }
+
+    return vehicleRepository.findByEvent(
+        eventId
+    );
+};
+
 module.exports = {
     createVehicle,
     getAllVehicles,
@@ -812,4 +891,6 @@ module.exports = {
     updateVehicle,
     deleteVehicle,
     updateVehicleStatus,
+    getVehiclesByEvent,
+    
 };
