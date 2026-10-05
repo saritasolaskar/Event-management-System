@@ -1,0 +1,80 @@
+import api from "./axios";
+
+/*
+|--------------------------------------------------------------------------
+| Login
+|--------------------------------------------------------------------------
+*/
+
+export const loginUser = async (credentials) => {
+  const response = await api.post("/auth/login", credentials);
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Register
+|--------------------------------------------------------------------------
+*/
+
+export const registerUser = async (userData) => {
+  const response = await api.post("/auth/register", userData);
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Refresh token
+|--------------------------------------------------------------------------
+*/
+
+export const refreshAccessToken = async (refreshToken) => {
+  const response = await api.post("/auth/refresh", {
+    refreshToken
+  });
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Logout
+|--------------------------------------------------------------------------
+*/
+
+export const logoutUser = async (refreshToken) => {
+  const response = await api.post("/auth/logout", {
+    refreshToken
+  });
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Logout all devices
+|--------------------------------------------------------------------------
+*/
+
+export const logoutAllDevices = async () => {
+  const response = await api.post("/auth/logout-all");
+
+  return response.data;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Set password
+|--------------------------------------------------------------------------
+*/
+
+export const setPassword = async (token, password) => {
+  const response = await api.post("/auth/set-password", {
+    token,
+    password
+  });
+
+  return response.data;
+};

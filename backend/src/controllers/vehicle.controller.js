@@ -72,33 +72,36 @@ const updateVehicle = asyncHandler(async (req, res) => {
  * Delete Vehicle
  */
 const deleteVehicle = asyncHandler(async (req, res) => {
-  await vehicleService.deleteVehicle(req.params.id);
+    await vehicleService.deleteVehicle(
+        req.params.id,
+        req.user._id
+    );
 
-  return successResponse(
-    res,
-    200,
-    "Vehicle deleted successfully."
-  );
+    return successResponse(
+        res,
+        200,
+        "Vehicle deleted successfully."
+    );
 });
 
 /**
  * Update Vehicle Status
  */
 const updateVehicleStatus = asyncHandler(async (req, res) => {
-  const vehicle =
-    await vehicleService.updateVehicleStatus(
-      req.params.id,
-      req.body.status
+    const vehicle =
+        await vehicleService.updateVehicleStatus(
+            req.params.id,
+            req.body.status,
+            req.user._id
+        );
+
+    return successResponse(
+        res,
+        200,
+        "Vehicle status updated successfully.",
+        vehicle
     );
-
-  return successResponse(
-    res,
-    200,
-    "Vehicle status updated successfully.",
-    vehicle
-  );
 });
-
 module.exports = {
   createVehicle,
   getAllVehicles,

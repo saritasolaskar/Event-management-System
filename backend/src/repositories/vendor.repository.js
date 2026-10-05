@@ -1,50 +1,91 @@
+
 const Vendor = require("../models/vendor.model");
 
 /**
  * Create Vendor
  */
-const create = async (vendorData) => {
-    return Vendor.create(vendorData);
+const create = async (vendorData, session = null) => {
+    const query = Vendor.create(
+        [vendorData],
+        session ? { session } : {}
+    );
+
+    const [vendor] = await query;
+
+    return vendor;
 };
 
 /**
  * Find Vendor By ID
  */
-const findById = async (id) => {
-    return Vendor.findOne({
+const findById = async (id, session = null) => {
+    const query = Vendor.findOne({
         _id: id,
         isDeleted: false,
     });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Find Vendor By Company Name
  */
-const findByCompanyName = async (companyName) => {
-    return Vendor.findOne({
+const findByCompanyName = async (
+    companyName,
+    session = null
+) => {
+    const query = Vendor.findOne({
         companyName,
         isDeleted: false,
     });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Find Vendor By Email
  */
-const findByEmail = async (email) => {
-    return Vendor.findOne({
+const findByEmail = async (
+    email,
+    session = null
+) => {
+    const query = Vendor.findOne({
         email,
         isDeleted: false,
     });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Find Vendor By GST Number
  */
-const findByGST = async (gstNumber) => {
-    return Vendor.findOne({
+const findByGST = async (
+    gstNumber,
+    session = null
+) => {
+    const query = Vendor.findOne({
         gstNumber,
         isDeleted: false,
     });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
@@ -62,47 +103,143 @@ const findAll = async (filter = {}) => {
 /**
  * Update Vendor
  */
-const updateById = async (id, updateData) => {
-    return Vendor.findByIdAndUpdate(
-        id,
+const updateById = async (
+    id,
+    updateData,
+    session = null
+) => {
+    const query = Vendor.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         updateData,
         {
             new: true,
             runValidators: true,
         }
     );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Soft Delete Vendor
+ *
+ * Argument order:
+ *   id
+ *   updatedBy
+ *   session
+ *
+ * This matches the service layer:
+ * vendorRepository.softDelete(vendorId, userId)
  */
-const softDelete = async (id) => {
-    return Vendor.findByIdAndUpdate(
-        id,
+const softDelete = async (
+    id,
+    updatedBy = null,
+    session = null
+) => {
+    const query = Vendor.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         {
             isDeleted: true,
+            deletedAt: new Date(),
+            ...(updatedBy && {
+                updatedBy,
+            }),
         },
         {
             new: true,
             runValidators: true,
         }
     );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 /**
  * Update Vendor Status
  */
-const updateStatus = async (id, status) => {
-    return Vendor.findByIdAndUpdate(
-        id,
+const updateStatus = async (
+    id,
+    status,
+    updatedBy = null,
+    session = null
+) => {
+    const updateData = {
+        status,
+    };
+
+    if (updatedBy) {
+        updateData.updatedBy = updatedBy;
+    }
+
+    const query = Vendor.findOneAndUpdate(
         {
-            status,
+            _id: id,
+            isDeleted: false,
         },
+        updateData,
         {
             new: true,
             runValidators: true,
         }
     );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+/**
+ * Atomically update Vendor status only when
+ * the current status matches the expected status.
+ */
+const updateStatusIfCurrent = async (
+    id,
+    currentStatus,
+    status,
+    updatedBy = null,
+    session = null
+) => {
+    const updateData = {
+        status,
+        ...(updatedBy && {
+            updatedBy,
+        }),
+    };
+
+    const query = Vendor.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            status: currentStatus,
+        },
+        updateData,
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 module.exports = {
@@ -115,4 +252,6 @@ module.exports = {
     updateById,
     softDelete,
     updateStatus,
+    updateStatusIfCurrent,
 };
+

@@ -13,7 +13,6 @@ const { ROLES } = require("../constants/roles");
 const {
     createVendorBillValidator,
     vendorBillIdValidator,
-    dutyIdValidator,
 } = require("../validators/vendorBill.validator");
 
 /**
@@ -26,7 +25,6 @@ router.post(
         ROLES.ADMIN,
         ROLES.ACCOUNTS
     ),
-    dutyIdValidator,
     createVendorBillValidator,
     validate,
     controller.createVendorBill

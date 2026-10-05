@@ -1,17 +1,25 @@
 const express = require("express");
 
-const vendorController = require("../controllers/vendor.controller");
+const vendorController =
+    require("../controllers/vendor.controller");
 
-const validate = require("../middleware/validate");
-const protect = require("../middleware/auth.middleware");
-const authorize = require("../middleware/authorize.middleware");
+const validate =
+    require("../middleware/validate");
 
-const { ROLES } = require("../constants/roles");
+const protect =
+    require("../middleware/auth.middleware");
+
+const authorize =
+    require("../middleware/authorize.middleware");
+
+const { ROLES } =
+    require("../constants/roles");
 
 const {
     createVendorValidator,
     updateVendorValidator,
     vendorIdValidator,
+    vendorStatusValidator,
 } = require("../validators/vendor.validator");
 
 const router = express.Router();
@@ -88,7 +96,7 @@ router.patch(
     "/:id/status",
     protect,
     authorize(ROLES.ADMIN),
-    vendorIdValidator,
+    vendorStatusValidator,
     validate,
     vendorController.updateVendorStatus
 );

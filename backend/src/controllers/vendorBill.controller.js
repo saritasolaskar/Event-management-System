@@ -1,4 +1,5 @@
-const vendorBillPdfService = require("../services/pdf/vendorBillPdf.service");
+const vendorBillPdfService =
+    require("../services/Pdf/vendorBillPdf.service");
 
 const vendorBillService = require("../services/vendorBill.service");
 

@@ -1,166 +1,285 @@
-const Event = require("../models/event.model");
-const { EVENT_STATUS } = require("../constants/status");
-/**
- * Create Event
- */
-const create = async (eventData) => {
-  return Event.create(eventData);
+
+const Event =
+    require("../models/event.model");
+
+const {
+    EVENT_STATUS,
+} = require("../constants/status");
+
+
+const create = async (
+    eventData,
+    session = null
+) => {
+
+    if (session) {
+        const [event] =
+            await Event.create(
+                [eventData],
+                { session }
+            );
+
+        return event;
+    }
+
+    return Event.create(eventData);
 };
 
-/**
- * Find Event By ID
- */
-const findById = async (id) => {
-  return Event.findOne({
-    _id: id,
-    isDeleted: false,
-  })
-    .populate("client", "clientCode companyName")
-    .populate("venue", "locationCode name city");
+
+const findById = async (
+    id,
+    session = null
+) => {
+
+    const query =
+        Event.findOne({
+            _id: id,
+            isDeleted: false,
+        })
+            .populate(
+                "client",
+                "companyName email phone gstNumber panNumber"
+            )
+            .populate(
+                "venue",
+                "locationCode name city state"
+            );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-/**
- * Find Event By Code
- */
-const findByEventCode = async (eventCode) => {
-  return Event.findOne({
+
+const findByEventCode = async (
     eventCode,
-    isDeleted: false,
-  });
-};
+    session = null
+) => {
 
-/**
- * Get All Events
- */
-const findAll = async (filter = {}) => {
-  return Event.find({
-    isDeleted: false,
-    ...filter,
-  })
-    .populate("client", "clientCode companyName")
-    .populate("venue", "locationCode name city")
-    .sort({
-      startDate: -1,
-    });
-};
+    const query =
+        Event.findOne({
+            eventCode,
+            isDeleted: false,
+        });
 
-/**
- * Update Event
- */
-const updateById = async (id, updateData) => {
-  return Event.findByIdAndUpdate(
-    id,
-    updateData,
-    {
-      new: true,
-      runValidators: true,
+    if (session) {
+        query.session(session);
     }
-  );
-};
 
-/**
- * Soft Delete Event
- */
-const softDelete = async (id) => {
-  return Event.findByIdAndUpdate(
-    id,
-    {
-      isDeleted: true,
-    },
-    {
-      new: true,
-    }
-  );
-};
-
-/**
- * Update Event Status
- */
-const updateStatus = async (id, status) => {
-  return Event.findByIdAndUpdate(
-    id,
-    { status },
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
-};
-
-const findByClient = async (clientId) => {
-
-  return Event.find({
-    client: clientId,
-    isDeleted: false,
-  })
-    .populate(
-    "client",
-    "companyName phone email"
-).populate(
-      "venue",
-      "locationCode name city state"
-    )
-    .sort({
-      startDate: -1,
-    })
-    .lean();
-
-};
-
-const findActiveByClient = async (clientId) => {
-
-  return Event.find({
-    client: clientId,
-    status: EVENT_STATUS.ONGOING,
-    isDeleted: false,
-  });
-
+    return query;
 };
 
 
-/**
- * Find Events By Status
- */
-const findByStatus = async (status) => {
+const findAll = async (
+    filter = {}
+) => {
 
     return Event.find({
-        status,
         isDeleted: false,
+        ...filter,
     })
-    .populate("client", "clientCode companyName")
-    .populate("venue", "locationCode name city")
-    .sort({
-        startDate: -1,
-    });
-
+        .populate(
+            "client",
+            "companyName email phone gstNumber panNumber"
+        )
+        .populate(
+            "venue",
+            "locationCode name city state"
+        )
+        .sort({
+            startDate: -1,
+        });
 };
 
-/**
- * Count Events
- */
-const count = async (filter = {}) => {
+
+const findByClient = async (
+    clientId
+) => {
+
+    return Event.find({
+        client: clientId,
+        isDeleted: false,
+    })
+        .populate(
+            "client",
+            "companyName email phone gstNumber panNumber"
+        )
+        .populate(
+            "venue",
+            "locationCode name city state"
+        )
+        .sort({
+            startDate: -1,
+        })
+        .lean();
+};
+
+
+const updateById = async (
+    id,
+    updateData,
+    session = null
+) => {
+
+    const query =
+        Event.findOneAndUpdate(
+            {
+                _id: id,
+                isDeleted: false,
+            },
+            updateData,
+            {
+                new: true,
+                runValidators: true,
+                ...(session
+                    ? { session }
+                    : {}),
+            }
+        );
+
+    return query;
+};
+
+
+const softDelete = async (
+    id,
+    updatedBy = null,
+    session = null
+) => {
+
+    const updateData = {
+        isDeleted: true,
+    };
+
+    if (updatedBy) {
+        updateData.updatedBy =
+            updatedBy;
+    }
+
+    return Event.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        updateData,
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
+};
+
+
+const updateStatus = async (
+    id,
+    status,
+    updatedBy = null,
+    session = null
+) => {
+
+    const updateData = {
+        status,
+    };
+
+    if (updatedBy) {
+        updateData.updatedBy =
+            updatedBy;
+    }
+
+    return Event.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        updateData,
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
+};
+
+
+const findActiveByClient = async (
+    clientId,
+    session = null
+) => {
+
+    const query =
+        Event.find({
+            client: clientId,
+            status:
+                EVENT_STATUS.ONGOING,
+            isDeleted: false,
+        });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
+const findByStatus = async (
+    status,
+    session = null
+) => {
+
+    const query =
+        Event.find({
+            status,
+            isDeleted: false,
+        })
+            .populate(
+                "client",
+                "companyName email phone gstNumber panNumber"
+            )
+            .populate(
+                "venue",
+                "locationCode name city state"
+            )
+            .sort({
+                startDate: -1,
+            });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
+const count = async (
+    filter = {}
+) => {
 
     return Event.countDocuments({
         isDeleted: false,
         ...filter,
     });
-
 };
 
 
-
-
-
 module.exports = {
-  create,
-  findById,
-  findByEventCode,
-  findAll,
-  updateById,
-  softDelete,
-  updateStatus,
-  findByClient,
-  findActiveByClient,
-  findByStatus,
-count,
+    create,
+    findById,
+    findByEventCode,
+    findAll,
+    findByClient,
+    updateById,
+    softDelete,
+    updateStatus,
+    findActiveByClient,
+    findByStatus,
+    count,
 };

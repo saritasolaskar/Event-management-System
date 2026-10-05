@@ -39,6 +39,7 @@ const userSchema = new Schema(
             default: null,
         },
 
+
         // =====================================================
         // Authentication
         // =====================================================
@@ -105,6 +106,22 @@ const userSchema = new Schema(
             required: true,
         },
 
+      // =====================================================
+        // driver reference
+        // =====================================================
+
+        driver: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Driver",
+            default: null,
+        },
+
+        client: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Client",
+    default: null,
+},
+
         // =====================================================
         // Verification
         // =====================================================
@@ -150,21 +167,21 @@ const userSchema = new Schema(
 /**
  * Indexes
  */
-userSchema.index({ email: 1 });
+
 userSchema.index({ phone: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
+userSchema.index({ lockUntil: 1 });
 
 /**
  * Middleware
  */
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
     if (!this.isModified("password")) {
-        return next();
+        return;
     }
 
     this.password = await bcrypt.hash(this.password, 12);
-    next();
 });
 
 /**

@@ -70,7 +70,7 @@ const updateDriver = asyncHandler(async (req, res) => {
  * Delete Driver
  */
 const deleteDriver = asyncHandler(async (req, res) => {
-  await driverService.deleteDriver(req.params.id);
+  await driverService.deleteDriver(req.params.id, req.user._id);
 
   return successResponse(
     res,
@@ -83,10 +83,11 @@ const deleteDriver = asyncHandler(async (req, res) => {
  * Update Driver Status
  */
 const updateDriverStatus = asyncHandler(async (req, res) => {
-  const driver = await driverService.updateDriverStatus(
+  const driver =await driverService.updateDriverStatus(
     req.params.id,
-    req.body.status
-  );
+    req.body.status,
+    req.user._id
+);
 
   return successResponse(
     res,

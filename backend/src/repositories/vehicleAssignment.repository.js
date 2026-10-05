@@ -1,19 +1,32 @@
+
 const VehicleAssignment = require("../models/vehicleAssignment.model");
 
-const create = async (data) => {
-    return VehicleAssignment.create(data);
+const create = async (data, session = null) => {
+    const [assignment] = await VehicleAssignment.create(
+        [data],
+        session ? { session } : {}
+    );
+
+    return assignment;
 };
 
-const findById = async (id) => {
-    return VehicleAssignment.findOne({
+const findById = async (id, session = null) => {
+    const query = VehicleAssignment.findOne({
         _id: id,
         isDeleted: false,
     })
         .populate("event")
         .populate("vendor")
         .populate("driver")
+        .populate("commercialPackage")
         .populate("vehicle")
         .populate("reportingLocation");
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 const findAll = async () => {
@@ -21,47 +34,115 @@ const findAll = async () => {
         isDeleted: false,
     })
         .populate("event", "eventCode name")
-        .populate("vendor", "vendorCode companyName")
-        .populate("driver", "firstName lastName phone")
-        .populate("vehicle", "registrationNumber vehicleType")
+        .populate("vendor", "companyName")
+        .populate(
+            "driver",
+            "firstName lastName phone"
+        )
+        .populate(
+            "vehicle",
+            "vehicleNumber vehicleType"
+        )
         .sort({
             createdAt: -1,
         });
 };
 
-const updateById = async (id, data) => {
-    return VehicleAssignment.findByIdAndUpdate(
-        id,
+const updateById = (
+    id,
+    data,
+    session = null
+) => {
+    return VehicleAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         data,
         {
             new: true,
             runValidators: true,
+            ...(session ? { session } : {}),
         }
     );
 };
 
-const softDelete = async (id) => {
-    return VehicleAssignment.findByIdAndUpdate(
-        id,
+const softDelete = async (
+    id,
+    updatedBy = null,
+    session = null
+) => {
+    const query = VehicleAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         {
             isDeleted: true,
+            ...(updatedBy && {
+                updatedBy,
+            }),
         },
         {
             new: true,
             runValidators: true,
+            ...(session ? { session } : {}),
         }
     );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-const findTodayByDriver = async (driverId) => {
-    return VehicleAssignment.findOne({
+
+const findTodayByDriver = async (
+    driverId,
+    session = null
+) => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(
+        startOfTomorrow.getDate() + 1
+    );
+
+    const query = VehicleAssignment.findOne({
         driver: driverId,
         isDeleted: false,
+        $or: [
+            {
+                status: "ON_DUTY",
+            },
+            {
+                status: "ASSIGNED",
+                reportingTime: {
+                    $gte: startOfToday,
+                    $lt: startOfTomorrow,
+                },
+            },
+        ],
     })
         .populate("vehicle")
         .populate("event")
-        .populate("vendor");
+        .populate("vendor")
+        .sort({
+            status: -1,
+            reportingTime: 1,
+            createdAt: -1,
+        });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
+
+
 
 const findByEvent = async (eventId) => {
     return VehicleAssignment.find({
@@ -82,12 +163,15 @@ const findByEvent = async (eventId) => {
  */
 const findActiveByDriver = async (
     driverId,
-    excludeAssignmentId = null
+    excludeAssignmentId = null,
+    session = null
 ) => {
-
     const query = {
         driver: driverId,
         isDeleted: false,
+        status: {
+            $in: ["ASSIGNED", "ON_DUTY"],
+        },
     };
 
     if (excludeAssignmentId) {
@@ -96,8 +180,14 @@ const findActiveByDriver = async (
         };
     }
 
-    return VehicleAssignment.findOne(query);
+    const mongoQuery =
+        VehicleAssignment.findOne(query);
 
+    if (session) {
+        mongoQuery.session(session);
+    }
+
+    return mongoQuery;
 };
 
 /**
@@ -106,12 +196,15 @@ const findActiveByDriver = async (
  */
 const findActiveByVehicle = async (
     vehicleId,
-    excludeAssignmentId = null
+    excludeAssignmentId = null,
+    session = null
 ) => {
-
     const query = {
         vehicle: vehicleId,
         isDeleted: false,
+        status: {
+            $in: ["ASSIGNED", "ON_DUTY"],
+        },
     };
 
     if (excludeAssignmentId) {
@@ -120,9 +213,135 @@ const findActiveByVehicle = async (
         };
     }
 
-    return VehicleAssignment.findOne(query);
+    const mongoQuery =
+        VehicleAssignment.findOne(query);
 
+    if (session) {
+        mongoQuery.session(session);
+    }
+
+    return mongoQuery;
 };
+
+const findByCommercialPackage = async (
+    commercialPackageId
+) => {
+    return VehicleAssignment.find({
+        commercialPackage: commercialPackageId,
+        isDeleted: false,
+    }).select("_id assignmentCode status");
+};
+
+const updateByIdAndStatus = (
+    id,
+    currentStatus,
+    data,
+    session = null
+) => {
+    return VehicleAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            status: currentStatus,
+            isDeleted: false,
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+            ...(session ? { session } : {}),
+        }
+    );
+};
+
+const findByVehicle = async (
+    vehicleId,
+    session = null
+) => {
+    const query = VehicleAssignment.find({
+        vehicle: vehicleId,
+        isDeleted: false,
+        status: {
+            $in: [
+                "ASSIGNED",
+                "ON_DUTY",
+            ],
+        },
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+const softDeleteByStatus = async (
+    id,
+    currentStatus,
+    updatedBy = null,
+    session = null
+) => {
+    const query = VehicleAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            status: currentStatus,
+            isDeleted: false,
+        },
+        {
+            isDeleted: true,
+            ...(updatedBy && {
+                updatedBy,
+            }),
+        },
+        {
+            new: true,
+            runValidators: true,
+            ...(session ? { session } : {}),
+        }
+    );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
+/**
+ * Find active vehicle assignments for an event.
+ *
+ * Used to prevent an event from being completed
+ * or cancelled while operational assignments are active.
+ */
+const findActiveByEvent = async (
+    eventId,
+    session = null
+) => {
+    const query =
+        VehicleAssignment.find({
+            event: eventId,
+            isDeleted: false,
+            status: {
+                $in: [
+                    "ASSIGNED",
+                    "ON_DUTY",
+                ],
+            },
+        });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
+};
+
+
+
+
+
+
 
 module.exports = {
     create,
@@ -134,4 +353,9 @@ module.exports = {
     findByEvent,
     findActiveByDriver,
     findActiveByVehicle,
+    findByCommercialPackage,
+    updateByIdAndStatus,
+    findByVehicle,
+    softDeleteByStatus,
+    findActiveByEvent,
 };

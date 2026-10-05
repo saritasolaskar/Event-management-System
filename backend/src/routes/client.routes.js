@@ -12,6 +12,7 @@ const {
   createClientValidator,
   updateClientValidator,
   clientIdValidator,
+  updateClientStatusValidator,
 } = require("../validators/client.validator");
 
 const router = express.Router();
@@ -75,6 +76,19 @@ router.delete(
   clientController.deleteClient
 );
 
+
+/**
+ * Restore Client
+ */
+router.patch(
+  "/:id/restore",
+  protect,
+  authorize(ROLES.ADMIN),
+  clientIdValidator,
+  validate,
+  clientController.restoreClient
+);
+
 /**
  * Update Client Status
  */
@@ -82,7 +96,7 @@ router.patch(
   "/:id/status",
   protect,
   authorize(ROLES.ADMIN),
-  clientIdValidator,
+  updateClientStatusValidator,
   validate,
   clientController.updateClientStatus
 );

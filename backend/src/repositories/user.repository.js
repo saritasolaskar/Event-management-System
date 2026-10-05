@@ -1,74 +1,111 @@
+const crypto = require("crypto");
+
 const User = require("../models/user.model");
 
-/**
- * Create a new user
- */
-const create = async (userData) => {
+const hashRefreshToken = (token) => {
+    return crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex");
+};
+
+const create = async (userData, session = null) => {
+    if (session) {
+        const [user] = await User.create(
+            [userData],
+            { session }
+        );
+        return user;
+    }
+
     return User.create(userData);
 };
 
-/**
- * Find user by ID
- */
-const findById = async (userId) => {
-    return User.findOne({
+const findById = async (userId, session = null) => {
+    const query = User.findOne({
         _id: userId,
         isDeleted: false,
     });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-/**
- * Find user by email
- * Password is excluded by default
- */
-const findByEmail = async (email) => {
-    return User.findOne({
+const findByEmail = async (email, session = null) => {
+    const query = User.findOne({
         email,
         isDeleted: false,
     });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-/**
- * Find user by email with password
- * Used during login
- */
-const findByEmailWithPassword = async (email) => {
-    return User.findOne({
+const findByEmailWithPassword = async (
+    email,
+    session = null
+) => {
+    const query = User.findOne({
         email,
         isDeleted: false,
     }).select("+password");
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-/**
- * Find user by phone
- */
-const findByPhone = async (phone) => {
-    return User.findOne({
+const findByPhone = async (phone, session = null) => {
+    const query = User.findOne({
         phone,
         isDeleted: false,
     });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-/**
- * Update user
- */
-const updateById = async (userId, updateData) => {
-    return User.findByIdAndUpdate(
-        userId,
+const updateById = async (
+    userId,
+    updateData,
+    session = null
+) => {
+    const query = User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         updateData,
         {
             new: true,
             runValidators: true,
         }
     );
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-/**
- * Update Last Login
- */
 const updateLastLogin = async (userId) => {
-    return User.findByIdAndUpdate(
-        userId,
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         {
             lastLogin: new Date(),
         },
@@ -79,15 +116,16 @@ const updateLastLogin = async (userId) => {
     );
 };
 
-/**
- * Soft Delete User
- */
 const softDelete = async (userId) => {
-    return User.findByIdAndUpdate(
-        userId,
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         {
             isDeleted: true,
             deletedAt: new Date(),
+            refreshTokens: [],
         },
         {
             new: true,
@@ -96,9 +134,6 @@ const softDelete = async (userId) => {
     );
 };
 
-/**
- * Add Refresh Token
- */
 const addRefreshToken = async (
     userId,
     refreshToken,
@@ -107,12 +142,18 @@ const addRefreshToken = async (
     ipAddress = null,
     userAgent = null
 ) => {
-    return User.findByIdAndUpdate(
-        userId,
+    const hashedToken =
+        hashRefreshToken(refreshToken);
+
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         {
             $push: {
                 refreshTokens: {
-                    token: refreshToken,
+                    token: hashedToken,
                     expiresAt,
                     device,
                     ipAddress,
@@ -127,26 +168,34 @@ const addRefreshToken = async (
     );
 };
 
-/**
- * Find User By Refresh Token
- */
-const findByRefreshToken = async (token) => {
+const findByRefreshToken = async (
+    refreshToken
+) => {
+    const hashedToken =
+        hashRefreshToken(refreshToken);
+
     return User.findOne({
         isDeleted: false,
-        "refreshTokens.token": token,
+        "refreshTokens.token": hashedToken,
     });
 };
 
-/**
- * Remove Refresh Token
- */
-const removeRefreshToken = async (userId, refreshToken) => {
-    return User.findByIdAndUpdate(
-        userId,
+const removeRefreshToken = async (
+    userId,
+    refreshToken
+) => {
+    const hashedToken =
+        hashRefreshToken(refreshToken);
+
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         {
             $pull: {
                 refreshTokens: {
-                    token: refreshToken,
+                    token: hashedToken,
                 },
             },
         },
@@ -157,12 +206,12 @@ const removeRefreshToken = async (userId, refreshToken) => {
     );
 };
 
-/**
- * Remove All Refresh Tokens
- */
 const removeAllRefreshTokens = async (userId) => {
-    return User.findByIdAndUpdate(
-        userId,
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
         {
             $set: {
                 refreshTokens: [],
@@ -173,6 +222,96 @@ const removeAllRefreshTokens = async (userId) => {
             runValidators: true,
         }
     );
+};
+
+const findByPasswordResetToken = async (token) => {
+    return User.findOne({
+        passwordResetToken: token,
+        isDeleted: false,
+    }).select("+password");
+};
+
+const recordFailedLoginAttempt = async (userId) => {
+    const MAX_ATTEMPTS = 5;
+    const LOCK_DURATION_MS = 15 * 60 * 1000;
+
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
+        [
+            {
+                $set: {
+                    failedLoginAttempts: {
+                        $add: [
+                            "$failedLoginAttempts",
+                            1,
+                        ],
+                    },
+                },
+            },
+            {
+                $set: {
+                    lockUntil: {
+                        $cond: [
+                            {
+                                $gte: [
+                                    "$failedLoginAttempts",
+                                    MAX_ATTEMPTS,
+                                ],
+                            },
+                            new Date(
+                                Date.now() +
+                                LOCK_DURATION_MS
+                            ),
+                            "$lockUntil",
+                        ],
+                    },
+                },
+            },
+        ],
+        {
+            new: true,
+        }
+    );
+};
+
+const resetLoginAttempts = async (userId) => {
+    return User.findOneAndUpdate(
+        {
+            _id: userId,
+            isDeleted: false,
+        },
+        {
+            $set: {
+                failedLoginAttempts: 0,
+                lockUntil: null,
+            },
+        },
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
+};
+
+
+const findByClient = async (
+    clientId,
+    session = null
+) => {
+    const query = User.findOne({
+        client: clientId,
+        role: "CLIENT",
+        isDeleted: false,
+    });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
 module.exports = {
@@ -188,4 +327,8 @@ module.exports = {
     findByRefreshToken,
     removeRefreshToken,
     removeAllRefreshTokens,
+    findByPasswordResetToken,
+    recordFailedLoginAttempt,
+    resetLoginAttempts,
+    findByClient,
 };
