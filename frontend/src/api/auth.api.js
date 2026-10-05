@@ -70,18 +70,11 @@ export const logoutAllDevices = async () => {
 |--------------------------------------------------------------------------
 */
 
-try {
-  await setPassword(token, password);
+export const setPassword = async (token, password) => {
+  const response = await api.post("/auth/set-password", {
+    token,
+    password
+  });
 
-  setSuccess(
-    "Password created successfully. You can now sign in."
-  );
-
-  setTimeout(() => {
-    navigate("/login", { replace: true });
-  }, 1200);
-} catch (err) {
-  setError(getApiErrorMessage(err));
-} finally {
-  setIsSubmitting(false);
-}
+  return response.data;
+};
