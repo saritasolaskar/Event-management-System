@@ -25,7 +25,7 @@ import GuestManagement from "../pages/admin/GuestManagement";
 import VehicleManagement from "../pages/admin/VehicleManagement";
 import EventVehicleManagement
   from "../pages/admin/EventVehicleManagement";
-  
+
 import { ROLES } from "../utils/roles";
 import { ROUTES } from "./routeConfig";
 import { AuthRedirect } from "./routeGuards";
@@ -173,22 +173,35 @@ function AppRoutes() {
 
                             {/* VEHICLE MANAGEMENT */}
 
-                            <Route
-                                element={
-                                    <RoleRoute
-                                        allowedRoles={[
-                                            ROLES.ADMIN,
-                                            ROLES.OPERATIONS_MANAGER,
-                                            ROLES.DISPATCHER,
-                                        ]}
-                                    />
-                                }
-                            >
-                                <Route
-                                    path={ROUTES.ADMIN_VEHICLES}
-                                    element={<VehicleManagement />}
-                                />
-                            </Route>
+                            {/* VEHICLES */}
+
+<Route
+  element={
+    <RoleRoute
+      allowedRoles={[
+        ROLES.ADMIN,
+        ROLES.OPERATIONS_MANAGER,
+        ROLES.DISPATCHER,
+      ]}
+    />
+  }
+>
+  <Route
+    path={ROUTES.ADMIN_VEHICLES}
+    element={
+      <VehicleManagement />
+    }
+  />
+
+  <Route
+    path={
+      ROUTES.ADMIN_EVENT_VEHICLES
+    }
+    element={
+      <EventVehicleManagement />
+    }
+  />
+</Route>
 
                             {/* EVENT MANAGEMENT */}
 

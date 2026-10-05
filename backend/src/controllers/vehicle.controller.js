@@ -122,6 +122,26 @@ const getVehiclesByEvent = asyncHandler(
 );
 
 
+const importVehiclesFromExcel =
+  asyncHandler(async (req, res) => {
+
+    const result =
+      await vehicleService
+        .importVehiclesFromExcel(
+          req.file?.buffer,
+          req.body.eventId,
+          req.user._id
+        );
+
+    return successResponse(
+      res,
+      200,
+      "Vehicle Excel import completed.",
+      result
+    );
+  });
+
+
 module.exports = {
   createVehicle,
   getAllVehicles,
@@ -130,4 +150,5 @@ module.exports = {
   deleteVehicle,
   updateVehicleStatus,
   getVehiclesByEvent,
+  importVehiclesFromExcel,
 };

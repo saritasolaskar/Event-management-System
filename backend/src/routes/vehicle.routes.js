@@ -17,6 +17,42 @@ const {
 
 const router = express.Router();
 
+const multer = require("multer");
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 5 * 1024 * 1024,
+    },
+    fileFilter: (
+        req,
+        file,
+        cb
+    ) => {
+
+        const allowed =
+            [
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.ms-excel",
+            ];
+
+        if (
+            allowed.includes(
+                file.mimetype
+            )
+        ) {
+            cb(null, true);
+        } else {
+            cb(
+                new Error(
+                    "Only Excel files (.xlsx or .xls) are allowed."
+                )
+            );
+        }
+    },
+});
+
+
 /**
  * Create Vehicle
  */
@@ -70,6 +106,18 @@ router.get(
   vehicleIdValidator,
   validate,
   vehicleController.getVehicleById
+);
+
+
+router.post(
+    "/import",
+    protect,
+    authorize(
+        ROLES.ADMIN,
+        ROLES.OPERATIONS_MANAGER
+    ),
+    upload.single("file"),
+    vehicleController.importVehiclesFromExcel
 );
 
 /**

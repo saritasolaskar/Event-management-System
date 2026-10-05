@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-
+const XLSX = require("xlsx");
 const vehicleRepository =
     require("../repositories/vehicle.repository");
 
@@ -197,7 +197,7 @@ const validateDriver = async (
     if (
         vendorId &&
         getId(driver.vendor) !==
-            getId(vendorId)
+        getId(vendorId)
     ) {
         throw new AppError(
             "Driver does not belong to the selected vendor.",
@@ -208,7 +208,7 @@ const validateDriver = async (
     if (
         driver.currentVehicle &&
         getId(driver.currentVehicle) !==
-            getId(vehicleId)
+        getId(vehicleId)
     ) {
         throw new AppError(
             "Driver is already assigned to another vehicle.",
@@ -242,10 +242,10 @@ const createVehicle = async (
                     );
 
                 const event =
-    await validateEventForVehicle(
-        data.event,
-        session
-    );    
+                    await validateEventForVehicle(
+                        data.event,
+                        session
+                    );
 
                 if (!data.vehicleNumber) {
                     throw new AppError(
@@ -261,10 +261,32 @@ const createVehicle = async (
                     );
 
                 if (existingVehicle) {
-                    throw new AppError(
-                        "Vehicle with this vehicle number already exists.",
-                        409
+                    const alreadyUsed =
+                        existingVehicle.eventsUsedFor?.some(
+                            (eventId) =>
+                                getId(eventId) === getId(event._id)
+                        );
+
+                    if (alreadyUsed) {
+                        throw new AppError(
+                            "This vehicle is already registered for this event.",
+                            409
+                        );
+                    }
+
+                    await vehicleRepository.addEventUsage(
+                        existingVehicle._id,
+                        event._id,
+                        session
                     );
+
+                    vehicle =
+                        await vehicleRepository.findById(
+                            existingVehicle._id,
+                            session
+                        );
+
+                    return;
                 }
 
                 if (!data.vendor) {
@@ -325,10 +347,10 @@ const createVehicle = async (
                     );
 
                 await vehicleRepository.addEventUsage(
-    vehicle._id,
-    event._id,
-    session
-);    
+                    vehicle._id,
+                    event._id,
+                    session
+                );
 
                 if (data.currentDriver) {
 
@@ -487,7 +509,7 @@ const updateVehicle = async (
                 if (
                     data.vehicleNumber &&
                     data.vehicleNumber !==
-                        vehicle.vehicleNumber
+                    vehicle.vehicleNumber
                 ) {
 
                     const existingVehicle =
@@ -501,7 +523,7 @@ const updateVehicle = async (
                         getId(
                             existingVehicle._id
                         ) !==
-                            getId(vehicleId)
+                        getId(vehicleId)
                     ) {
                         throw new AppError(
                             "Vehicle with this vehicle number already exists.",
@@ -544,7 +566,7 @@ const updateVehicle = async (
                 if (
                     driverWasUpdated &&
                     oldDriverId !==
-                        newDriverId
+                    newDriverId
                 ) {
 
                     if (
@@ -594,7 +616,7 @@ const updateVehicle = async (
                     driverWasUpdated &&
                     oldDriverId &&
                     oldDriverId !==
-                        newDriverId
+                    newDriverId
                 ) {
 
                     await driverRepository.updateById(
@@ -611,7 +633,7 @@ const updateVehicle = async (
                     driverWasUpdated &&
                     newDriverId &&
                     oldDriverId !==
-                        newDriverId
+                    newDriverId
                 ) {
 
                     await driverRepository.updateById(
@@ -792,7 +814,7 @@ const updateVehicleStatus = async (
 
                 if (
                     status ===
-                        VEHICLE_STATUS.AVAILABLE &&
+                    VEHICLE_STATUS.AVAILABLE &&
                     existingVehicle.currentDriver
                 ) {
                     throw new AppError(
@@ -803,7 +825,7 @@ const updateVehicleStatus = async (
 
                 if (
                     status ===
-                        VEHICLE_STATUS.ASSIGNED &&
+                    VEHICLE_STATUS.ASSIGNED &&
                     !existingVehicle.currentDriver
                 ) {
                     throw new AppError(
@@ -814,9 +836,9 @@ const updateVehicleStatus = async (
 
                 if (
                     existingVehicle.status ===
-                        VEHICLE_STATUS.ON_DUTY &&
+                    VEHICLE_STATUS.ON_DUTY &&
                     status !==
-                        VEHICLE_STATUS.ON_DUTY
+                    VEHICLE_STATUS.ON_DUTY
                 ) {
                     throw new AppError(
                         "Vehicle status cannot be changed while the vehicle is on duty.",
@@ -884,6 +906,284 @@ const getVehiclesByEvent = async (
     );
 };
 
+
+const importVehiclesFromExcel = async (
+    fileBuffer,
+    eventId,
+    userId
+) => {
+
+    if (!fileBuffer) {
+        throw new AppError(
+            "Excel file is required.",
+            400
+        );
+    }
+
+    const workbook =
+        XLSX.read(fileBuffer, {
+            type: "buffer",
+            cellDates: true,
+        });
+
+    const sheetName =
+        workbook.SheetNames[0];
+
+    if (!sheetName) {
+        throw new AppError(
+            "Excel file does not contain a worksheet.",
+            400
+        );
+    }
+
+    const worksheet =
+        workbook.Sheets[sheetName];
+
+    const rows =
+        XLSX.utils.sheet_to_json(
+            worksheet,
+            {
+                defval: "",
+            }
+        );
+
+    if (!rows.length) {
+        throw new AppError(
+            "Excel file does not contain any vehicle rows.",
+            400
+        );
+    }
+
+    const event =
+        await validateEventForVehicle(
+            eventId
+        );
+
+    const imported = [];
+    const skipped = [];
+    const failed = [];
+
+    for (
+        let index = 0;
+        index < rows.length;
+        index++
+    ) {
+
+        const row =
+            rows[index];
+
+        const rowNumber =
+            index + 2;
+
+        try {
+
+            const vehicleNumber =
+                String(
+                    row["Vehicle Number"] ||
+                    row["vehicleNumber"] ||
+                    ""
+                )
+                .trim()
+                .toUpperCase();
+
+            const vehicleType =
+                String(
+                    row["Vehicle Type"] ||
+                    row["vehicleType"] ||
+                    ""
+                )
+                .trim()
+                .toUpperCase();
+
+            const vendorName =
+                String(
+                    row["Vendor"] ||
+                    row["vendor"] ||
+                    ""
+                ).trim();
+
+            const seatingCapacity =
+                Number(
+                    row["Seating Capacity"] ||
+                    row["seatingCapacity"] ||
+                    0
+                );
+
+            const driverPhone =
+                String(
+                    row["Driver Phone"] ||
+                    row["driverPhone"] ||
+                    ""
+                ).trim();
+
+            if (!vehicleNumber) {
+                throw new Error(
+                    "Vehicle Number is required."
+                );
+            }
+
+            if (!vehicleType) {
+                throw new Error(
+                    "Vehicle Type is required."
+                );
+            }
+
+            if (!vendorName) {
+                throw new Error(
+                    "Vendor is required."
+                );
+            }
+
+            if (!seatingCapacity) {
+                throw new Error(
+                    "Seating Capacity is required."
+                );
+            }
+
+            const vendor =
+                await vendorRepository
+                    .findByCompanyName(
+                        vendorName
+                    );
+
+            if (!vendor) {
+                throw new Error(
+                    `Vendor "${vendorName}" not found.`
+                );
+            }
+
+            let driverId = null;
+
+            if (driverPhone) {
+
+                const driver =
+                    await driverRepository
+                        .findByPhone(
+                            driverPhone
+                        );
+
+                if (!driver) {
+                    throw new Error(
+                        `Driver with phone ${driverPhone} not found.`
+                    );
+                }
+
+                driverId =
+                    driver._id;
+            }
+
+            const existingVehicle =
+                await vehicleRepository
+                    .findByVehicleNumber(
+                        vehicleNumber
+                    );
+
+            if (existingVehicle) {
+
+                const alreadyRegistered =
+                    existingVehicle
+                        .eventsUsedFor
+                        ?.some(
+                            (id) =>
+                                getId(id) ===
+                                getId(event._id)
+                        );
+
+                if (
+                    alreadyRegistered
+                ) {
+                    skipped.push({
+                        row: rowNumber,
+                        vehicleNumber,
+                        reason:
+                            "Already registered for this event.",
+                    });
+
+                    continue;
+                }
+
+                await vehicleRepository
+                    .addEventUsage(
+                        existingVehicle._id,
+                        event._id
+                    );
+
+                imported.push({
+                    row: rowNumber,
+                    vehicleNumber,
+                    action: "REUSED",
+                });
+
+                continue;
+            }
+
+            await createVehicle(
+                {
+                    vehicleNumber,
+                    vehicleType,
+                    seatingCapacity,
+                    vendor: vendor._id,
+                    currentDriver:
+                        driverId,
+                    brand:
+                        row["Brand"] ||
+                        row["brand"] ||
+                        undefined,
+                    model:
+                        row["Model"] ||
+                        row["model"] ||
+                        undefined,
+                    manufactureYear:
+                        row["Manufacture Year"] ||
+                        row["manufactureYear"] ||
+                        undefined,
+                    fuelType:
+                        row["Fuel Type"] ||
+                        row["fuelType"] ||
+                        undefined,
+                    event: eventId,
+                },
+                userId
+            );
+
+            imported.push({
+                row: rowNumber,
+                vehicleNumber,
+                action: "CREATED",
+            });
+
+        } catch (error) {
+
+            failed.push({
+                row: rowNumber,
+                vehicleNumber:
+                    row["Vehicle Number"] ||
+                    row["vehicleNumber"] ||
+                    "",
+                reason:
+                    error.message ||
+                    "Unable to import vehicle.",
+            });
+        }
+    }
+
+    return {
+        event: {
+            _id: event._id,
+            eventCode: event.eventCode,
+            name: event.name,
+        },
+        totalRows: rows.length,
+        importedCount: imported.length,
+        skippedCount: skipped.length,
+        failedCount: failed.length,
+        imported,
+        skipped,
+        failed,
+    };
+};
+
+
 module.exports = {
     createVehicle,
     getAllVehicles,
@@ -892,5 +1192,6 @@ module.exports = {
     deleteVehicle,
     updateVehicleStatus,
     getVehiclesByEvent,
-    
+    importVehiclesFromExcel,
+
 };
