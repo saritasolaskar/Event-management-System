@@ -22,17 +22,7 @@ import { ROLES } from "../utils/roles";
 import { ROUTES } from "./routeConfig";
 import { AuthRedirect } from "./routeGuards";
 
-function AdminDashboard() {
-  return (
-    <div className="page-container">
-      <h1>Admin Dashboard</h1>
-      <p>
-        The administrative dashboard will be connected to
-        the backend in the next module.
-      </p>
-    </div>
-  );
-}
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 function ClientDashboard() {
   return (
