@@ -8,7 +8,9 @@ export const ROUTES = {
 
   ADMIN: "/admin",
   ADMIN_DASHBOARD: "/admin/dashboard",
+  ADMIN_CLIENTS: "/admin/clients",
   ADMIN_EVENTS: "/admin/events",
+  ADMIN_LOCATIONS: "/admin/locations",
 
   CLIENT: "/client",
   CLIENT_DASHBOARD: "/client/dashboard",
@@ -46,9 +48,29 @@ export const ADMIN_ROUTES = [
       ROLES.SUPPORT,
     ],
   },
+
+  {
+    path: ROUTES.ADMIN_CLIENTS,
+    label: "Clients",
+    roles: [
+      ROLES.ADMIN,
+      ROLES.OPERATIONS_MANAGER,
+    ],
+  },
+
   {
     path: ROUTES.ADMIN_EVENTS,
     label: "Events",
+    roles: [
+      ROLES.ADMIN,
+      ROLES.OPERATIONS_MANAGER,
+      ROLES.DISPATCHER,
+    ],
+  },
+
+  {
+    path: ROUTES.ADMIN_LOCATIONS,
+    label: "Locations",
     roles: [
       ROLES.ADMIN,
       ROLES.OPERATIONS_MANAGER,
@@ -63,11 +85,13 @@ export const CLIENT_ROUTES = [
     label: "Dashboard",
     roles: [ROLES.CLIENT],
   },
+
   {
     path: ROUTES.CLIENT_EVENTS,
     label: "My Events",
     roles: [ROLES.CLIENT],
   },
+
   {
     path: ROUTES.CLIENT_INVOICES,
     label: "Invoices",

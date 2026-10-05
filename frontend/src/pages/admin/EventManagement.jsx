@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../auth/AuthContext";
+
 import {
   getEvents,
   createEvent,
@@ -8,8 +9,13 @@ import {
   deleteEvent,
   updateEventStatus,
 } from "../../api/event.api";
+
 import { getClients } from "../../api/client.api";
-import { getLocations } from "../../api/location.api";
+
+import {
+  getLocations,
+  createLocation,
+} from "../../api/location.api";
 
 import "../../styles/event-management.css";
 
@@ -33,6 +39,19 @@ const emptyForm = {
   startDate: "",
   endDate: "",
   description: "",
+};
+
+const emptyLocationForm = {
+  locationCode: "",
+  name: "",
+  address: "",
+  city: "",
+  state: "",
+  country: "India",
+  pincode: "",
+  latitude: "",
+  longitude: "",
+  landmark: "",
 };
 
 function unwrapResponse(response) {
@@ -77,6 +96,7 @@ function toInputDateTime(value) {
   }
 
   const offset = date.getTimezoneOffset();
+
   const localDate = new Date(
     date.getTime() - offset * 60 * 1000
   );
@@ -122,6 +142,7 @@ function EventManagement() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locationSaving, setLocationSaving] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -130,11 +151,15 @@ function EventManagement() {
   const [statusFilter, setStatusFilter] = useState("ALL");
 
   const [showForm, setShowForm] = useState(false);
-  const [editingEvent, setEditingEvent] = useState(null);
+  const [showLocationForm, setShowLocationForm] =
+    useState(false);
 
+  const [editingEvent, setEditingEvent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
   const [form, setForm] = useState(emptyForm);
+  const [locationForm, setLocationForm] =
+    useState(emptyLocationForm);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -143,23 +168,41 @@ function EventManagement() {
     setError("");
 
     try {
-      const requests = [
+      const [
+        eventsResponse,
+        clientsResponse,
+        locationsResponse,
+      ] = await Promise.all([
         getEvents(),
         getClients(),
         getLocations(),
-      ];
+      ]);
 
-      const [eventsResponse, clientsResponse, locationsResponse] =
-        await Promise.all(requests);
+      const eventsData =
+        unwrapResponse(eventsResponse);
 
-      const eventsData = unwrapResponse(eventsResponse);
-      const clientsData = unwrapResponse(clientsResponse);
-      const locationsData = unwrapResponse(locationsResponse);
+      const clientsData =
+        unwrapResponse(clientsResponse);
 
-      setEvents(Array.isArray(eventsData) ? eventsData : []);
-      setClients(Array.isArray(clientsData) ? clientsData : []);
+      const locationsData =
+        unwrapResponse(locationsResponse);
+
+      setEvents(
+        Array.isArray(eventsData)
+          ? eventsData
+          : []
+      );
+
+      setClients(
+        Array.isArray(clientsData)
+          ? clientsData
+          : []
+      );
+
       setLocations(
-        Array.isArray(locationsData) ? locationsData : []
+        Array.isArray(locationsData)
+          ? locationsData
+          : []
       );
     } catch (err) {
       setError(
@@ -182,10 +225,18 @@ function EventManagement() {
     return events.filter((event) => {
       const matchesSearch =
         !query ||
-        event?.eventCode?.toLowerCase().includes(query) ||
-        event?.name?.toLowerCase().includes(query) ||
-        getClientName(event).toLowerCase().includes(query) ||
-        getVenueName(event).toLowerCase().includes(query);
+        event?.eventCode
+          ?.toLowerCase()
+          .includes(query) ||
+        event?.name
+          ?.toLowerCase()
+          .includes(query) ||
+        getClientName(event)
+          .toLowerCase()
+          .includes(query) ||
+        getVenueName(event)
+          .toLowerCase()
+          .includes(query);
 
       const matchesStatus =
         statusFilter === "ALL" ||
@@ -201,22 +252,26 @@ function EventManagement() {
 
       upcoming: events.filter(
         (event) =>
-          event.status === EVENT_STATUS.UPCOMING
+          event.status ===
+          EVENT_STATUS.UPCOMING
       ).length,
 
       ongoing: events.filter(
         (event) =>
-          event.status === EVENT_STATUS.ONGOING
+          event.status ===
+          EVENT_STATUS.ONGOING
       ).length,
 
       completed: events.filter(
         (event) =>
-          event.status === EVENT_STATUS.COMPLETED
+          event.status ===
+          EVENT_STATUS.COMPLETED
       ).length,
 
       cancelled: events.filter(
         (event) =>
-          event.status === EVENT_STATUS.CANCELLED
+          event.status ===
+          EVENT_STATUS.CANCELLED
       ).length,
     };
   }, [events]);
@@ -234,22 +289,29 @@ function EventManagement() {
 
     setForm({
       eventCode: event?.eventCode || "",
+
       name: event?.name || "",
+
       client:
         event?.client?._id ||
         event?.client ||
         "",
+
       venue:
         event?.venue?._id ||
         event?.venue ||
         "",
+
       startDate: toInputDateTime(
         event?.startDate
       ),
+
       endDate: toInputDateTime(
         event?.endDate
       ),
-      description: event?.description || "",
+
+      description:
+        event?.description || "",
     });
 
     setError("");
@@ -301,8 +363,13 @@ function EventManagement() {
       return "End date is required.";
     }
 
-    const start = new Date(form.startDate);
-    const end = new Date(form.endDate);
+    const start = new Date(
+      form.startDate
+    );
+
+    const end = new Date(
+      form.endDate
+    );
 
     if (Number.isNaN(start.getTime())) {
       return "Invalid start date.";
@@ -337,7 +404,8 @@ function EventManagement() {
     setError("");
     setSuccess("");
 
-    const validationError = validateForm();
+    const validationError =
+      validateForm();
 
     if (validationError) {
       setError(validationError);
@@ -347,17 +415,30 @@ function EventManagement() {
     setSaving(true);
 
     const payload = {
-      eventCode: form.eventCode.trim(),
-      name: form.name.trim(),
-      client: form.client,
-      venue: form.venue,
-      startDate: new Date(
-        form.startDate
-      ).toISOString(),
-      endDate: new Date(
-        form.endDate
-      ).toISOString(),
-      description: form.description.trim(),
+      eventCode:
+        form.eventCode.trim(),
+
+      name:
+        form.name.trim(),
+
+      client:
+        form.client,
+
+      venue:
+        form.venue,
+
+      startDate:
+        new Date(
+          form.startDate
+        ).toISOString(),
+
+      endDate:
+        new Date(
+          form.endDate
+        ).toISOString(),
+
+      description:
+        form.description.trim(),
     };
 
     try {
@@ -379,6 +460,7 @@ function EventManagement() {
       }
 
       closeForm();
+
       await loadData();
     } catch (err) {
       setError(
@@ -390,6 +472,253 @@ function EventManagement() {
       setSaving(false);
     }
   };
+
+  /*
+   * ==========================================
+   * VENUE CREATION
+   * ==========================================
+   */
+
+  const openLocationForm = () => {
+    setLocationForm(
+      emptyLocationForm
+    );
+
+    setError("");
+    setSuccess("");
+    setShowLocationForm(true);
+  };
+
+  const closeLocationForm = () => {
+    if (locationSaving) {
+      return;
+    }
+
+    setShowLocationForm(false);
+    setLocationForm(
+      emptyLocationForm
+    );
+  };
+
+  const handleLocationChange = (
+    event
+  ) => {
+    const {
+      name,
+      value,
+    } = event.target;
+
+    setLocationForm(
+      (previous) => ({
+        ...previous,
+        [name]: value,
+      })
+    );
+  };
+
+  const validateLocationForm =
+    () => {
+      if (
+        !locationForm.locationCode.trim()
+      ) {
+        return "Location code is required.";
+      }
+
+      if (
+        !locationForm.name.trim()
+      ) {
+        return "Venue name is required.";
+      }
+
+      if (
+        !locationForm.address.trim()
+      ) {
+        return "Address is required.";
+      }
+
+      if (
+        !locationForm.city.trim()
+      ) {
+        return "City is required.";
+      }
+
+      if (
+        !locationForm.state.trim()
+      ) {
+        return "State is required.";
+      }
+
+      if (
+        locationForm.latitude.trim() &&
+        Number.isNaN(
+          Number(locationForm.latitude)
+        )
+      ) {
+        return "Latitude must be a valid number.";
+      }
+
+      if (
+        locationForm.longitude.trim() &&
+        Number.isNaN(
+          Number(locationForm.longitude)
+        )
+      ) {
+        return "Longitude must be a valid number.";
+      }
+
+      return "";
+    };
+
+  const handleLocationSubmit =
+    async (event) => {
+      event.preventDefault();
+
+      setError("");
+      setSuccess("");
+
+      const validationError =
+        validateLocationForm();
+
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+
+      setLocationSaving(true);
+
+      const payload = {
+        locationCode:
+          locationForm.locationCode.trim(),
+
+        name:
+          locationForm.name.trim(),
+
+        address:
+          locationForm.address.trim(),
+
+        city:
+          locationForm.city.trim(),
+
+        state:
+          locationForm.state.trim(),
+
+        country:
+          locationForm.country.trim() ||
+          "India",
+
+        pincode:
+          locationForm.pincode.trim(),
+
+        landmark:
+          locationForm.landmark.trim(),
+      };
+
+      if (
+        locationForm.latitude.trim()
+      ) {
+        payload.latitude = Number(
+          locationForm.latitude
+        );
+      }
+
+      if (
+        locationForm.longitude.trim()
+      ) {
+        payload.longitude = Number(
+          locationForm.longitude
+        );
+      }
+
+      try {
+        const response =
+          await createLocation(
+            payload
+          );
+
+        const createdLocation =
+          unwrapResponse(response);
+
+        let venueId =
+          createdLocation?._id;
+
+        /*
+         * Normally the API returns
+         * the created location.
+         *
+         * If it doesn't, refresh locations
+         * and find the newly created code.
+         */
+        if (!venueId) {
+          const refreshResponse =
+            await getLocations();
+
+          const refreshedLocations =
+            unwrapResponse(
+              refreshResponse
+            );
+
+          if (
+            Array.isArray(
+              refreshedLocations
+            )
+          ) {
+            setLocations(
+              refreshedLocations
+            );
+
+            const matchingLocation =
+              refreshedLocations.find(
+                (location) =>
+                  location.locationCode ===
+                  payload.locationCode.toUpperCase()
+              );
+
+            venueId =
+              matchingLocation?._id;
+          }
+        } else {
+          setLocations(
+            (previous) => [
+              ...previous,
+              createdLocation,
+            ]
+          );
+        }
+
+        /*
+         * Automatically select the newly
+         * created venue in the event form.
+         */
+        if (venueId) {
+          setForm(
+            (previous) => ({
+              ...previous,
+              venue: venueId,
+            })
+          );
+        }
+
+        setShowLocationForm(false);
+
+        setLocationForm(
+          emptyLocationForm
+        );
+
+        setSuccess(
+          createdLocation?.name
+            ? `Venue "${createdLocation.name}" created and selected.`
+            : "Venue created and selected."
+        );
+      } catch (err) {
+        setError(
+          err?.response?.data?.message ||
+            err?.message ||
+            "Unable to create venue."
+        );
+      } finally {
+        setLocationSaving(false);
+      }
+    };
 
   const handleStatusChange = async (
     event,
@@ -428,7 +757,9 @@ function EventManagement() {
     setSuccess("");
 
     try {
-      await deleteEvent(deleteTarget._id);
+      await deleteEvent(
+        deleteTarget._id
+      );
 
       setSuccess(
         "Event deleted successfully."
@@ -455,50 +786,57 @@ function EventManagement() {
     }
   };
 
-  const getAvailableStatusActions = (event) => {
-    if (
-      !canMutate ||
-      !event?.status
-    ) {
+  const getAvailableStatusActions =
+    (event) => {
+      if (
+        !canMutate ||
+        !event?.status
+      ) {
+        return [];
+      }
+
+      if (
+        event.status ===
+        EVENT_STATUS.UPCOMING
+      ) {
+        return [
+          EVENT_STATUS.ONGOING,
+          EVENT_STATUS.CANCELLED,
+        ];
+      }
+
+      if (
+        event.status ===
+        EVENT_STATUS.ONGOING
+      ) {
+        return [
+          EVENT_STATUS.COMPLETED,
+          EVENT_STATUS.CANCELLED,
+        ];
+      }
+
       return [];
-    }
-
-    if (
-      event.status ===
-      EVENT_STATUS.UPCOMING
-    ) {
-      return [
-        EVENT_STATUS.ONGOING,
-        EVENT_STATUS.CANCELLED,
-      ];
-    }
-
-    if (
-      event.status ===
-      EVENT_STATUS.ONGOING
-    ) {
-      return [
-        EVENT_STATUS.COMPLETED,
-        EVENT_STATUS.CANCELLED,
-      ];
-    }
-
-    return [];
-  };
+    };
 
   return (
     <div className="event-page">
+
+      {/* ================= HEADER ================= */}
+
       <div className="event-page__header">
         <div>
           <p className="event-page__eyebrow">
             Operations
           </p>
 
-          <h1>Event Management</h1>
+          <h1>
+            Event Management
+          </h1>
 
           <p>
-            Manage event schedules, clients,
-            venues and operational status.
+            Manage event schedules,
+            clients, venues and
+            operational status.
           </p>
         </div>
 
@@ -512,6 +850,8 @@ function EventManagement() {
         )}
       </div>
 
+      {/* ================= ALERTS ================= */}
+
       {error && (
         <div className="event-alert event-alert--error">
           {error}
@@ -524,41 +864,76 @@ function EventManagement() {
         </div>
       )}
 
+      {/* ================= STATISTICS ================= */}
+
       <section className="event-stats">
+
         <div className="event-stat-card">
-          <span>Total Events</span>
-          <strong>{statistics.total}</strong>
+          <span>
+            Total Events
+          </span>
+
+          <strong>
+            {statistics.total}
+          </strong>
         </div>
 
         <div className="event-stat-card">
-          <span>Upcoming</span>
-          <strong>{statistics.upcoming}</strong>
+          <span>
+            Upcoming
+          </span>
+
+          <strong>
+            {statistics.upcoming}
+          </strong>
         </div>
 
         <div className="event-stat-card">
-          <span>Ongoing</span>
-          <strong>{statistics.ongoing}</strong>
+          <span>
+            Ongoing
+          </span>
+
+          <strong>
+            {statistics.ongoing}
+          </strong>
         </div>
 
         <div className="event-stat-card">
-          <span>Completed</span>
-          <strong>{statistics.completed}</strong>
+          <span>
+            Completed
+          </span>
+
+          <strong>
+            {statistics.completed}
+          </strong>
         </div>
 
         <div className="event-stat-card">
-          <span>Cancelled</span>
-          <strong>{statistics.cancelled}</strong>
+          <span>
+            Cancelled
+          </span>
+
+          <strong>
+            {statistics.cancelled}
+          </strong>
         </div>
+
       </section>
 
+      {/* ================= EVENT TABLE ================= */}
+
       <section className="event-panel">
+
         <div className="event-toolbar">
+
           <input
             type="search"
             placeholder="Search event, code, client or venue..."
             value={search}
             onChange={(event) =>
-              setSearch(event.target.value)
+              setSearch(
+                event.target.value
+              )
             }
             className="event-search"
           />
@@ -566,7 +941,9 @@ function EventManagement() {
           <select
             value={statusFilter}
             onChange={(event) =>
-              setStatusFilter(event.target.value)
+              setStatusFilter(
+                event.target.value
+              )
             }
             className="event-filter"
           >
@@ -598,181 +975,245 @@ function EventManagement() {
           >
             Refresh
           </button>
+
         </div>
 
         {loading ? (
           <div className="event-empty">
             Loading events...
           </div>
-        ) : filteredEvents.length === 0 ? (
+        ) : filteredEvents.length ===
+          0 ? (
           <div className="event-empty">
-            <strong>No events found</strong>
+
+            <strong>
+              No events found
+            </strong>
+
             <span>
-              Create an event or change your
-              search/filter.
+              Create an event or change
+              your search/filter.
             </span>
+
           </div>
         ) : (
           <div className="event-table-wrapper">
+
             <table className="event-table">
+
               <thead>
                 <tr>
-                  <th>Event</th>
-                  <th>Client</th>
-                  <th>Venue</th>
-                  <th>Schedule</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th>
+                    Event
+                  </th>
+
+                  <th>
+                    Client
+                  </th>
+
+                  <th>
+                    Venue
+                  </th>
+
+                  <th>
+                    Schedule
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
+
+                  <th>
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredEvents.map((event) => {
-                  const statusActions =
-                    getAvailableStatusActions(
-                      event
-                    );
 
-                  return (
-                    <tr key={event._id}>
-                      <td>
-                        <div className="event-name-cell">
-                          <strong>
-                            {event.name}
-                          </strong>
+                {filteredEvents.map(
+                  (event) => {
 
-                          <span>
-                            {event.eventCode}
-                          </span>
-                        </div>
-                      </td>
+                    const statusActions =
+                      getAvailableStatusActions(
+                        event
+                      );
 
-                      <td>
-                        {getClientName(event)}
-                      </td>
+                    return (
+                      <tr
+                        key={
+                          event._id
+                        }
+                      >
 
-                      <td>
-                        {getVenueName(event)}
-                      </td>
+                        <td>
+                          <div className="event-name-cell">
 
-                      <td>
-                        <div className="event-date-cell">
-                          <span>
-                            {formatDate(
-                              event.startDate
-                            )}
-                          </span>
+                            <strong>
+                              {event.name}
+                            </strong>
 
-                          <small>
-                            to{" "}
-                            {formatDate(
-                              event.endDate
-                            )}
-                          </small>
-                        </div>
-                      </td>
+                            <span>
+                              {event.eventCode}
+                            </span>
 
-                      <td>
-                        <span
-                          className={getStatusClass(
-                            event.status
+                          </div>
+                        </td>
+
+                        <td>
+                          {getClientName(
+                            event
                           )}
-                        >
-                          {event.status}
-                        </span>
-                      </td>
+                        </td>
 
-                      <td>
-                        <div className="event-actions">
-                          <button
-                            className="event-action"
-                            onClick={() =>
-                              setSelectedEvent(
-                                event
-                              )
-                            }
+                        <td>
+                          {getVenueName(
+                            event
+                          )}
+                        </td>
+
+                        <td>
+                          <div className="event-date-cell">
+
+                            <span>
+                              {formatDate(
+                                event.startDate
+                              )}
+                            </span>
+
+                            <small>
+                              to{" "}
+                              {formatDate(
+                                event.endDate
+                              )}
+                            </small>
+
+                          </div>
+                        </td>
+
+                        <td>
+                          <span
+                            className={getStatusClass(
+                              event.status
+                            )}
                           >
-                            View
-                          </button>
+                            {event.status}
+                          </span>
+                        </td>
 
-                          {canMutate && (
+                        <td>
+
+                          <div className="event-actions">
+
                             <button
                               className="event-action"
                               onClick={() =>
-                                openEditForm(
+                                setSelectedEvent(
                                   event
                                 )
                               }
                             >
-                              Edit
+                              View
                             </button>
-                          )}
 
-                          {statusActions.length >
-                            0 && (
-                            <select
-                              className="event-status-select"
-                              value=""
-                              onChange={(e) => {
-                                if (
-                                  e.target
-                                    .value
-                                ) {
-                                  handleStatusChange(
-                                    event,
+                            {canMutate && (
+                              <button
+                                className="event-action"
+                                onClick={() =>
+                                  openEditForm(
+                                    event
+                                  )
+                                }
+                              >
+                                Edit
+                              </button>
+                            )}
+
+                            {statusActions.length >
+                              0 && (
+                              <select
+                                className="event-status-select"
+                                value=""
+                                onChange={(e) => {
+                                  if (
                                     e.target
                                       .value
-                                  );
+                                  ) {
+                                    handleStatusChange(
+                                      event,
+                                      e.target
+                                        .value
+                                    );
+                                  }
+                                }}
+                              >
+                                <option value="">
+                                  Change status
+                                </option>
+
+                                {statusActions.map(
+                                  (
+                                    status
+                                  ) => (
+                                    <option
+                                      key={
+                                        status
+                                      }
+                                      value={
+                                        status
+                                      }
+                                    >
+                                      {status}
+                                    </option>
+                                  )
+                                )}
+                              </select>
+                            )}
+
+                            {canDelete && (
+                              <button
+                                className="event-action event-action--danger"
+                                onClick={() =>
+                                  setDeleteTarget(
+                                    event
+                                  )
                                 }
-                              }}
-                            >
-                              <option value="">
-                                Change status
-                              </option>
+                              >
+                                Delete
+                              </button>
+                            )}
 
-                              {statusActions.map(
-                                (status) => (
-                                  <option
-                                    key={status}
-                                    value={
-                                      status
-                                    }
-                                  >
-                                    {status}
-                                  </option>
-                                )
-                              )}
-                            </select>
-                          )}
+                          </div>
 
-                          {canDelete && (
-                            <button
-                              className="event-action event-action--danger"
-                              onClick={() =>
-                                setDeleteTarget(
-                                  event
-                                )
-                              }
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+
+                      </tr>
+                    );
+                  }
+                )}
+
               </tbody>
+
             </table>
+
           </div>
         )}
+
       </section>
+
+      {/* =====================================================
+          CREATE / EDIT EVENT MODAL
+          ===================================================== */}
 
       {showForm && (
         <div className="event-modal-backdrop">
+
           <div className="event-modal">
+
             <div className="event-modal__header">
+
               <div>
+
                 <h2>
                   {editingEvent
                     ? "Edit Event"
@@ -784,6 +1225,7 @@ function EventManagement() {
                     ? "Update event information."
                     : "Create a new upcoming event."}
                 </p>
+
               </div>
 
               <button
@@ -793,19 +1235,29 @@ function EventManagement() {
               >
                 ×
               </button>
+
             </div>
 
             <form
               className="event-form"
               onSubmit={handleSubmit}
             >
+
               <div className="event-form-grid">
+
+                {/* EVENT CODE */}
+
                 <label>
                   Event Code
+
                   <input
                     name="eventCode"
-                    value={form.eventCode}
-                    onChange={handleChange}
+                    value={
+                      form.eventCode
+                    }
+                    onChange={
+                      handleChange
+                    }
                     maxLength={50}
                     required
                     disabled={
@@ -819,24 +1271,40 @@ function EventManagement() {
                   />
                 </label>
 
+                {/* EVENT NAME */}
+
                 <label>
                   Event Name
+
                   <input
                     name="name"
-                    value={form.name}
-                    onChange={handleChange}
+                    value={
+                      form.name
+                    }
+                    onChange={
+                      handleChange
+                    }
                     maxLength={150}
                     required
-                    disabled={saving}
+                    disabled={
+                      saving
+                    }
                   />
                 </label>
 
+                {/* CLIENT */}
+
                 <label>
                   Client
+
                   <select
                     name="client"
-                    value={form.client}
-                    onChange={handleChange}
+                    value={
+                      form.client
+                    }
+                    onChange={
+                      handleChange
+                    }
                     required
                     disabled={
                       saving ||
@@ -847,30 +1315,45 @@ function EventManagement() {
                       )
                     }
                   >
+
                     <option value="">
                       Select client
                     </option>
 
-                    {clients.map((client) => (
-                      <option
-                        key={client._id}
-                        value={client._id}
-                      >
-                        {client.companyName ||
-                          client.name ||
-                          client.email ||
-                          client._id}
-                      </option>
-                    ))}
+                    {clients.map(
+                      (client) => (
+                        <option
+                          key={
+                            client._id
+                          }
+                          value={
+                            client._id
+                          }
+                        >
+                          {client.companyName ||
+                            client.name ||
+                            client.email ||
+                            client._id}
+                        </option>
+                      )
+                    )}
+
                   </select>
                 </label>
 
+                {/* VENUE */}
+
                 <label>
                   Venue
+
                   <select
                     name="venue"
-                    value={form.venue}
-                    onChange={handleChange}
+                    value={
+                      form.venue
+                    }
+                    onChange={
+                      handleChange
+                    }
                     required
                     disabled={
                       saving ||
@@ -881,6 +1364,7 @@ function EventManagement() {
                       )
                     }
                   >
+
                     <option value="">
                       Select venue
                     </option>
@@ -888,26 +1372,68 @@ function EventManagement() {
                     {locations.map(
                       (location) => (
                         <option
-                          key={location._id}
-                          value={location._id}
+                          key={
+                            location._id
+                          }
+                          value={
+                            location._id
+                          }
                         >
                           {location.name}
+
                           {location.city
                             ? ` — ${location.city}`
                             : ""}
                         </option>
                       )
                     )}
+
                   </select>
+
                 </label>
+
+                {/* ADD VENUE */}
+
+                {!editingEvent &&
+                  canMutate && (
+                    <div className="event-form-field--full">
+
+                      <button
+                        type="button"
+                        className="event-btn event-btn--secondary"
+                        onClick={
+                          openLocationForm
+                        }
+                        disabled={
+                          saving ||
+                          locationSaving
+                        }
+                      >
+                        + Add New Venue
+                      </button>
+
+                      <small>
+                        Can't find the venue?
+                        Create it here.
+                      </small>
+
+                    </div>
+                  )}
+
+                {/* START DATE */}
 
                 <label>
                   Start Date & Time
+
                   <input
                     type="datetime-local"
                     name="startDate"
-                    value={form.startDate}
-                    onChange={handleChange}
+                    value={
+                      form.startDate
+                    }
+                    onChange={
+                      handleChange
+                    }
                     required
                     disabled={
                       saving ||
@@ -919,14 +1445,21 @@ function EventManagement() {
                     }
                   />
                 </label>
+
+                {/* END DATE */}
 
                 <label>
                   End Date & Time
+
                   <input
                     type="datetime-local"
                     name="endDate"
-                    value={form.endDate}
-                    onChange={handleChange}
+                    value={
+                      form.endDate
+                    }
+                    onChange={
+                      handleChange
+                    }
                     required
                     disabled={
                       saving ||
@@ -939,28 +1472,50 @@ function EventManagement() {
                   />
                 </label>
 
+                {/* DESCRIPTION */}
+
                 <label className="event-form-field--full">
+
                   Description
+
                   <textarea
                     name="description"
-                    value={form.description}
-                    onChange={handleChange}
+                    value={
+                      form.description
+                    }
+                    onChange={
+                      handleChange
+                    }
                     maxLength={500}
                     rows={4}
-                    disabled={saving}
+                    disabled={
+                      saving
+                    }
                   />
+
                   <small>
-                    {form.description.length}/500
+                    {
+                      form.description
+                        .length
+                    }
+                    /500
                   </small>
+
                 </label>
+
               </div>
 
               <div className="event-modal__footer">
+
                 <button
                   type="button"
                   className="event-btn event-btn--secondary"
-                  onClick={closeForm}
-                  disabled={saving}
+                  onClick={
+                    closeForm
+                  }
+                  disabled={
+                    saving
+                  }
                 >
                   Cancel
                 </button>
@@ -968,7 +1523,9 @@ function EventManagement() {
                 <button
                   type="submit"
                   className="event-btn event-btn--primary"
-                  disabled={saving}
+                  disabled={
+                    saving
+                  }
                 >
                   {saving
                     ? "Saving..."
@@ -976,17 +1533,322 @@ function EventManagement() {
                     ? "Update Event"
                     : "Create Event"}
                 </button>
+
               </div>
+
             </form>
+
           </div>
+
         </div>
       )}
 
+      {/* =====================================================
+          ADD VENUE MODAL
+          ===================================================== */}
+
+      {showLocationForm && (
+        <div className="event-modal-backdrop">
+
+          <div className="event-modal">
+
+            <div className="event-modal__header">
+
+              <div>
+
+                <p className="event-page__eyebrow">
+                  Venue Setup
+                </p>
+
+                <h2>
+                  Add New Venue
+                </h2>
+
+                <p>
+                  Create the venue once and
+                  use it for this event.
+                </p>
+
+              </div>
+
+              <button
+                className="event-modal__close"
+                onClick={
+                  closeLocationForm
+                }
+                disabled={
+                  locationSaving
+                }
+              >
+                ×
+              </button>
+
+            </div>
+
+            <form
+              className="event-form"
+              onSubmit={
+                handleLocationSubmit
+              }
+            >
+
+              <div className="event-form-grid">
+
+                {/* LOCATION CODE */}
+
+                <label>
+                  Location Code
+
+                  <input
+                    name="locationCode"
+                    value={
+                      locationForm.locationCode
+                    }
+                    onChange={
+                      handleLocationChange
+                    }
+                    maxLength={50}
+                    placeholder="e.g. PUNE001"
+                    required
+                    disabled={
+                      locationSaving
+                    }
+                  />
+                </label>
+
+                {/* VENUE NAME */}
+
+                <label>
+                  Venue Name
+
+                  <input
+                    name="name"
+                    value={
+                      locationForm.name
+                    }
+                    onChange={
+                      handleLocationChange
+                    }
+                    placeholder="e.g. Pune Convention Centre"
+                    required
+                    disabled={
+                      locationSaving
+                    }
+                  />
+                </label>
+
+                {/* ADDRESS */}
+
+                <label className="event-form-field--full">
+                  Address
+
+                  <input
+                    name="address"
+                    value={
+                      locationForm.address
+                    }
+                    onChange={
+                      handleLocationChange
+                    }
+                    required
+                    disabled={
+                      locationSaving
+                    }
+                  />
+                </label>
+
+                {/* CITY */}
+
+                <label>
+                  City
+
+                  <input
+                    name="city"
+                    value={
+                      locationForm.city
+                    }
+                    onChange={
+                      handleLocationChange
+                    }
+                    required
+                    disabled={
+                      locationSaving
+                    }
+                  />
+                </label>
+
+                {/* STATE */}
+
+                <label>
+                  State
+
+                  <input
+                    name="state"
+                    value={
+                      locationForm.state
+                    }
+                    onChange={
+                      handleLocationChange
+                    }
+                    required
+                    disabled={
+                      locationSaving
+                    }
+                  />
+                </label>
+
+                {/* COUNTRY */}
+
+                <label>
+                  Country
+
+                  <input
+                    name="country"
+                    value={
+                      locationForm.country
+                    }
+                    onChange={
+                      handleLocationChange
+                    }
+                    disabled={
+                      locationSaving
+                    }
+                  />
+                </label>
+
+                {/* PINCODE */}
+
+                <label>
+                  Pincode
+
+                  <input
+                    name="pincode"
+                    value={
+                      locationForm.pincode
+                    }
+                    onChange={
+                      handleLocationChange
+                    }
+                    disabled={
+                      locationSaving
+                    }
+                  />
+                </label>
+
+                {/* LATITUDE */}
+
+                <label>
+                  Latitude
+
+                  <input
+                    type="number"
+                    step="any"
+                    name="latitude"
+                    value={
+                      locationForm.latitude
+                    }
+                    onChange={
+                      handleLocationChange
+                    }
+                    disabled={
+                      locationSaving
+                    }
+                  />
+                </label>
+
+                {/* LONGITUDE */}
+
+                <label>
+                  Longitude
+
+                  <input
+                    type="number"
+                    step="any"
+                    name="longitude"
+                    value={
+                      locationForm.longitude
+                    }
+                    onChange={
+                      handleLocationChange
+                    }
+                    disabled={
+                      locationSaving
+                    }
+                  />
+                </label>
+
+                {/* LANDMARK */}
+
+                <label className="event-form-field--full">
+
+                  Landmark
+
+                  <input
+                    name="landmark"
+                    value={
+                      locationForm.landmark
+                    }
+                    onChange={
+                      handleLocationChange
+                    }
+                    disabled={
+                      locationSaving
+                    }
+                  />
+
+                </label>
+
+              </div>
+
+              <div className="event-modal__footer">
+
+                <button
+                  type="button"
+                  className="event-btn event-btn--secondary"
+                  onClick={
+                    closeLocationForm
+                  }
+                  disabled={
+                    locationSaving
+                  }
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="event-btn event-btn--primary"
+                  disabled={
+                    locationSaving
+                  }
+                >
+                  {locationSaving
+                    ? "Creating..."
+                    : "Create Venue"}
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* =====================================================
+          EVENT DETAILS MODAL
+          ===================================================== */}
+
       {selectedEvent && (
         <div className="event-modal-backdrop">
+
           <div className="event-modal event-modal--details">
+
             <div className="event-modal__header">
+
               <div>
+
                 <p className="event-page__eyebrow">
                   Event Details
                 </p>
@@ -994,28 +1856,41 @@ function EventManagement() {
                 <h2>
                   {selectedEvent.name}
                 </h2>
+
               </div>
 
               <button
                 className="event-modal__close"
                 onClick={() =>
-                  setSelectedEvent(null)
+                  setSelectedEvent(
+                    null
+                  )
                 }
               >
                 ×
               </button>
+
             </div>
 
             <div className="event-details">
+
               <div>
-                <span>Event Code</span>
+                <span>
+                  Event Code
+                </span>
+
                 <strong>
-                  {selectedEvent.eventCode}
+                  {
+                    selectedEvent.eventCode
+                  }
                 </strong>
               </div>
 
               <div>
-                <span>Client</span>
+                <span>
+                  Client
+                </span>
+
                 <strong>
                   {getClientName(
                     selectedEvent
@@ -1024,7 +1899,10 @@ function EventManagement() {
               </div>
 
               <div>
-                <span>Venue</span>
+                <span>
+                  Venue
+                </span>
+
                 <strong>
                   {getVenueName(
                     selectedEvent
@@ -1033,7 +1911,10 @@ function EventManagement() {
               </div>
 
               <div>
-                <span>Start</span>
+                <span>
+                  Start
+                </span>
+
                 <strong>
                   {formatDate(
                     selectedEvent.startDate
@@ -1042,7 +1923,10 @@ function EventManagement() {
               </div>
 
               <div>
-                <span>End</span>
+                <span>
+                  End
+                </span>
+
                 <strong>
                   {formatDate(
                     selectedEvent.endDate
@@ -1051,35 +1935,59 @@ function EventManagement() {
               </div>
 
               <div>
-                <span>Status</span>
+                <span>
+                  Status
+                </span>
+
                 <strong
                   className={getStatusClass(
                     selectedEvent.status
                   )}
                 >
-                  {selectedEvent.status}
+                  {
+                    selectedEvent.status
+                  }
                 </strong>
               </div>
 
               <div className="event-details__description">
-                <span>Description</span>
+
+                <span>
+                  Description
+                </span>
+
                 <p>
-                  {selectedEvent.description ||
-                    "No description provided."}
+                  {
+                    selectedEvent.description ||
+                    "No description provided."
+                  }
                 </p>
+
               </div>
+
             </div>
+
           </div>
+
         </div>
       )}
 
+      {/* =====================================================
+          DELETE CONFIRMATION
+          ===================================================== */}
+
       {deleteTarget && (
         <div className="event-modal-backdrop">
+
           <div className="event-modal event-modal--small">
-            <h2>Delete Event?</h2>
+
+            <h2>
+              Delete Event?
+            </h2>
 
             <p>
-              Are you sure you want to delete{" "}
+              Are you sure you want to
+              delete{" "}
               <strong>
                 {deleteTarget.name}
               </strong>
@@ -1087,35 +1995,46 @@ function EventManagement() {
             </p>
 
             <p className="event-warning">
-              The backend will reject deletion
-              if operational data already exists
-              for this event.
+              The backend will reject
+              deletion if operational data
+              already exists for this event.
             </p>
 
             <div className="event-modal__footer">
+
               <button
                 className="event-btn event-btn--secondary"
                 onClick={() =>
                   setDeleteTarget(null)
                 }
-                disabled={saving}
+                disabled={
+                  saving
+                }
               >
                 Cancel
               </button>
 
               <button
                 className="event-btn event-btn--danger"
-                onClick={handleDelete}
-                disabled={saving}
+                onClick={
+                  handleDelete
+                }
+                disabled={
+                  saving
+                }
               >
                 {saving
                   ? "Deleting..."
                   : "Delete Event"}
               </button>
+
             </div>
+
           </div>
+
         </div>
       )}
+
     </div>
   );
 }

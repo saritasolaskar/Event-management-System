@@ -1,5 +1,4 @@
 import { NavLink } from "react-router-dom";
-
 import { useAuth } from "../auth/AuthContext";
 
 function Sidebar({
@@ -19,21 +18,22 @@ function Sidebar({
 
   return (
     <aside className="sidebar">
+
       <div className="sidebar__brand">
+
         <div className="sidebar__logo">
           EMS
         </div>
 
         <div>
           <strong>{title}</strong>
-
-          <span>
-            Management System
-          </span>
+          <span>Management System</span>
         </div>
+
       </div>
 
       <nav className="sidebar__nav">
+
         {visibleItems.map((item) => (
           <NavLink
             key={item.path}
@@ -53,12 +53,12 @@ function Sidebar({
               </span>
             )}
 
-            <span>
-              {item.label}
-            </span>
+            <span>{item.label}</span>
           </NavLink>
         ))}
+
       </nav>
+
     </aside>
   );
 }
