@@ -21,7 +21,7 @@ import Unauthorized from "../pages/auth/Unauthorized";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import ClientManagement from "../pages/admin/ClientManagement";
 import EventManagement from "../pages/admin/EventManagement";
-import LocationManagement from "../pages/admin/LocationManagement";
+import GuestManagement from "../pages/admin/GuestManagement";
 
 import { ROLES } from "../utils/roles";
 import { ROUTES } from "./routeConfig";
@@ -32,7 +32,8 @@ function ClientDashboard() {
     <div className="page-container">
       <h1>Client Dashboard</h1>
       <p>
-        Your event management dashboard will appear here.
+        Your event management dashboard will
+        appear here.
       </p>
     </div>
   );
@@ -43,7 +44,8 @@ function ClientEvents() {
     <div className="page-container">
       <h1>My Events</h1>
       <p>
-        Client events will be loaded from the API.
+        Client events will be loaded from the
+        API.
       </p>
     </div>
   );
@@ -54,7 +56,8 @@ function ClientInvoices() {
     <div className="page-container">
       <h1>Invoices</h1>
       <p>
-        Client invoices will be loaded from the API.
+        Client invoices will be loaded from the
+        API.
       </p>
     </div>
   );
@@ -65,8 +68,8 @@ function DriverDashboard() {
     <div className="page-container">
       <h1>Driver Dashboard</h1>
       <p>
-        Driver functionality will be connected to the
-        backend in the driver module.
+        Driver functionality will be connected
+        to the backend in the driver module.
       </p>
     </div>
   );
@@ -77,7 +80,7 @@ function AppRoutes() {
     <BrowserRouter>
       <Routes>
 
-        {/* Public routes */}
+        {/* Public */}
 
         <Route element={<AuthLayout />}>
 
@@ -103,14 +106,12 @@ function AppRoutes() {
           element={<Unauthorized />}
         />
 
-        {/* Root */}
-
         <Route
           path="/"
           element={<AuthRedirect />}
         />
 
-        {/* Admin / internal operations */}
+        {/* ADMIN / OPERATIONS */}
 
         <Route element={<ProtectedRoute />}>
 
@@ -146,7 +147,7 @@ function AppRoutes() {
                 element={<AdminDashboard />}
               />
 
-              {/* Client Management */}
+              {/* CLIENT MANAGEMENT */}
 
               <Route
                 element={
@@ -166,7 +167,7 @@ function AppRoutes() {
 
               </Route>
 
-              {/* Event Management */}
+              {/* EVENT MANAGEMENT */}
 
               <Route
                 element={
@@ -187,7 +188,7 @@ function AppRoutes() {
 
               </Route>
 
-              {/* Location Management */}
+              {/* GUEST MANAGEMENT */}
 
               <Route
                 element={
@@ -202,8 +203,8 @@ function AppRoutes() {
               >
 
                 <Route
-                  path={ROUTES.ADMIN_LOCATIONS}
-                  element={<LocationManagement />}
+                  path={ROUTES.ADMIN_GUESTS}
+                  element={<GuestManagement />}
                 />
 
               </Route>
@@ -214,14 +215,16 @@ function AppRoutes() {
 
         </Route>
 
-        {/* Client portal */}
+        {/* CLIENT PORTAL */}
 
         <Route element={<ProtectedRoute />}>
 
           <Route
             element={
               <RoleRoute
-                allowedRoles={[ROLES.CLIENT]}
+                allowedRoles={[
+                  ROLES.CLIENT,
+                ]}
               />
             }
           >
@@ -232,14 +235,18 @@ function AppRoutes() {
                 path={ROUTES.CLIENT}
                 element={
                   <Navigate
-                    to={ROUTES.CLIENT_DASHBOARD}
+                    to={
+                      ROUTES.CLIENT_DASHBOARD
+                    }
                     replace
                   />
                 }
               />
 
               <Route
-                path={ROUTES.CLIENT_DASHBOARD}
+                path={
+                  ROUTES.CLIENT_DASHBOARD
+                }
                 element={<ClientDashboard />}
               />
 
@@ -249,7 +256,9 @@ function AppRoutes() {
               />
 
               <Route
-                path={ROUTES.CLIENT_INVOICES}
+                path={
+                  ROUTES.CLIENT_INVOICES
+                }
                 element={<ClientInvoices />}
               />
 
@@ -259,14 +268,16 @@ function AppRoutes() {
 
         </Route>
 
-        {/* Driver portal */}
+        {/* DRIVER PORTAL */}
 
         <Route element={<ProtectedRoute />}>
 
           <Route
             element={
               <RoleRoute
-                allowedRoles={[ROLES.DRIVER]}
+                allowedRoles={[
+                  ROLES.DRIVER,
+                ]}
               />
             }
           >
@@ -277,15 +288,21 @@ function AppRoutes() {
                 path={ROUTES.DRIVER}
                 element={
                   <Navigate
-                    to={ROUTES.DRIVER_DASHBOARD}
+                    to={
+                      ROUTES.DRIVER_DASHBOARD
+                    }
                     replace
                   />
                 }
               />
 
               <Route
-                path={ROUTES.DRIVER_DASHBOARD}
-                element={<DriverDashboard />}
+                path={
+                  ROUTES.DRIVER_DASHBOARD
+                }
+                element={
+                  <DriverDashboard />
+                }
               />
 
             </Route>
@@ -294,7 +311,7 @@ function AppRoutes() {
 
         </Route>
 
-        {/* Catch-all */}
+        {/* CATCH ALL */}
 
         <Route
           path="*"
