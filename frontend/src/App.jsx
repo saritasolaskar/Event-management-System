@@ -11,6 +11,13 @@ import {
 import api from "./services/api";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Clients from "./pages/admin/Clients";
+import Events from "./pages/admin/Events";
+import Guests from "./pages/admin/Guests";
+
+import Vendors from "./pages/admin/Vendors";
+import Drivers from "./pages/admin/Drivers";
+import Vehicles from "./pages/admin/Vehicles";
+import Locations from "./pages/admin/Locations";
 const STORAGE_KEYS = {
   accessToken: "ems_accessToken",
   refreshToken: "ems_refreshToken",
@@ -24,6 +31,7 @@ const STORAGE_KEYS = {
 function getStoredUser() {
   try {
     const user = localStorage.getItem(STORAGE_KEYS.user);
+
     return user ? JSON.parse(user) : null;
   } catch {
     return null;
@@ -31,7 +39,9 @@ function getStoredUser() {
 }
 
 function getAccessToken() {
-  return localStorage.getItem(STORAGE_KEYS.accessToken);
+  return localStorage.getItem(
+    STORAGE_KEYS.accessToken
+  );
 }
 
 function clearAuth() {
@@ -93,12 +103,6 @@ export default function App() {
         return;
       }
 
-      /*
-        The backend uses access tokens with refresh tokens.
-        We keep the locally stored user and only attempt a
-        refresh when the access token is no longer usable.
-      */
-
       try {
         const refreshedToken =
           await api.auth.refreshAccessToken();
@@ -110,6 +114,7 @@ export default function App() {
         if (refreshedToken) {
           setUser(api.storage.getStoredUser());
         } else {
+          clearAuth();
           setUser(null);
         }
       } catch {
@@ -209,67 +214,42 @@ export default function App() {
             }
           />
 
-          <Route path="clients" element={<Clients />} />
-
           <Route
-            path="events"
-            element={
-              <PlaceholderPage
-                title="Events"
-                description="Event management workspace."
-              />
-            }
+            path="clients"
+            element={<Clients />}
           />
 
+          
           <Route
-            path="guests"
-            element={
-              <PlaceholderPage
-                title="Guests"
-                description="Guest management workspace."
-              />
-            }
-          />
+  path="events"
+  element={<Events user={user} />}
+/>
+
+          
+          <Route
+  path="guests"
+  element={<Guests user={user} />}
+/>
 
           <Route
-            path="vendors"
-            element={
-              <PlaceholderPage
-                title="Vendors"
-                description="Vendor management workspace."
-              />
-            }
-          />
+  path="vendors"
+  element={<Vendors user={user} />}
+/>
 
           <Route
-            path="drivers"
-            element={
-              <PlaceholderPage
-                title="Drivers"
-                description="Driver management workspace."
-              />
-            }
-          />
+  path="drivers"
+  element={<Drivers user={user} />}
+/>
 
           <Route
-            path="vehicles"
-            element={
-              <PlaceholderPage
-                title="Vehicles"
-                description="Vehicle management workspace."
-              />
-            }
-          />
+  path="vehicles"
+  element={<Vehicles user={user} />}
+/>
 
           <Route
-            path="locations"
-            element={
-              <PlaceholderPage
-                title="Locations"
-                description="Location management workspace."
-              />
-            }
-          />
+  path="locations"
+  element={<Locations user={user} />}
+/>
         </Route>
       </Route>
 
@@ -290,7 +270,9 @@ export default function App() {
       >
         <Route
           path="/operations"
-          element={<OperationsLayout user={user} />}
+          element={
+            <OperationsLayout user={user} />
+          }
         >
           <Route
             index
@@ -542,14 +524,10 @@ function LoginPage({ onLogin }) {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] =
-    useState("");
+  const [password, setPassword] = useState("");
 
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -571,14 +549,12 @@ function LoginPage({ onLogin }) {
     setLoading(true);
 
     try {
-      const authData =
-        await api.auth.login(
-          cleanEmail,
-          password
-        );
+      const authData = await api.auth.login(
+        cleanEmail,
+        password
+      );
 
-      const loggedInUser =
-        authData.user;
+      const loggedInUser = authData.user;
 
       if (!loggedInUser) {
         throw new Error(
@@ -589,9 +565,7 @@ function LoginPage({ onLogin }) {
       onLogin(loggedInUser);
 
       navigate(
-        getRoleHome(
-          loggedInUser.role
-        ),
+        getRoleHome(loggedInUser.role),
         {
           replace: true,
         }
@@ -673,9 +647,7 @@ function LoginPage({ onLogin }) {
               type="password"
               value={password}
               onChange={(event) =>
-                setPassword(
-                  event.target.value
-                )
+                setPassword(event.target.value)
               }
               placeholder="Enter your password"
               autoComplete="current-password"
@@ -739,8 +711,7 @@ function AppShell({
     }
   }
 
-  const currentPath =
-    location.pathname;
+  const currentPath = location.pathname;
 
   return (
     <div className="app">
@@ -1028,7 +999,6 @@ function DriverLayout({
   );
 }
 
-
 /* =========================================================
    OPERATIONS DASHBOARD
 ========================================================= */
@@ -1043,7 +1013,7 @@ function OperationsDashboard({ user }) {
           </p>
 
           <h1>
-            Welcome,{" "}
+            Welcome{" "}
             {getFirstName(user)}
           </h1>
 
@@ -1114,7 +1084,7 @@ function ClientDashboard({ user }) {
           </p>
 
           <h1>
-            Welcome,{" "}
+            Welcome{" "}
             {getFirstName(user)}
           </h1>
 
@@ -1186,7 +1156,7 @@ function DriverDashboard({ user }) {
           </p>
 
           <h1>
-            Welcome,{" "}
+            Welcome{" "}
             {getFirstName(user)}
           </h1>
 
