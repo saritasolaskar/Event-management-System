@@ -8,6 +8,7 @@ export const ROUTES = {
 
   ADMIN: "/admin",
   ADMIN_DASHBOARD: "/admin/dashboard",
+  ADMIN_EVENTS: "/admin/events",
 
   CLIENT: "/client",
   CLIENT_DASHBOARD: "/client/dashboard",
@@ -43,6 +44,15 @@ export const ADMIN_ROUTES = [
       ROLES.DISPATCHER,
       ROLES.ACCOUNTS,
       ROLES.SUPPORT,
+    ],
+  },
+  {
+    path: ROUTES.ADMIN_EVENTS,
+    label: "Events",
+    roles: [
+      ROLES.ADMIN,
+      ROLES.OPERATIONS_MANAGER,
+      ROLES.DISPATCHER,
     ],
   },
 ];
