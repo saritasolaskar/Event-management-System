@@ -22,7 +22,7 @@ import { ROLES } from "../utils/roles";
 import { ROUTES } from "./routeConfig";
 import { AuthRedirect } from "./routeGuards";
 
-import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminDashboard from "../pages/admin/AdminDashboard";
 
 function ClientDashboard() {
   return (
