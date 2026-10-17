@@ -1,3 +1,4 @@
+
 import {
   BrowserRouter,
   Navigate,
@@ -46,6 +47,7 @@ function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Authentication */}
         <Route element={<AuthLayout />}>
           <Route path={ROUTES.LOGIN} element={<Login />} />
           <Route path={ROUTES.REGISTER} element={<Register />} />
@@ -79,7 +81,10 @@ function AppRoutes() {
               <Route
                 path={ROUTES.ADMIN}
                 element={
-                  <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />
+                  <Navigate
+                    to={ROUTES.ADMIN_DASHBOARD}
+                    replace
+                  />
                 }
               />
 
@@ -88,10 +93,14 @@ function AppRoutes() {
                 element={<AdminDashboard />}
               />
 
+              {/* Admin and operations manager */}
               <Route
                 element={
                   <RoleRoute
-                    allowedRoles={[ROLES.ADMIN, ROLES.OPERATIONS_MANAGER]}
+                    allowedRoles={[
+                      ROLES.ADMIN,
+                      ROLES.OPERATIONS_MANAGER,
+                    ]}
                   />
                 }
               >
@@ -99,16 +108,29 @@ function AppRoutes() {
                   path={ROUTES.ADMIN_CLIENTS}
                   element={<ClientManagement />}
                 />
+
                 <Route
                   path={ROUTES.ADMIN_LOCATIONS}
                   element={<LocationManagement />}
                 />
+
                 <Route
                   path={ROUTES.ADMIN_VENDORS}
                   element={<VendorManagement />}
                 />
+
+                <Route
+                  path={ROUTES.ADMIN_DRIVERS}
+                  element={<DriverManagement />}
+                />
+
+                <Route
+                  path={ROUTES.ADMIN_VEHICLE_ASSIGNMENTS}
+                  element={<VehicleAssignmentManagement />}
+                />
               </Route>
 
+              {/* Admin, operations manager and dispatcher */}
               <Route
                 element={
                   <RoleRoute
@@ -124,38 +146,25 @@ function AppRoutes() {
                   path={ROUTES.ADMIN_EVENTS}
                   element={<EventManagement />}
                 />
+
                 <Route
                   path={ROUTES.ADMIN_GUESTS}
                   element={<GuestManagement />}
                 />
+
                 <Route
                   path={ROUTES.ADMIN_VEHICLES}
                   element={<VehicleManagement />}
                 />
+
                 <Route
                   path={ROUTES.ADMIN_EVENT_VEHICLES}
                   element={<EventVehicleManagement />}
                 />
+
                 <Route
                   path={ROUTES.ADMIN_GUEST_ASSIGNMENTS}
                   element={<GuestAssignmentManagement />}
-                />
-                <Route
-                  path={ROUTES.ADMIN_DRIVERS}
-                  element={<DriverManagement />}
-                />
-              </Route>
-
-              <Route
-                element={
-                  <RoleRoute
-                    allowedRoles={[ROLES.ADMIN, ROLES.OPERATIONS_MANAGER]}
-                  />
-                }
-              >
-                <Route
-                  path={ROUTES.ADMIN_VEHICLE_ASSIGNMENTS}
-                  element={<VehicleAssignmentManagement />}
                 />
               </Route>
             </Route>
@@ -164,22 +173,32 @@ function AppRoutes() {
 
         {/* Client portal */}
         <Route element={<ProtectedRoute />}>
-          <Route element={<RoleRoute allowedRoles={[ROLES.CLIENT]} />}>
+          <Route
+            element={
+              <RoleRoute allowedRoles={[ROLES.CLIENT]} />
+            }
+          >
             <Route element={<ClientLayout />}>
               <Route
                 path={ROUTES.CLIENT}
                 element={
-                  <Navigate to={ROUTES.CLIENT_DASHBOARD} replace />
+                  <Navigate
+                    to={ROUTES.CLIENT_DASHBOARD}
+                    replace
+                  />
                 }
               />
+
               <Route
                 path={ROUTES.CLIENT_DASHBOARD}
                 element={<ClientDashboard />}
               />
+
               <Route
                 path={ROUTES.CLIENT_EVENTS}
                 element={<ClientEvents />}
               />
+
               <Route
                 path={ROUTES.CLIENT_INVOICES}
                 element={<ClientInvoices />}
@@ -190,14 +209,22 @@ function AppRoutes() {
 
         {/* Driver portal */}
         <Route element={<ProtectedRoute />}>
-          <Route element={<RoleRoute allowedRoles={[ROLES.DRIVER]} />}>
+          <Route
+            element={
+              <RoleRoute allowedRoles={[ROLES.DRIVER]} />
+            }
+          >
             <Route element={<DriverLayout />}>
               <Route
                 path={ROUTES.DRIVER}
                 element={
-                  <Navigate to={ROUTES.DRIVER_DASHBOARD} replace />
+                  <Navigate
+                    to={ROUTES.DRIVER_DASHBOARD}
+                    replace
+                  />
                 }
               />
+
               <Route
                 path={ROUTES.DRIVER_DASHBOARD}
                 element={<DriverDashboard />}
@@ -206,6 +233,7 @@ function AppRoutes() {
           </Route>
         </Route>
 
+        {/* Unknown routes */}
         <Route
           path="*"
           element={<Navigate to="/" replace />}
