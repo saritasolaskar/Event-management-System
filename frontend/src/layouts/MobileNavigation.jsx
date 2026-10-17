@@ -1,10 +1,22 @@
+
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 
 function MobileNavigation({
   items = [],
   isOpen,
   onClose,
 }) {
+  const { user } = useAuth();
+
+  const visibleItems = items.filter((item) => {
+    if (!item.roles || item.roles.length === 0) {
+      return true;
+    }
+
+    return item.roles.includes(user?.role);
+  });
+
   if (!isOpen) {
     return null;
   }
@@ -30,7 +42,7 @@ function MobileNavigation({
         </div>
 
         <nav>
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
