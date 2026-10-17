@@ -219,7 +219,7 @@ const validateVehicleForAssignment = async (
         !(
             options.allowExistingAssignmentDriver &&
             vehicleDriverId ===
-                getId(options.existingAssignmentDriverId)
+            getId(options.existingAssignmentDriverId)
         )
     ) {
         throw new AppError(
@@ -818,7 +818,7 @@ const updateVehicleAssignment = async (
                             allowAvailable: true,
                             allowExistingAssignmentDriver: true,
                             existingAssignmentDriverId:
-                                newDriverId === oldDriverId
+                                newVehicleId === oldVehicleId
                                     ? oldDriverId
                                     : null,
                         }
