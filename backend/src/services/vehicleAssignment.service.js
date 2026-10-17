@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 
@@ -41,12 +42,6 @@ const {
 } = require("../constants/status");
 
 
-/**
- * Generate a unique Vehicle Assignment code.
- *
- * Example:
- * VA-20261002-A7F39C21
- */
 const generateAssignmentCode = () => {
     const datePart = new Date()
         .toISOString()
@@ -189,6 +184,35 @@ const validateVehicleForAssignment = async (
         throw new AppError(
             "Selected vehicle is assigned to a different driver.",
             409
+        );
+    }
+
+    return vehicle;
+};
+
+
+/**
+ * Ensure the vehicle is registered for the event
+ * before creating or updating its duty assignment.
+ */
+const validateVehicleRegisteredForEvent = (
+    vehicle,
+    eventId
+) => {
+    const registeredEvents =
+        vehicle.eventsUsedFor || [];
+
+    const isRegistered =
+        registeredEvents.some(
+            (registeredEventId) =>
+                getId(registeredEventId) ===
+                getId(eventId)
+        );
+
+    if (!isRegistered) {
+        throw new AppError(
+            "Selected vehicle is not registered for this event.",
+            400
         );
     }
 
@@ -361,6 +385,12 @@ const createVehicleAssignment = async (
                         data.driver,
                         session
                     );
+
+                // NEW: The vehicle must be registered for this event.
+                validateVehicleRegisteredForEvent(
+                    vehicle,
+                    event._id
+                );
 
                 await validateReportingLocation(
                     data.reportingLocation,
@@ -620,10 +650,17 @@ const updateVehicleAssignment = async (
         effectiveVehicleId
     );
 
-    await validateVehicleForAssignment(
-        effectiveVehicleId,
-        vendorId,
-        effectiveDriverId
+    const updatedVehicle =
+        await validateVehicleForAssignment(
+            effectiveVehicleId,
+            vendorId,
+            effectiveDriverId
+        );
+
+    // NEW: Keep the vehicle registered for the assignment's event.
+    validateVehicleRegisteredForEvent(
+        updatedVehicle,
+        assignment.event?._id || assignment.event
     );
 
     if (updateData.driver) {
@@ -705,7 +742,6 @@ const updateVehicleAssignment = async (
     try {
         await session.withTransaction(
             async () => {
-
                 updatedAssignment =
                     await vehicleAssignmentRepository.updateByIdAndStatus(
                         id,
