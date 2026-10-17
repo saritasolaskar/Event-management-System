@@ -24,9 +24,9 @@ import EventManagement from "../pages/admin/EventManagement";
 import GuestManagement from "../pages/admin/GuestManagement";
 import VehicleManagement from "../pages/admin/VehicleManagement";
 import EventVehicleManagement
-  from "../pages/admin/EventVehicleManagement";
+    from "../pages/admin/EventVehicleManagement";
 import DriverDashboard from "../pages/driver/DriverPortalPages";
-  import {
+import {
     ClientDashboard,
     ClientEvents,
     ClientInvoices,
@@ -35,7 +35,8 @@ import DriverDashboard from "../pages/driver/DriverPortalPages";
 import { ROLES } from "../utils/roles";
 import { ROUTES } from "./routeConfig";
 import { AuthRedirect } from "./routeGuards";
-
+import VehicleAssignmentManagement
+    from "../pages/admin/VehicleAssignmentManagement";
 
 
 
@@ -107,6 +108,22 @@ function AppRoutes() {
                             />
 
                             <Route
+                                element={
+                                    <RoleRoute
+                                        allowedRoles={[
+                                            ROLES.ADMIN,
+                                            ROLES.OPERATIONS_MANAGER,
+                                        ]}
+                                    />
+                                }
+                            >
+                                <Route
+                                    path={ROUTES.ADMIN_VEHICLE_ASSIGNMENTS}
+                                    element={<VehicleAssignmentManagement />}
+                                />
+                            </Route>
+
+                            <Route
                                 path={ROUTES.ADMIN_DASHBOARD}
                                 element={<AdminDashboard />}
                             />
@@ -136,33 +153,33 @@ function AppRoutes() {
 
                             {/* VEHICLES */}
 
-<Route
-  element={
-    <RoleRoute
-      allowedRoles={[
-        ROLES.ADMIN,
-        ROLES.OPERATIONS_MANAGER,
-        ROLES.DISPATCHER,
-      ]}
-    />
-  }
->
-  <Route
-    path={ROUTES.ADMIN_VEHICLES}
-    element={
-      <VehicleManagement />
-    }
-  />
+                            <Route
+                                element={
+                                    <RoleRoute
+                                        allowedRoles={[
+                                            ROLES.ADMIN,
+                                            ROLES.OPERATIONS_MANAGER,
+                                            ROLES.DISPATCHER,
+                                        ]}
+                                    />
+                                }
+                            >
+                                <Route
+                                    path={ROUTES.ADMIN_VEHICLES}
+                                    element={
+                                        <VehicleManagement />
+                                    }
+                                />
 
-  <Route
-    path={
-      ROUTES.ADMIN_EVENT_VEHICLES
-    }
-    element={
-      <EventVehicleManagement />
-    }
-  />
-</Route>
+                                <Route
+                                    path={
+                                        ROUTES.ADMIN_EVENT_VEHICLES
+                                    }
+                                    element={
+                                        <EventVehicleManagement />
+                                    }
+                                />
+                            </Route>
 
                             {/* EVENT MANAGEMENT */}
 
