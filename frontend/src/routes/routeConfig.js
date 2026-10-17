@@ -1,3 +1,4 @@
+
 import { ROLES } from "../utils/roles";
 
 export const ROUTES = {
@@ -11,13 +12,9 @@ export const ROUTES = {
   ADMIN_CLIENTS: "/admin/clients",
   ADMIN_EVENTS: "/admin/events",
   ADMIN_GUESTS: "/admin/guests",
-  ADMIN_EVENT_VEHICLES:
-  "/admin/events/:eventId/vehicles",
-ADMIN_VEHICLES:
-  "/admin/vehicles",
+  ADMIN_VEHICLES: "/admin/vehicles",
+  ADMIN_EVENT_VEHICLES: "/admin/events/:eventId/vehicles",
 
-ADMIN_EVENT_VEHICLES:
-  "/admin/events/:eventId/vehicles",
   CLIENT: "/client",
   CLIENT_DASHBOARD: "/client/dashboard",
   CLIENT_EVENTS: "/client/events",
@@ -34,33 +31,17 @@ export const ROLE_HOME = {
   [ROLES.DISPATCHER]: ROUTES.ADMIN_DASHBOARD,
   [ROLES.ACCOUNTS]: ROUTES.ADMIN_DASHBOARD,
   [ROLES.SUPPORT]: ROUTES.ADMIN_DASHBOARD,
-
   [ROLES.CLIENT]: ROUTES.CLIENT_DASHBOARD,
   [ROLES.DRIVER]: ROUTES.DRIVER_DASHBOARD,
-
   [ROLES.VENDOR]: ROUTES.UNAUTHORIZED,
 };
 
 export const ADMIN_ROUTES = [
   {
-  path: ROUTES.ADMIN_VEHICLES,
-  label: "Vehicles",
-  roles: [
-    ROLES.ADMIN,
-    ROLES.OPERATIONS_MANAGER,
-    ROLES.DISPATCHER,
-  ],
-},
-
-  {
     path: ROUTES.ADMIN_CLIENTS,
     label: "Clients",
-    roles: [
-      ROLES.ADMIN,
-      ROLES.OPERATIONS_MANAGER,
-    ],
+    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
   },
-
   {
     path: ROUTES.ADMIN_EVENTS,
     label: "Events",
@@ -70,7 +51,6 @@ export const ADMIN_ROUTES = [
       ROLES.DISPATCHER,
     ],
   },
-
   {
     path: ROUTES.ADMIN_GUESTS,
     label: "Guests",
@@ -80,7 +60,6 @@ export const ADMIN_ROUTES = [
       ROLES.DISPATCHER,
     ],
   },
-
   {
     path: ROUTES.ADMIN_VEHICLES,
     label: "Vehicles",
@@ -98,13 +77,11 @@ export const CLIENT_ROUTES = [
     label: "Dashboard",
     roles: [ROLES.CLIENT],
   },
-
   {
     path: ROUTES.CLIENT_EVENTS,
     label: "My Events",
     roles: [ROLES.CLIENT],
   },
-
   {
     path: ROUTES.CLIENT_INVOICES,
     label: "Invoices",

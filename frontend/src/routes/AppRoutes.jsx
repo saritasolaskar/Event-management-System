@@ -26,45 +26,17 @@ import VehicleManagement from "../pages/admin/VehicleManagement";
 import EventVehicleManagement
   from "../pages/admin/EventVehicleManagement";
 
+  import {
+    ClientDashboard,
+    ClientEvents,
+    ClientInvoices,
+} from "../pages/client/ClientPortalPages";
+
 import { ROLES } from "../utils/roles";
 import { ROUTES } from "./routeConfig";
 import { AuthRedirect } from "./routeGuards";
 
-function ClientDashboard() {
-    return (
-        <div className="page-container">
-            <h1>Client Dashboard</h1>
-            <p>
-                Your event management dashboard will
-                appear here.
-            </p>
-        </div>
-    );
-}
 
-function ClientEvents() {
-    return (
-        <div className="page-container">
-            <h1>My Events</h1>
-            <p>
-                Client events will be loaded from the
-                API.
-            </p>
-        </div>
-    );
-}
-
-function ClientInvoices() {
-    return (
-        <div className="page-container">
-            <h1>Invoices</h1>
-            <p>
-                Client invoices will be loaded from the
-                API.
-            </p>
-        </div>
-    );
-}
 
 function DriverDashboard() {
     return (
