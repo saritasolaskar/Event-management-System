@@ -1,17 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-import { useAuth } from "../../auth/AuthContext";
+import { useParams, useNavigate } from "react-router-dom";
 
 import {
-  getVehicles,
+  getVehiclesByEvent,
   createVehicle,
-  updateVehicle,
-  deleteVehicle,
-  updateVehicleStatus,
+  importEventVehicles,
 } from "../../api/vehicle.api";
 
-import { getDrivers } from "../../api/driver.api";
 import { getVendors } from "../../api/vendor.api";
+import { getDrivers } from "../../api/driver.api";
+import { getEvents } from "../../api/event.api";
 
 import "../../styles/vehicle-management.css";
 
@@ -33,14 +36,6 @@ const FUEL_TYPES = [
   "HYBRID",
 ];
 
-const VEHICLE_STATUSES = [
-  "AVAILABLE",
-  "ASSIGNED",
-  "ON_DUTY",
-  "MAINTENANCE",
-  "INACTIVE",
-];
-
 const emptyForm = {
   vehicleNumber: "",
   vehicleType: "SEDAN",
@@ -51,15 +46,9 @@ const emptyForm = {
   seatingCapacity: "",
   vendor: "",
   currentDriver: "",
-  rcExpiry: "",
-  insuranceExpiry: "",
-  permitExpiry: "",
-  fitnessExpiry: "",
-  pucExpiry: "",
-  gpsEnabled: false,
 };
 
-const unwrapResponse = (response) => {
+function unwrapResponse(response) {
   if (response?.data?.data !== undefined) {
     return response.data.data;
   }
@@ -69,9 +58,9 @@ const unwrapResponse = (response) => {
   }
 
   return response;
-};
+}
 
-const getId = (value) => {
+function getId(value) {
   if (!value) {
     return "";
   }
@@ -81,9 +70,9 @@ const getId = (value) => {
   }
 
   return value;
-};
+}
 
-const getVendorName = (vehicle) => {
+function getVendorName(vehicle) {
   if (!vehicle?.vendor) {
     return "-";
   }
@@ -97,122 +86,59 @@ const getVendorName = (vehicle) => {
   }
 
   return vehicle.vendor;
-};
+}
 
-const getDriverName = (vehicle) => {
+function getDriverName(vehicle) {
   if (!vehicle?.currentDriver) {
     return "Unassigned";
   }
 
   if (typeof vehicle.currentDriver === "object") {
-    return [
-      vehicle.currentDriver.firstName,
-      vehicle.currentDriver.lastName,
-    ]
-      .filter(Boolean)
-      .join(" ") || "Assigned";
+    return (
+      [
+        vehicle.currentDriver.firstName,
+        vehicle.currentDriver.lastName,
+      ]
+        .filter(Boolean)
+        .join(" ") || "Assigned"
+    );
   }
 
   return vehicle.currentDriver;
-};
+}
 
-const formatDate = (date) => {
-  if (!date) {
-    return "-";
-  }
+function getErrorMessage(error) {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    "Something went wrong."
+  );
+}
 
-  const parsed = new Date(date);
+function EventVehicleManagement() {
+  const { eventId } = useParams();
+  const navigate = useNavigate();
 
-  if (Number.isNaN(parsed.getTime())) {
-    return "-";
-  }
-
-  return parsed.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
-
-const toDateInput = (date) => {
-  if (!date) {
-    return "";
-  }
-
-  const parsed = new Date(date);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-
-  return parsed.toISOString().split("T")[0];
-};
-
-function VehicleManagement() {
-  const { user } = useAuth();
-
+  const [event, setEvent] = useState(null);
   const [vehicles, setVehicles] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [drivers, setDrivers] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [typeFilter, setTypeFilter] = useState("ALL");
 
   const [showForm, setShowForm] = useState(false);
-  const [showView, setShowView] = useState(false);
-
-  const [editingVehicle, setEditingVehicle] = useState(null);
-  const [viewingVehicle, setViewingVehicle] = useState(null);
+  const [showImport, setShowImport] = useState(false);
 
   const [form, setForm] = useState(emptyForm);
-
-  const isAdmin =
-    user?.role === "ADMIN" ||
-    user?.role === "SUPER_ADMIN";
-
-  const canManage =
-    isAdmin ||
-    user?.role === "OPERATIONS_MANAGER";
-
-  const canDelete = isAdmin;
-
-  const extractList = (response) => {
-    const data = unwrapResponse(response);
-
-    if (Array.isArray(data)) {
-      return data;
-    }
-
-    if (Array.isArray(data?.vehicles)) {
-      return data.vehicles;
-    }
-
-    if (Array.isArray(data?.vendors)) {
-      return data.vendors;
-    }
-
-    if (Array.isArray(data?.drivers)) {
-      return data.drivers;
-    }
-
-    return [];
-  };
-
-  const getErrorMessage = (err) => {
-    return (
-      err?.response?.data?.message ||
-      err?.response?.data?.error ||
-      err?.message ||
-      "Something went wrong."
-    );
-  };
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -220,42 +146,85 @@ function VehicleManagement() {
 
     try {
       const [
-        vehiclesResponse,
-        vendorsResponse,
-        driversResponse,
+        eventResponse,
+        vehicleResponse,
+        vendorResponse,
+        driverResponse,
       ] = await Promise.all([
-        getVehicles(),
+        getEvents(),
+        getVehiclesByEvent(eventId),
         getVendors(),
         getDrivers(),
       ]);
 
-      setVehicles(extractList(vehiclesResponse));
-      setVendors(extractList(vendorsResponse));
-      setDrivers(extractList(driversResponse));
-    } catch (err) {
-      setError(getErrorMessage(err));
+      const eventData =
+        unwrapResponse(eventResponse);
+
+      const vehicleData =
+        unwrapResponse(vehicleResponse);
+
+      const vendorData =
+        unwrapResponse(vendorResponse);
+
+      const driverData =
+        unwrapResponse(driverResponse);
+
+      const events = Array.isArray(eventData)
+        ? eventData
+        : [];
+
+      const selectedEvent = events.find(
+        (item) => item._id === eventId
+      );
+
+      setEvent(selectedEvent || null);
+
+      setVehicles(
+        Array.isArray(vehicleData)
+          ? vehicleData
+          : []
+      );
+
+      setVendors(
+        Array.isArray(vendorData)
+          ? vendorData
+          : []
+      );
+
+      setDrivers(
+        Array.isArray(driverData)
+          ? driverData
+          : []
+      );
+    } catch (error) {
+      setError(
+        getErrorMessage(error)
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (eventId) {
+      loadData();
+    }
+  }, [eventId]);
 
   const filteredVehicles = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query =
+      search.trim().toLowerCase();
 
-    return vehicles.filter((vehicle) => {
-      const matchesSearch =
-        !query ||
+    if (!query) {
+      return vehicles;
+    }
+
+    return vehicles.filter(
+      (vehicle) =>
         vehicle.vehicleNumber
           ?.toLowerCase()
           .includes(query) ||
-        vehicle.brand
-          ?.toLowerCase()
-          .includes(query) ||
-        vehicle.model
+        vehicle.vehicleType
           ?.toLowerCase()
           .includes(query) ||
         getVendorName(vehicle)
@@ -263,362 +232,286 @@ function VehicleManagement() {
           .includes(query) ||
         getDriverName(vehicle)
           .toLowerCase()
-          .includes(query);
-
-      const matchesStatus =
-        statusFilter === "ALL" ||
-        vehicle.status === statusFilter;
-
-      const matchesType =
-        typeFilter === "ALL" ||
-        vehicle.vehicleType === typeFilter;
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesType
-      );
-    });
-  }, [
-    vehicles,
-    search,
-    statusFilter,
-    typeFilter,
-  ]);
-
-  const counts = useMemo(() => {
-    return {
-      total: vehicles.length,
-      available: vehicles.filter(
-        (vehicle) =>
-          vehicle.status === "AVAILABLE"
-      ).length,
-      assigned: vehicles.filter(
-        (vehicle) =>
-          vehicle.status === "ASSIGNED"
-      ).length,
-      onDuty: vehicles.filter(
-        (vehicle) =>
-          vehicle.status === "ON_DUTY"
-      ).length,
-      maintenance: vehicles.filter(
-        (vehicle) =>
-          vehicle.status === "MAINTENANCE"
-      ).length,
-    };
-  }, [vehicles]);
+          .includes(query)
+    );
+  }, [vehicles, search]);
 
   const resetForm = () => {
     setForm(emptyForm);
-    setEditingVehicle(null);
   };
 
-  const openCreate = () => {
-    resetForm();
-    setError("");
-    setSuccess("");
-    setShowForm(true);
-  };
-
-  const openEdit = (vehicle) => {
-    setEditingVehicle(vehicle);
-
-    setForm({
-      vehicleNumber:
-        vehicle.vehicleNumber || "",
-      vehicleType:
-        vehicle.vehicleType || "SEDAN",
-      brand: vehicle.brand || "",
-      model: vehicle.model || "",
-      manufactureYear:
-        vehicle.manufactureYear || "",
-      fuelType:
-        vehicle.fuelType || "DIESEL",
-      seatingCapacity:
-        vehicle.seatingCapacity || "",
-      vendor: getId(vehicle.vendor),
-      currentDriver:
-        getId(vehicle.currentDriver),
-      rcExpiry: toDateInput(vehicle.rcExpiry),
-      insuranceExpiry: toDateInput(
-        vehicle.insuranceExpiry
-      ),
-      permitExpiry: toDateInput(
-        vehicle.permitExpiry
-      ),
-      fitnessExpiry: toDateInput(
-        vehicle.fitnessExpiry
-      ),
-      pucExpiry: toDateInput(
-        vehicle.pucExpiry
-      ),
-      gpsEnabled:
-        Boolean(vehicle.gpsEnabled),
-    });
-
-    setError("");
-    setSuccess("");
-    setShowForm(true);
-  };
-
-  const closeForm = () => {
-    if (saving) {
-      return;
-    }
-
-    setShowForm(false);
-    resetForm();
-  };
-
-  const openView = (vehicle) => {
-    setViewingVehicle(vehicle);
-    setShowView(true);
-  };
-
-  const closeView = () => {
-    setViewingVehicle(null);
-    setShowView(false);
-  };
-
-  const handleChange = (event) => {
-    const { name, value, type, checked } =
-      event.target;
+  const handleFormChange = (event) => {
+    const {
+      name,
+      value,
+    } = event.target;
 
     setForm((previous) => ({
       ...previous,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : value,
+      [name]: value,
     }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleCreateVehicle =
+    async (event) => {
+      event.preventDefault();
 
-    setError("");
-    setSuccess("");
+      setError("");
+      setSuccess("");
 
-    if (!form.vehicleNumber.trim()) {
-      setError("Vehicle number is required.");
-      return;
-    }
-
-    if (!form.vehicleType) {
-      setError("Vehicle type is required.");
-      return;
-    }
-
-    if (!form.seatingCapacity) {
-      setError(
-        "Seating capacity is required."
-      );
-      return;
-    }
-
-    if (!form.vendor) {
-      setError("Vendor is required.");
-      return;
-    }
-
-    if (
-      Number(form.seatingCapacity) < 1
-    ) {
-      setError(
-        "Seating capacity must be at least 1."
-      );
-      return;
-    }
-
-    if (
-      form.manufactureYear &&
-      Number(form.manufactureYear) <
-        1980
-    ) {
-      setError(
-        "Manufacture year must be 1980 or later."
-      );
-      return;
-    }
-
-    const payload = {
-      vehicleNumber:
-        form.vehicleNumber.trim(),
-      vehicleType: form.vehicleType,
-      brand: form.brand.trim(),
-      model: form.model.trim(),
-      seatingCapacity:
-        Number(form.seatingCapacity),
-      vendor: form.vendor,
-      gpsEnabled: Boolean(
-        form.gpsEnabled
-      ),
-    };
-
-    if (form.manufactureYear) {
-      payload.manufactureYear =
-        Number(form.manufactureYear);
-    }
-
-    if (form.fuelType) {
-      payload.fuelType = form.fuelType;
-    }
-
-    if (form.currentDriver) {
-      payload.currentDriver =
-        form.currentDriver;
-    } else if (editingVehicle) {
-      payload.currentDriver = null;
-    }
-
-    if (form.rcExpiry) {
-      payload.rcExpiry = form.rcExpiry;
-    }
-
-    if (form.insuranceExpiry) {
-      payload.insuranceExpiry =
-        form.insuranceExpiry;
-    }
-
-    if (form.permitExpiry) {
-      payload.permitExpiry =
-        form.permitExpiry;
-    }
-
-    if (form.fitnessExpiry) {
-      payload.fitnessExpiry =
-        form.fitnessExpiry;
-    }
-
-    if (form.pucExpiry) {
-      payload.pucExpiry =
-        form.pucExpiry;
-    }
-
-    setSaving(true);
-
-    try {
-      if (editingVehicle) {
-        await updateVehicle(
-          editingVehicle._id,
-          payload
+      if (!form.vehicleNumber.trim()) {
+        setError(
+          "Vehicle number is required."
         );
+        return;
+      }
 
-        setSuccess(
-          "Vehicle updated successfully."
+      if (!form.vehicleType) {
+        setError(
+          "Vehicle type is required."
         );
-      } else {
+        return;
+      }
+
+      if (!form.seatingCapacity) {
+        setError(
+          "Seating capacity is required."
+        );
+        return;
+      }
+
+      if (!form.vendor) {
+        setError(
+          "Vendor is required."
+        );
+        return;
+      }
+
+      setSaving(true);
+
+      try {
+        const payload = {
+          vehicleNumber:
+            form.vehicleNumber
+              .trim()
+              .toUpperCase(),
+
+          vehicleType:
+            form.vehicleType,
+
+          seatingCapacity:
+            Number(
+              form.seatingCapacity
+            ),
+
+          vendor: form.vendor,
+
+          event: eventId,
+        };
+
+        if (form.brand.trim()) {
+          payload.brand =
+            form.brand.trim();
+        }
+
+        if (form.model.trim()) {
+          payload.model =
+            form.model.trim();
+        }
+
+        if (form.manufactureYear) {
+          payload.manufactureYear =
+            Number(
+              form.manufactureYear
+            );
+        }
+
+        if (form.fuelType) {
+          payload.fuelType =
+            form.fuelType;
+        }
+
+        if (form.currentDriver) {
+          payload.currentDriver =
+            form.currentDriver;
+        }
+
         await createVehicle(payload);
 
         setSuccess(
-          "Vehicle created successfully."
+          "Vehicle added to this event successfully."
         );
+
+        setShowForm(false);
+        resetForm();
+
+        await loadData();
+      } catch (error) {
+        setError(
+          getErrorMessage(error)
+        );
+      } finally {
+        setSaving(false);
+      }
+    };
+
+  const handleExcelImport =
+    async (event) => {
+      event.preventDefault();
+
+      setError("");
+      setSuccess("");
+
+      if (!selectedFile) {
+        setError(
+          "Please select an Excel file."
+        );
+        return;
       }
 
-      setShowForm(false);
-      resetForm();
+      const fileName =
+        selectedFile.name.toLowerCase();
 
-      await loadData();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  };
+      if (
+        !fileName.endsWith(".xlsx") &&
+        !fileName.endsWith(".xls")
+      ) {
+        setError(
+          "Only .xlsx and .xls files are allowed."
+        );
+        return;
+      }
 
-  const handleStatusChange = async (
-    vehicle,
-    status
-  ) => {
-    if (
-      !window.confirm(
-        `Change ${vehicle.vehicleNumber} status to ${status}?`
-      )
-    ) {
-      return;
-    }
+      setImporting(true);
 
-    setError("");
-    setSuccess("");
+      try {
+        const response =
+          await importEventVehicles(
+            eventId,
+            selectedFile
+          );
 
-    try {
-      await updateVehicleStatus(
-        vehicle._id,
-        status
-      );
+        const result =
+          unwrapResponse(response);
 
-      setSuccess(
-        "Vehicle status updated successfully."
-      );
+        setSuccess(
+          `Import completed. Imported: ${
+            result?.importedCount || 0
+          }, skipped: ${
+            result?.skippedCount || 0
+          }, failed: ${
+            result?.failedCount || 0
+          }.`
+        );
 
-      await loadData();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  };
+        setSelectedFile(null);
+        setShowImport(false);
 
-  const handleDelete = async (vehicle) => {
-    if (!canDelete) {
-      return;
-    }
+        await loadData();
+      } catch (error) {
+        setError(
+          getErrorMessage(error)
+        );
+      } finally {
+        setImporting(false);
+      }
+    };
 
-    const confirmed = window.confirm(
-      `Delete vehicle ${vehicle.vehicleNumber}?`
+  const handleFileChange = (event) => {
+    setSelectedFile(
+      event.target.files?.[0] || null
     );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setError("");
-    setSuccess("");
-
-    try {
-      await deleteVehicle(
-        vehicle._id
-      );
-
-      setSuccess(
-        "Vehicle deleted successfully."
-      );
-
-      await loadData();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
   };
 
-  const renderStatus = (status) => {
+  if (loading) {
     return (
-      <span
-        className={`vehicle-status vehicle-status--${status
-          ?.toLowerCase()
-          .replace("_", "-")}`}
-      >
-        {status || "-"}
-      </span>
+      <div className="vehicle-page">
+        <div className="vehicle-loading">
+          Loading event vehicles...
+        </div>
+      </div>
     );
-  };
+  }
+
+  if (!event) {
+    return (
+      <div className="vehicle-page">
+        <div className="vehicle-alert vehicle-alert--error">
+          Event not found.
+        </div>
+
+        <button
+          className="vehicle-btn vehicle-btn--secondary"
+          onClick={() =>
+            navigate("/admin/events")
+          }
+        >
+          Back to Events
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="vehicle-page">
+
       <div className="vehicle-page__header">
+
         <div>
-          <h1>Vehicle Management</h1>
+          <button
+            type="button"
+            className="vehicle-btn vehicle-btn--secondary"
+            onClick={() =>
+              navigate("/admin/events")
+            }
+            style={{
+              marginBottom: "12px",
+            }}
+          >
+            ← Back to Events
+          </button>
+
+          <h1>
+            Event Vehicles
+          </h1>
+
           <p>
-            Manage fleet vehicles, drivers,
-            vendors and compliance details.
+            {event.name}{" "}
+            <strong>
+              ({event.eventCode})
+            </strong>
           </p>
         </div>
 
-        {canManage && (
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            flexWrap: "wrap",
+          }}
+        >
           <button
+            type="button"
+            className="vehicle-btn vehicle-btn--secondary"
+            onClick={() =>
+              setShowImport(true)
+            }
+          >
+            Import Excel
+          </button>
+
+          <button
+            type="button"
             className="vehicle-btn vehicle-btn--primary"
-            onClick={openCreate}
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
           >
             + Add Vehicle
           </button>
-        )}
+        </div>
+
       </div>
 
       {error && (
@@ -634,631 +527,468 @@ function VehicleManagement() {
       )}
 
       <div className="vehicle-stats">
+
         <div className="vehicle-stat-card">
-          <span>Total Vehicles</span>
-          <strong>{counts.total}</strong>
+          <span>
+            Vehicles for this event
+          </span>
+
+          <strong>
+            {vehicles.length}
+          </strong>
         </div>
 
         <div className="vehicle-stat-card">
-          <span>Available</span>
-          <strong>{counts.available}</strong>
+          <span>
+            Available
+          </span>
+
+          <strong>
+            {
+              vehicles.filter(
+                (vehicle) =>
+                  vehicle.status ===
+                  "AVAILABLE"
+              ).length
+            }
+          </strong>
         </div>
 
         <div className="vehicle-stat-card">
-          <span>Assigned</span>
-          <strong>{counts.assigned}</strong>
+          <span>
+            Assigned
+          </span>
+
+          <strong>
+            {
+              vehicles.filter(
+                (vehicle) =>
+                  vehicle.status ===
+                  "ASSIGNED"
+              ).length
+            }
+          </strong>
         </div>
 
         <div className="vehicle-stat-card">
-          <span>On Duty</span>
-          <strong>{counts.onDuty}</strong>
+          <span>
+            On Duty
+          </span>
+
+          <strong>
+            {
+              vehicles.filter(
+                (vehicle) =>
+                  vehicle.status ===
+                  "ON_DUTY"
+              ).length
+            }
+          </strong>
         </div>
 
-        <div className="vehicle-stat-card">
-          <span>Maintenance</span>
-          <strong>{counts.maintenance}</strong>
-        </div>
       </div>
 
       <div className="vehicle-toolbar">
+
         <input
-          type="text"
+          type="search"
           placeholder="Search vehicle, vendor or driver..."
           value={search}
           onChange={(event) =>
-            setSearch(event.target.value)
+            setSearch(
+              event.target.value
+            )
           }
         />
 
-        <select
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(
-              event.target.value
-            )
-          }
-        >
-          <option value="ALL">
-            All Statuses
-          </option>
-
-          {VEHICLE_STATUSES.map(
-            (status) => (
-              <option
-                key={status}
-                value={status}
-              >
-                {status}
-              </option>
-            )
-          )}
-        </select>
-
-        <select
-          value={typeFilter}
-          onChange={(event) =>
-            setTypeFilter(
-              event.target.value
-            )
-          }
-        >
-          <option value="ALL">
-            All Vehicle Types
-          </option>
-
-          {VEHICLE_TYPES.map(
-            (type) => (
-              <option
-                key={type}
-                value={type}
-              >
-                {type.replaceAll(
-                  "_",
-                  " "
-                )}
-              </option>
-            )
-          )}
-        </select>
-
         <button
+          type="button"
           className="vehicle-btn vehicle-btn--secondary"
           onClick={loadData}
+          disabled={loading}
         >
           Refresh
         </button>
+
       </div>
 
       <div className="vehicle-table-card">
-        {loading ? (
-          <div className="vehicle-loading">
-            Loading vehicles...
-          </div>
-        ) : filteredVehicles.length ===
-          0 ? (
+
+        {filteredVehicles.length ===
+        0 ? (
           <div className="vehicle-empty">
-            <h3>No vehicles found</h3>
+
+            <h3>
+              No vehicles added
+            </h3>
+
             <p>
-              Try changing your search or
-              filters.
+              Add vehicles manually or
+              import the vendor vehicle
+              Excel sheet for this event.
             </p>
+
           </div>
         ) : (
           <div className="vehicle-table-wrapper">
+
             <table className="vehicle-table">
+
               <thead>
                 <tr>
-                  <th>Vehicle</th>
-                  <th>Type</th>
-                  <th>Vendor</th>
-                  <th>Driver</th>
-                  <th>Seats</th>
-                  <th>GPS</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th>
+                    Vehicle Number
+                  </th>
+
+                  <th>
+                    Type
+                  </th>
+
+                  <th>
+                    Seating
+                  </th>
+
+                  <th>
+                    Vendor
+                  </th>
+
+                  <th>
+                    Driver
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
+
                 {filteredVehicles.map(
                   (vehicle) => (
-                    <tr key={vehicle._id}>
-                      <td>
-                        <div className="vehicle-name">
-                          <strong>
-                            {
-                              vehicle.vehicleNumber
-                            }
-                          </strong>
-
-                          <span>
-                            {[
-                              vehicle.brand,
-                              vehicle.model,
-                            ]
-                              .filter(
-                                Boolean
-                              )
-                              .join(" ") ||
-                              "Vehicle"}
-                          </span>
-                        </div>
-                      </td>
+                    <tr
+                      key={
+                        vehicle._id
+                      }
+                    >
 
                       <td>
-                        {vehicle.vehicleType?.replaceAll(
-                          "_",
-                          " "
-                        )}
-                      </td>
-
-                      <td>
-                        {getVendorName(
-                          vehicle
-                        )}
-                      </td>
-
-                      <td>
-                        {getDriverName(
-                          vehicle
-                        )}
+                        <strong>
+                          {
+                            vehicle.vehicleNumber
+                          }
+                        </strong>
                       </td>
 
                       <td>
                         {
-                          vehicle.seatingCapacity
+                          vehicle.vehicleType
                         }
                       </td>
 
                       <td>
-                        {vehicle.gpsEnabled
-                          ? "Enabled"
-                          : "Disabled"}
+                        {
+                          vehicle.seatingCapacity ||
+                          "-"
+                        }
                       </td>
 
                       <td>
-                        {renderStatus(
-                          vehicle.status
-                        )}
+                        {
+                          getVendorName(
+                            vehicle
+                          )
+                        }
                       </td>
 
                       <td>
-                        <div className="vehicle-actions">
-                          <button
-                            className="vehicle-action vehicle-action--view"
-                            onClick={() =>
-                              openView(
-                                vehicle
-                              )
-                            }
-                          >
-                            View
-                          </button>
-
-                          {canManage && (
-                            <button
-                              className="vehicle-action vehicle-action--edit"
-                              onClick={() =>
-                                openEdit(
-                                  vehicle
-                                )
-                              }
-                            >
-                              Edit
-                            </button>
-                          )}
-
-                          {canManage && (
-                            <select
-                              className="vehicle-action-status"
-                              value={
-                                vehicle.status
-                              }
-                              onChange={(
-                                event
-                              ) =>
-                                handleStatusChange(
-                                  vehicle,
-                                  event
-                                    .target
-                                    .value
-                                )
-                              }
-                              disabled={
-                                vehicle.status ===
-                                "ON_DUTY"
-                              }
-                            >
-                              {VEHICLE_STATUSES.map(
-                                (
-                                  status
-                                ) => (
-                                  <option
-                                    key={
-                                      status
-                                    }
-                                    value={
-                                      status
-                                    }
-                                  >
-                                    {status}
-                                  </option>
-                                )
-                              )}
-                            </select>
-                          )}
-
-                          {canDelete && (
-                            <button
-                              className="vehicle-action vehicle-action--delete"
-                              onClick={() =>
-                                handleDelete(
-                                  vehicle
-                                )
-                              }
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
+                        {
+                          getDriverName(
+                            vehicle
+                          )
+                        }
                       </td>
+
+                      <td>
+                        <span
+                          className={`vehicle-status vehicle-status--${String(
+                            vehicle.status ||
+                              ""
+                          )
+                            .toLowerCase()
+                            .replace(
+                              "_",
+                              "-"
+                            )}`}
+                        >
+                          {
+                            vehicle.status ||
+                            "-"
+                          }
+                        </span>
+                      </td>
+
                     </tr>
                   )
                 )}
+
               </tbody>
+
             </table>
+
           </div>
         )}
+
       </div>
+
+      {/* ADD VEHICLE MODAL */}
 
       {showForm && (
         <div className="vehicle-modal-backdrop">
-          <div className="vehicle-modal vehicle-modal--large">
+
+          <div className="vehicle-modal">
+
             <div className="vehicle-modal__header">
+
               <div>
                 <h2>
-                  {editingVehicle
-                    ? "Edit Vehicle"
-                    : "Add Vehicle"}
+                  Add Vehicle
                 </h2>
 
                 <p>
-                  Enter the vehicle and
-                  compliance information.
+                  Add a vehicle specifically
+                  for this event.
                 </p>
               </div>
 
               <button
+                type="button"
                 className="vehicle-modal__close"
-                onClick={closeForm}
+                onClick={() =>
+                  setShowForm(false)
+                }
                 disabled={saving}
               >
                 ×
               </button>
+
             </div>
 
             <form
               className="vehicle-form"
-              onSubmit={handleSubmit}
+              onSubmit={
+                handleCreateVehicle
+              }
             >
-              <div className="vehicle-form-section">
-                <h3>Vehicle Information</h3>
 
-                <div className="vehicle-form-grid">
-                  <label>
-                    Vehicle Number *
-                    <input
-                      name="vehicleNumber"
-                      value={
-                        form.vehicleNumber
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      placeholder="MH12AB1234"
-                      required
-                    />
-                  </label>
+              <div className="vehicle-form-grid">
 
-                  <label>
-                    Vehicle Type *
-                    <select
-                      name="vehicleType"
-                      value={
-                        form.vehicleType
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      required
-                    >
-                      {VEHICLE_TYPES.map(
-                        (type) => (
-                          <option
-                            key={type}
-                            value={type}
-                          >
-                            {type.replaceAll(
-                              "_",
-                              " "
-                            )}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </label>
+                <label>
+                  Vehicle Number *
+                  <input
+                    name="vehicleNumber"
+                    value={
+                      form.vehicleNumber
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                    placeholder="MH12AB1234"
+                  />
+                </label>
 
-                  <label>
-                    Brand
-                    <input
-                      name="brand"
-                      value={form.brand}
-                      onChange={
-                        handleChange
-                      }
-                      placeholder="Toyota"
-                    />
-                  </label>
+                <label>
+                  Vehicle Type *
+                  <select
+                    name="vehicleType"
+                    value={
+                      form.vehicleType
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                  >
+                    {VEHICLE_TYPES.map(
+                      (type) => (
+                        <option
+                          key={type}
+                          value={type}
+                        >
+                          {type}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </label>
 
-                  <label>
-                    Model
-                    <input
-                      name="model"
-                      value={form.model}
-                      onChange={
-                        handleChange
-                      }
-                      placeholder="Innova Crysta"
-                    />
-                  </label>
+                <label>
+                  Seating Capacity *
+                  <input
+                    type="number"
+                    min="1"
+                    name="seatingCapacity"
+                    value={
+                      form.seatingCapacity
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                  />
+                </label>
 
-                  <label>
-                    Manufacture Year
-                    <input
-                      type="number"
-                      name="manufactureYear"
-                      value={
-                        form.manufactureYear
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      min="1980"
-                      max={
-                        new Date().getFullYear() +
-                        1
-                      }
-                    />
-                  </label>
+                <label>
+                  Vendor *
+                  <select
+                    name="vendor"
+                    value={
+                      form.vendor
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                  >
+                    <option value="">
+                      Select Vendor
+                    </option>
 
-                  <label>
-                    Fuel Type
-                    <select
-                      name="fuelType"
-                      value={
-                        form.fuelType
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    >
-                      {FUEL_TYPES.map(
-                        (type) => (
-                          <option
-                            key={type}
-                            value={type}
-                          >
-                            {type}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </label>
+                    {vendors.map(
+                      (vendor) => (
+                        <option
+                          key={
+                            vendor._id
+                          }
+                          value={
+                            vendor._id
+                          }
+                        >
+                          {
+                            vendor.companyName
+                          }
+                        </option>
+                      )
+                    )}
+                  </select>
+                </label>
 
-                  <label>
-                    Seating Capacity *
-                    <input
-                      type="number"
-                      name="seatingCapacity"
-                      value={
-                        form.seatingCapacity
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      min="1"
-                      required
-                    />
-                  </label>
+                <label>
+                  Driver
+                  <select
+                    name="currentDriver"
+                    value={
+                      form.currentDriver
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                  >
+                    <option value="">
+                      No driver
+                    </option>
 
-                  <label>
-                    Vendor *
-                    <select
-                      name="vendor"
-                      value={form.vendor}
-                      onChange={
-                        handleChange
-                      }
-                      required
-                    >
-                      <option value="">
-                        Select Vendor
-                      </option>
-
-                      {vendors.map(
-                        (vendor) => (
-                          <option
-                            key={
-                              vendor._id
-                            }
-                            value={
-                              vendor._id
-                            }
-                          >
-                            {
-                              vendor.companyName
-                            }
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </label>
-
-                  <label>
-                    Current Driver
-                    <select
-                      name="currentDriver"
-                      value={
-                        form.currentDriver
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    >
-                      <option value="">
-                        No Driver
-                      </option>
-
-                      {drivers
-                        .filter(
-                          (driver) =>
-                            driver.status ===
-                              "ACTIVE" ||
-                            getId(
-                              vehicleDriver(
-                                editingVehicle
+                    {drivers.map(
+                      (driver) => (
+                        <option
+                          key={
+                            driver._id
+                          }
+                          value={
+                            driver._id
+                          }
+                        >
+                          {
+                            [
+                              driver.firstName,
+                              driver.lastName,
+                            ]
+                              .filter(
+                                Boolean
                               )
-                            ) ===
-                              driver._id
-                        )
-                        .map(
-                          (driver) => (
-                            <option
-                              key={
-                                driver._id
-                              }
-                              value={
-                                driver._id
-                              }
-                            >
-                              {[
-                                driver.firstName,
-                                driver.lastName,
-                              ]
-                                .filter(
-                                  Boolean
-                                )
-                                .join(
-                                  " "
-                                )}
-                            </option>
-                          )
-                        )}
-                    </select>
-                  </label>
+                              .join(
+                                " "
+                              )
+                          }
+                        </option>
+                      )
+                    )}
+                  </select>
+                </label>
 
-                  <label className="vehicle-checkbox">
-                    <input
-                      type="checkbox"
-                      name="gpsEnabled"
-                      checked={
-                        form.gpsEnabled
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    />
+                <label>
+                  Brand
+                  <input
+                    name="brand"
+                    value={
+                      form.brand
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                  />
+                </label>
 
-                    <span>
-                      GPS Enabled
-                    </span>
-                  </label>
-                </div>
-              </div>
+                <label>
+                  Model
+                  <input
+                    name="model"
+                    value={
+                      form.model
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                  />
+                </label>
 
-              <div className="vehicle-form-section">
-                <h3>
-                  Compliance & Documents
-                </h3>
+                <label>
+                  Manufacture Year
+                  <input
+                    type="number"
+                    name="manufactureYear"
+                    value={
+                      form.manufactureYear
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                    min="1980"
+                    max="2100"
+                  />
+                </label>
 
-                <div className="vehicle-form-grid">
-                  <label>
-                    RC Expiry
-                    <input
-                      type="date"
-                      name="rcExpiry"
-                      value={
-                        form.rcExpiry
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    />
-                  </label>
+                <label>
+                  Fuel Type
+                  <select
+                    name="fuelType"
+                    value={
+                      form.fuelType
+                    }
+                    onChange={
+                      handleFormChange
+                    }
+                  >
+                    {FUEL_TYPES.map(
+                      (fuel) => (
+                        <option
+                          key={fuel}
+                          value={fuel}
+                        >
+                          {fuel}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </label>
 
-                  <label>
-                    Insurance Expiry
-                    <input
-                      type="date"
-                      name="insuranceExpiry"
-                      value={
-                        form.insuranceExpiry
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Permit Expiry
-                    <input
-                      type="date"
-                      name="permitExpiry"
-                      value={
-                        form.permitExpiry
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    Fitness Expiry
-                    <input
-                      type="date"
-                      name="fitnessExpiry"
-                      value={
-                        form.fitnessExpiry
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    />
-                  </label>
-
-                  <label>
-                    PUC Expiry
-                    <input
-                      type="date"
-                      name="pucExpiry"
-                      value={
-                        form.pucExpiry
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    />
-                  </label>
-                </div>
               </div>
 
               <div className="vehicle-form-actions">
+
                 <button
                   type="button"
                   className="vehicle-btn vehicle-btn--secondary"
-                  onClick={closeForm}
+                  onClick={() =>
+                    setShowForm(false)
+                  }
                   disabled={saving}
                 >
                   Cancel
@@ -1270,220 +1000,178 @@ function VehicleManagement() {
                   disabled={saving}
                 >
                   {saving
-                    ? "Saving..."
-                    : editingVehicle
-                    ? "Update Vehicle"
-                    : "Create Vehicle"}
+                    ? "Adding..."
+                    : "Add Vehicle"}
                 </button>
+
               </div>
+
             </form>
+
           </div>
+
         </div>
       )}
 
-      {showView &&
-        viewingVehicle && (
-          <div className="vehicle-modal-backdrop">
-            <div className="vehicle-modal">
-              <div className="vehicle-modal__header">
-                <div>
-                  <h2>
-                    Vehicle Details
-                  </h2>
+      {/* EXCEL IMPORT MODAL */}
 
-                  <p>
-                    {
-                      viewingVehicle.vehicleNumber
-                    }
-                  </p>
-                </div>
+      {showImport && (
+        <div className="vehicle-modal-backdrop">
 
-                <button
-                  className="vehicle-modal__close"
-                  onClick={closeView}
+          <div className="vehicle-modal">
+
+            <div className="vehicle-modal__header">
+
+              <div>
+                <h2>
+                  Import Event Vehicles
+                </h2>
+
+                <p>
+                  Upload the vehicle list
+                  received from the vendor.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="vehicle-modal__close"
+                onClick={() =>
+                  setShowImport(false)
+                }
+                disabled={importing}
+              >
+                ×
+              </button>
+
+            </div>
+
+            <form
+              className="vehicle-form"
+              onSubmit={
+                handleExcelImport
+              }
+            >
+
+              <div
+                style={{
+                  background:
+                    "#f9fafb",
+                  border:
+                    "1px solid #e5e7eb",
+                  borderRadius:
+                    "10px",
+                  padding:
+                    "16px",
+                  marginBottom:
+                    "18px",
+                }}
+              >
+                <strong>
+                  Excel columns
+                </strong>
+
+                <p
+                  style={{
+                    margin:
+                      "8px 0 0",
+                    color:
+                      "#6b7280",
+                    fontSize:
+                      "13px",
+                    lineHeight:
+                      "1.6",
+                  }}
                 >
-                  ×
-                </button>
+                  Required: Vehicle Number,
+                  Vehicle Type, Vendor,
+                  Seating Capacity.
+                  <br />
+                  Optional: Driver Phone,
+                  Brand, Model,
+                  Manufacture Year,
+                  Fuel Type.
+                </p>
               </div>
 
-              <div className="vehicle-details">
-                <div className="vehicle-detail">
-                  <span>Vehicle Number</span>
+              <label
+                style={{
+                  display:
+                    "flex",
+                  flexDirection:
+                    "column",
+                  gap: "8px",
+                  fontWeight:
+                    600,
+                  fontSize:
+                    "13px",
+                }}
+              >
+                Excel File
+
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={
+                    handleFileChange
+                  }
+                />
+              </label>
+
+              {selectedFile && (
+                <p
+                  style={{
+                    marginTop:
+                      "12px",
+                    fontSize:
+                      "13px",
+                    color:
+                      "#374151",
+                  }}
+                >
+                  Selected:{" "}
                   <strong>
                     {
-                      viewingVehicle.vehicleNumber
+                      selectedFile.name
                     }
                   </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Type</span>
-                  <strong>
-                    {viewingVehicle.vehicleType?.replaceAll(
-                      "_",
-                      " "
-                    )}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Brand</span>
-                  <strong>
-                    {viewingVehicle.brand ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Model</span>
-                  <strong>
-                    {viewingVehicle.model ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Manufacture Year</span>
-                  <strong>
-                    {
-                      viewingVehicle.manufactureYear ||
-                      "-"
-                    }
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Fuel Type</span>
-                  <strong>
-                    {
-                      viewingVehicle.fuelType ||
-                      "-"
-                    }
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Seating Capacity</span>
-                  <strong>
-                    {
-                      viewingVehicle.seatingCapacity
-                    }
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Vendor</span>
-                  <strong>
-                    {getVendorName(
-                      viewingVehicle
-                    )}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Current Driver</span>
-                  <strong>
-                    {getDriverName(
-                      viewingVehicle
-                    )}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>GPS</span>
-                  <strong>
-                    {viewingVehicle.gpsEnabled
-                      ? "Enabled"
-                      : "Disabled"}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Status</span>
-                  <strong>
-                    {renderStatus(
-                      viewingVehicle.status
-                    )}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>RC Expiry</span>
-                  <strong>
-                    {formatDate(
-                      viewingVehicle.rcExpiry
-                    )}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Insurance Expiry</span>
-                  <strong>
-                    {formatDate(
-                      viewingVehicle.insuranceExpiry
-                    )}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Permit Expiry</span>
-                  <strong>
-                    {formatDate(
-                      viewingVehicle.permitExpiry
-                    )}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>Fitness Expiry</span>
-                  <strong>
-                    {formatDate(
-                      viewingVehicle.fitnessExpiry
-                    )}
-                  </strong>
-                </div>
-
-                <div className="vehicle-detail">
-                  <span>PUC Expiry</span>
-                  <strong>
-                    {formatDate(
-                      viewingVehicle.pucExpiry
-                    )}
-                  </strong>
-                </div>
-              </div>
+                </p>
+              )}
 
               <div className="vehicle-form-actions">
+
                 <button
+                  type="button"
                   className="vehicle-btn vehicle-btn--secondary"
-                  onClick={closeView}
+                  onClick={() =>
+                    setShowImport(false)
+                  }
+                  disabled={importing}
                 >
-                  Close
+                  Cancel
                 </button>
 
-                {canManage && (
-                  <button
-                    className="vehicle-btn vehicle-btn--primary"
-                    onClick={() => {
-                      closeView();
-                      openEdit(
-                        viewingVehicle
-                      );
-                    }}
-                  >
-                    Edit Vehicle
-                  </button>
-                )}
+                <button
+                  type="submit"
+                  className="vehicle-btn vehicle-btn--primary"
+                  disabled={importing}
+                >
+                  {importing
+                    ? "Importing..."
+                    : "Import Vehicles"}
+                </button>
+
               </div>
-            </div>
+
+            </form>
+
           </div>
-        )}
+
+        </div>
+      )}
+
     </div>
   );
 }
 
-function vehicleDriver(vehicle) {
-  return vehicle?.currentDriver || null;
-}
-
-export default VehicleManagement;
+export default EventVehicleManagement;

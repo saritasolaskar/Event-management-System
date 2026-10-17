@@ -25,7 +25,7 @@ import GuestManagement from "../pages/admin/GuestManagement";
 import VehicleManagement from "../pages/admin/VehicleManagement";
 import EventVehicleManagement
   from "../pages/admin/EventVehicleManagement";
-
+import DriverDashboard from "../pages/driver/DriverPortalPages";
   import {
     ClientDashboard,
     ClientEvents,
@@ -38,17 +38,6 @@ import { AuthRedirect } from "./routeGuards";
 
 
 
-function DriverDashboard() {
-    return (
-        <div className="page-container">
-            <h1>Driver Dashboard</h1>
-            <p>
-                Driver functionality will be connected
-                to the backend in the driver module.
-            </p>
-        </div>
-    );
-}
 
 function AppRoutes() {
     return (
