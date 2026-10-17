@@ -5,7 +5,7 @@ export const ROUTES = {
   REGISTER: "/register",
   SET_PASSWORD: "/set-password",
   UNAUTHORIZED: "/unauthorized",
-
+  ADMIN_BILLING: "/admin/billing",
   ADMIN: "/admin",
   ADMIN_DASHBOARD: "/admin/dashboard",
   ADMIN_CLIENTS: "/admin/clients",
@@ -58,6 +58,11 @@ export const ADMIN_ROUTES = [
     label: "Clients",
     roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
   },
+  {
+  path: ROUTES.ADMIN_BILLING,
+  label: "Billing",
+  roles: [ROLES.ADMIN, ROLES.ACCOUNTS],
+},
   {
     path: ROUTES.ADMIN_EVENTS,
     label: "Events",
