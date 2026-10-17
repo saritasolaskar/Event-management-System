@@ -19,6 +19,7 @@ const AppError =
 
 const {
     VEHICLE_STATUS,
+    EVENT_STATUS,
 } = require("../constants/status");
 
 const {
@@ -31,10 +32,6 @@ const {
 
 const eventRepository =
     require("../repositories/event.repository");
-
-const {
-    EVENT_STATUS,
-} = require("../constants/status");
 
 const CREATE_FIELDS = [
     "vehicleNumber",
@@ -242,6 +239,12 @@ const createVehicle = async (
                         session
                     );
 
+                /*
+                 * FIX:
+                 * Reuse an existing vehicle for another event
+                 * only when its vendor and driver relationships
+                 * remain consistent.
+                 */
                 if (existingVehicle) {
                     const alreadyUsed =
                         existingVehicle.eventsUsedFor?.some(
@@ -253,6 +256,28 @@ const createVehicle = async (
                     if (alreadyUsed) {
                         throw new AppError(
                             "This vehicle is already registered for this event.",
+                            409
+                        );
+                    }
+
+                    if (
+                        !data.vendor ||
+                        getId(existingVehicle.vendor) !==
+                            getId(data.vendor)
+                    ) {
+                        throw new AppError(
+                            "This vehicle is already registered under a different vendor.",
+                            409
+                        );
+                    }
+
+                    if (
+                        data.currentDriver &&
+                        getId(existingVehicle.currentDriver) !==
+                            getId(data.currentDriver)
+                    ) {
+                        throw new AppError(
+                            "This vehicle is linked to a different driver. Update the vehicle's driver first.",
                             409
                         );
                     }
