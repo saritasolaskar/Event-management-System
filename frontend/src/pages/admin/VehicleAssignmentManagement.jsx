@@ -1,7 +1,12 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 
-import { getVehicleAssignments, createVehicleAssignment, cancelVehicleAssignment } from "../../api/vehicleAssignment.api";
+import {
+  getVehicleAssignments,
+  createVehicleAssignment,
+  cancelVehicleAssignment,
+} from "../../api/vehicleAssignment.api";
 import { getEvents } from "../../api/event.api";
 import { getVendors } from "../../api/vendor.api";
 import { getVehicles } from "../../api/vehicle.api";
@@ -69,40 +74,49 @@ function getId(value) {
 function personName(person) {
   if (!person) return "—";
   if (typeof person === "string") return person;
-  return [person.firstName, person.lastName].filter(Boolean).join(" ") ||
+
+  return (
+    [person.firstName, person.lastName].filter(Boolean).join(" ") ||
     person.name ||
     person.email ||
-    "—";
+    "—"
+  );
 }
 
 function eventName(event) {
   if (!event) return "—";
   if (typeof event === "string") return event;
+
   return [event.eventCode, event.name].filter(Boolean).join(" · ") || "Event";
 }
 
 function vendorName(vendor) {
   if (!vendor) return "—";
   if (typeof vendor === "string") return vendor;
+
   return vendor.companyName || vendor.name || "Vendor";
 }
 
 function vehicleName(vehicle) {
   if (!vehicle) return "—";
   if (typeof vehicle === "string") return vehicle;
+
   return [vehicle.vehicleNumber, vehicle.vehicleType].filter(Boolean).join(" · ");
 }
 
 function locationName(location) {
   if (!location) return "—";
   if (typeof location === "string") return location;
+
   return [location.name, location.city].filter(Boolean).join(", ") || "Location";
 }
 
 function formatDate(value) {
   if (!value) return "—";
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
+
   return date.toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
@@ -113,9 +127,11 @@ function formatDate(value) {
 }
 
 function errorMessage(error) {
-  return error?.response?.data?.message ||
+  return (
+    error?.response?.data?.message ||
     error?.message ||
-    "Something went wrong. Please try again.";
+    "Something went wrong. Please try again."
+  );
 }
 
 const emptyForm = {
@@ -140,24 +156,28 @@ function Field({ label, children }) {
 
 function StatusPill({ value }) {
   const status = String(value || "UNKNOWN").toUpperCase();
-  const color = status === "ON_DUTY"
-    ? { background: "#dcfae6", color: "#067647" }
-    : status === "COMPLETED"
-      ? { background: "#e0eaff", color: "#3538cd" }
-      : status === "CANCELLED"
-        ? { background: "#fee4e2", color: "#b42318" }
-        : { background: "#f2f4f7", color: "#344054" };
+
+  const color =
+    status === "ON_DUTY"
+      ? { background: "#dcfae6", color: "#067647" }
+      : status === "COMPLETED"
+        ? { background: "#e0eaff", color: "#3538cd" }
+        : status === "CANCELLED"
+          ? { background: "#fee4e2", color: "#b42318" }
+          : { background: "#f2f4f7", color: "#344054" };
 
   return (
-    <span style={{
-      ...color,
-      display: "inline-block",
-      padding: "5px 9px",
-      borderRadius: 20,
-      fontSize: 12,
-      fontWeight: 700,
-      whiteSpace: "nowrap",
-    }}>
+    <span
+      style={{
+        ...color,
+        display: "inline-block",
+        padding: "5px 9px",
+        borderRadius: 20,
+        fontSize: 12,
+        fontWeight: 700,
+        whiteSpace: "nowrap",
+      }}
+    >
       {status.replaceAll("_", " ")}
     </span>
   );
@@ -165,7 +185,12 @@ function StatusPill({ value }) {
 
 export default function VehicleAssignmentManagement() {
   const { user } = useAuth();
-  const canManage = ["SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER"].includes(user?.role);
+
+  const canManage = [
+    "SUPER_ADMIN",
+    "ADMIN",
+    "OPERATIONS_MANAGER",
+  ].includes(user?.role);
 
   const [assignments, setAssignments] = useState([]);
   const [events, setEvents] = useState([]);
@@ -187,6 +212,7 @@ export default function VehicleAssignmentManagement() {
 
   const loadAssignments = useCallback(async () => {
     setLoading(true);
+
     try {
       const response = await getVehicleAssignments();
       setAssignments(listFrom(response));
@@ -240,7 +266,9 @@ export default function VehicleAssignmentManagement() {
     });
 
     if (failures.length) {
-      setError(`Could not load: ${failures.join(", ")}. Check your account permissions and try refreshing.`);
+      setError(
+        `Could not load: ${failures.join(", ")}. Check your account permissions and try refreshing.`
+      );
     }
 
     setOptionsLoading(false);
@@ -249,6 +277,7 @@ export default function VehicleAssignmentManagement() {
   const refreshAll = useCallback(async () => {
     setError("");
     setNotice("");
+
     await Promise.all([loadAssignments(), loadOptions()]);
   }, [loadAssignments, loadOptions]);
 
@@ -257,40 +286,72 @@ export default function VehicleAssignmentManagement() {
     loadOptions();
   }, [loadAssignments, loadOptions]);
 
+  // Only show vehicles registered for the chosen event and vendor.
   const filteredVehicles = useMemo(() => {
-    if (!form.vendor) return [];
+    if (!form.event || !form.vendor) return [];
+
     return vehicles.filter((vehicle) => {
       const sameVendor = getId(vehicle.vendor) === form.vendor;
-      const availableStatus = !vehicle.status || vehicle.status === "ASSIGNED";
-      return sameVendor && availableStatus;
+
+      const registeredEvents = Array.isArray(vehicle.eventsUsedFor)
+        ? vehicle.eventsUsedFor
+        : [];
+
+      const registeredForEvent = registeredEvents.some(
+        (eventId) => getId(eventId) === form.event
+      );
+
+      const hasAssignedDriver = Boolean(vehicle.currentDriver);
+
+      const eligibleStatus =
+        !vehicle.status || vehicle.status === "ASSIGNED";
+
+      return (
+        sameVendor &&
+        registeredForEvent &&
+        hasAssignedDriver &&
+        eligibleStatus
+      );
     });
-  }, [vehicles, form.vendor]);
+  }, [vehicles, form.event, form.vendor]);
 
   const filteredDrivers = useMemo(() => {
     if (!form.vendor) return [];
+
     return drivers.filter((driver) => {
       const sameVendor = getId(driver.vendor) === form.vendor;
+
       return sameVendor && (!driver.status || driver.status === "ACTIVE");
     });
   }, [drivers, form.vendor]);
 
   const filteredAssignments = useMemo(() => {
     const query = search.trim().toLowerCase();
+
     if (!query) return assignments;
 
-    return assignments.filter((item) => [
-      item.assignmentCode,
-      eventName(item.event),
-      vendorName(item.vendor),
-      vehicleName(item.vehicle),
-      personName(item.driver),
-      item.status,
-    ].some((value) => String(value || "").toLowerCase().includes(query)));
+    return assignments.filter((item) =>
+      [
+        item.assignmentCode,
+        eventName(item.event),
+        vendorName(item.vendor),
+        vehicleName(item.vehicle),
+        personName(item.driver),
+        item.status,
+      ].some((value) =>
+        String(value || "").toLowerCase().includes(query)
+      )
+    );
   }, [assignments, search]);
 
   function updateField(field, value) {
     setForm((current) => {
       const next = { ...current, [field]: value };
+
+      // An old vehicle may not be registered for the newly selected event.
+      if (field === "event") {
+        next.vehicle = "";
+      }
 
       if (field === "vendor") {
         next.vehicle = "";
@@ -301,7 +362,10 @@ export default function VehicleAssignmentManagement() {
         const driver = drivers.find((item) => getId(item) === value);
         const linkedVehicle = driver ? getId(driver.currentVehicle) : "";
 
-        if (linkedVehicle && filteredVehicles.some((item) => getId(item) === linkedVehicle)) {
+        if (
+          linkedVehicle &&
+          filteredVehicles.some((item) => getId(item) === linkedVehicle)
+        ) {
           next.vehicle = linkedVehicle;
         }
       }
@@ -315,14 +379,42 @@ export default function VehicleAssignmentManagement() {
     setError("");
     setNotice("");
 
-    if (!form.event || !form.vendor || !form.vehicle || !form.driver || !form.commercialPackage) {
-      setError("Select an event, vendor, vehicle, driver, and commercial package.");
+    if (
+      !form.event ||
+      !form.vendor ||
+      !form.vehicle ||
+      !form.driver ||
+      !form.commercialPackage
+    ) {
+      setError(
+        "Select an event, vendor, vehicle, driver, and commercial package."
+      );
       return;
     }
 
-    const selectedVehicle = vehicles.find((item) => getId(item) === form.vehicle);
-    if (selectedVehicle && getId(selectedVehicle.currentDriver) !== form.driver) {
-      setError("The selected vehicle must already be linked to the selected driver. Update the vehicle's driver first.");
+    const selectedVehicle = vehicles.find(
+      (item) => getId(item) === form.vehicle
+    );
+
+    // Validate against the same event-filtered options shown in the dropdown.
+    const vehicleIsEligible = filteredVehicles.some(
+      (item) => getId(item) === form.vehicle
+    );
+
+    if (!vehicleIsEligible) {
+      setError(
+        "The selected vehicle is not eligible for this event and vendor. Select another vehicle."
+      );
+      return;
+    }
+
+    if (
+      selectedVehicle &&
+      getId(selectedVehicle.currentDriver) !== form.driver
+    ) {
+      setError(
+        "The selected vehicle must already be linked to the selected driver. Update the vehicle's driver first."
+      );
       return;
     }
 
@@ -335,15 +427,23 @@ export default function VehicleAssignmentManagement() {
         vehicle: form.vehicle,
         driver: form.driver,
         commercialPackage: form.commercialPackage,
-        ...(form.reportingLocation ? { reportingLocation: form.reportingLocation } : {}),
-        ...(form.reportingTime ? { reportingTime: new Date(form.reportingTime).toISOString() } : {}),
-        ...(form.remarks.trim() ? { remarks: form.remarks.trim() } : {}),
+        ...(form.reportingLocation
+          ? { reportingLocation: form.reportingLocation }
+          : {}),
+        ...(form.reportingTime
+          ? { reportingTime: new Date(form.reportingTime).toISOString() }
+          : {}),
+        ...(form.remarks.trim()
+          ? { remarks: form.remarks.trim() }
+          : {}),
       };
 
       await createVehicleAssignment(payload);
+
       setNotice("Vehicle duty assignment created successfully.");
       setForm(emptyForm);
       setShowForm(false);
+
       await loadAssignments();
     } catch (err) {
       setError(errorMessage(err));
@@ -367,6 +467,7 @@ export default function VehicleAssignmentManagement() {
 
     try {
       await cancelVehicleAssignment(item._id);
+
       setNotice("Assignment cancelled successfully.");
       await loadAssignments();
     } catch (err) {
@@ -377,28 +478,83 @@ export default function VehicleAssignmentManagement() {
   }
 
   return (
-    <div style={{ display: "grid", gap: 20, color: "var(--text-primary, #172033)" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+    <div
+      style={{
+        display: "grid",
+        gap: 20,
+        color: "var(--text-primary, #172033)",
+      }}
+    >
+      <header
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
         <div>
-          <h1 style={{ margin: "0 0 8px", fontSize: 28 }}>Vehicle Duty Assignments</h1>
+          <h1 style={{ margin: "0 0 8px", fontSize: 28 }}>
+            Vehicle Duty Assignments
+          </h1>
+
           <p style={{ margin: 0, color: "#667085" }}>
             Assign an event, vendor, vehicle, driver and commercial package to a duty.
           </p>
         </div>
+
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button type="button" style={secondaryButton} onClick={refreshAll} disabled={loading || optionsLoading}>
+          <button
+            type="button"
+            style={secondaryButton}
+            onClick={refreshAll}
+            disabled={loading || optionsLoading}
+          >
             Refresh
           </button>
+
           {canManage && (
-            <button type="button" style={primaryButton} onClick={() => { setShowForm((value) => !value); setError(""); setNotice(""); }}>
+            <button
+              type="button"
+              style={primaryButton}
+              onClick={() => {
+                setShowForm((value) => !value);
+                setError("");
+                setNotice("");
+              }}
+            >
               {showForm ? "Close form" : "Create assignment"}
             </button>
           )}
         </div>
       </header>
 
-      {error && <div role="alert" style={{ ...panel, borderColor: "#fecdca", color: "#b42318" }}>{error}</div>}
-      {notice && <div role="status" style={{ ...panel, borderColor: "#abefc6", color: "#067647" }}>{notice}</div>}
+      {error && (
+        <div
+          role="alert"
+          style={{
+            ...panel,
+            borderColor: "#fecdca",
+            color: "#b42318",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {notice && (
+        <div
+          role="status"
+          style={{
+            ...panel,
+            borderColor: "#abefc6",
+            color: "#067647",
+          }}
+        >
+          {notice}
+        </div>
+      )}
 
       {showForm && canManage && (
         <section style={panel}>
@@ -407,90 +563,198 @@ export default function VehicleAssignmentManagement() {
           {optionsLoading ? (
             <p>Loading events, vehicles, drivers and packages…</p>
           ) : (
-            <form onSubmit={handleCreate} style={{ display: "grid", gap: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+            <form
+              onSubmit={handleCreate}
+              style={{ display: "grid", gap: 16 }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: 16,
+                }}
+              >
                 <Field label="Event *">
-                  <select required style={inputStyle} value={form.event} onChange={(e) => updateField("event", e.target.value)}>
+                  <select
+                    required
+                    style={inputStyle}
+                    value={form.event}
+                    onChange={(e) => updateField("event", e.target.value)}
+                  >
                     <option value="">Select event</option>
-                    {events.filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status)).map((item) => (
-                      <option key={item._id} value={item._id}>{eventName(item)}</option>
-                    ))}
+
+                    {events
+                      .filter(
+                        (item) =>
+                          !["COMPLETED", "CANCELLED"].includes(item.status)
+                      )
+                      .map((item) => (
+                        <option key={item._id} value={item._id}>
+                          {eventName(item)}
+                        </option>
+                      ))}
                   </select>
                 </Field>
 
                 <Field label="Vendor *">
-                  <select required style={inputStyle} value={form.vendor} onChange={(e) => updateField("vendor", e.target.value)}>
+                  <select
+                    required
+                    style={inputStyle}
+                    value={form.vendor}
+                    onChange={(e) => updateField("vendor", e.target.value)}
+                  >
                     <option value="">Select vendor</option>
-                    {vendors.filter((item) => item.status === "ACTIVE" || !item.status).map((item) => (
-                      <option key={item._id} value={item._id}>{vendorName(item)}</option>
-                    ))}
+
+                    {vendors
+                      .filter(
+                        (item) =>
+                          item.status === "ACTIVE" || !item.status
+                      )
+                      .map((item) => (
+                        <option key={item._id} value={item._id}>
+                          {vendorName(item)}
+                        </option>
+                      ))}
                   </select>
                 </Field>
 
                 <Field label="Vehicle *">
-                  <select required style={inputStyle} value={form.vehicle} onChange={(e) => updateField("vehicle", e.target.value)} disabled={!form.vendor}>
+                  <select
+                    required
+                    style={inputStyle}
+                    value={form.vehicle}
+                    onChange={(e) => updateField("vehicle", e.target.value)}
+                    disabled={!form.event || !form.vendor}
+                  >
                     <option value="">Select vehicle</option>
+
                     {filteredVehicles.map((item) => (
                       <option key={item._id} value={item._id}>
-                        {vehicleName(item)}{item.currentDriver ? "" : " (no linked driver)"}
+                        {vehicleName(item)}
                       </option>
                     ))}
                   </select>
-                  <small style={{ color: "#667085" }}>Only vehicles from the selected vendor are shown.</small>
+
+                  <small style={{ color: "#667085" }}>
+                    Only vehicles registered for the selected event and vendor,
+                    with an assigned driver, are shown.
+                  </small>
                 </Field>
 
                 <Field label="Driver *">
-                  <select required style={inputStyle} value={form.driver} onChange={(e) => updateField("driver", e.target.value)} disabled={!form.vendor}>
+                  <select
+                    required
+                    style={inputStyle}
+                    value={form.driver}
+                    onChange={(e) => updateField("driver", e.target.value)}
+                    disabled={!form.vendor}
+                  >
                     <option value="">Select driver</option>
+
                     {filteredDrivers.map((item) => (
-                      <option key={item._id} value={item._id}>{personName(item)}</option>
+                      <option key={item._id} value={item._id}>
+                        {personName(item)}
+                      </option>
                     ))}
                   </select>
-                  <small style={{ color: "#667085" }}>The driver must be active and belong to the selected vendor.</small>
+
+                  <small style={{ color: "#667085" }}>
+                    The driver must be active and belong to the selected vendor.
+                  </small>
                 </Field>
 
                 <Field label="Commercial package *">
-                  <select required style={inputStyle} value={form.commercialPackage} onChange={(e) => updateField("commercialPackage", e.target.value)}>
+                  <select
+                    required
+                    style={inputStyle}
+                    value={form.commercialPackage}
+                    onChange={(e) =>
+                      updateField("commercialPackage", e.target.value)
+                    }
+                  >
                     <option value="">Select package</option>
-                    {packages.filter((item) => item.isActive !== false).map((item) => (
-                      <option key={item._id} value={item._id}>
-                        {item.name} — Client ₹{item.clientBaseRate}
-                      </option>
-                    ))}
+
+                    {packages
+                      .filter((item) => item.isActive !== false)
+                      .map((item) => (
+                        <option key={item._id} value={item._id}>
+                          {item.name} — Client ₹{item.clientBaseRate}
+                        </option>
+                      ))}
                   </select>
                 </Field>
 
                 <Field label="Reporting location">
-                  <select style={inputStyle} value={form.reportingLocation} onChange={(e) => updateField("reportingLocation", e.target.value)}>
+                  <select
+                    style={inputStyle}
+                    value={form.reportingLocation}
+                    onChange={(e) =>
+                      updateField("reportingLocation", e.target.value)
+                    }
+                  >
                     <option value="">Not specified</option>
+
                     {locations.map((item) => (
-                      <option key={item._id} value={item._id}>{locationName(item)}</option>
+                      <option key={item._id} value={item._id}>
+                        {locationName(item)}
+                      </option>
                     ))}
                   </select>
                 </Field>
 
                 <Field label="Reporting date and time">
-                  <input type="datetime-local" style={inputStyle} value={form.reportingTime} onChange={(e) => updateField("reportingTime", e.target.value)} />
+                  <input
+                    type="datetime-local"
+                    style={inputStyle}
+                    value={form.reportingTime}
+                    onChange={(e) =>
+                      updateField("reportingTime", e.target.value)
+                    }
+                  />
                 </Field>
 
                 <Field label="Remarks">
-                  <input style={inputStyle} maxLength={500} value={form.remarks} onChange={(e) => updateField("remarks", e.target.value)} placeholder="Optional duty instructions" />
+                  <input
+                    style={inputStyle}
+                    maxLength={500}
+                    value={form.remarks}
+                    onChange={(e) => updateField("remarks", e.target.value)}
+                    placeholder="Optional duty instructions"
+                  />
                 </Field>
               </div>
 
-              {form.vendor && filteredVehicles.length === 0 && (
-                <p style={{ color: "#b54708", margin: 0 }}>No eligible vehicles found for this vendor. Check that a vehicle is registered and assigned to a driver.</p>
+              {form.event && form.vendor && filteredVehicles.length === 0 && (
+                <p style={{ color: "#b54708", margin: 0 }}>
+                  No eligible vehicles found for this event and vendor. Register
+                  a vehicle for this event and assign it an active driver first.
+                </p>
               )}
 
               {form.vendor && filteredDrivers.length === 0 && (
-                <p style={{ color: "#b54708", margin: 0 }}>No active drivers found for this vendor.</p>
+                <p style={{ color: "#b54708", margin: 0 }}>
+                  No active drivers found for this vendor.
+                </p>
               )}
 
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button type="submit" style={primaryButton} disabled={saving || optionsLoading}>
+                <button
+                  type="submit"
+                  style={primaryButton}
+                  disabled={saving || optionsLoading}
+                >
                   {saving ? "Creating…" : "Create assignment"}
                 </button>
-                <button type="button" style={secondaryButton} disabled={saving} onClick={() => { setShowForm(false); setForm(emptyForm); }}>
+
+                <button
+                  type="button"
+                  style={secondaryButton}
+                  disabled={saving}
+                  onClick={() => {
+                    setShowForm(false);
+                    setForm(emptyForm);
+                  }}
+                >
                   Cancel
                 </button>
               </div>
@@ -500,11 +764,24 @@ export default function VehicleAssignmentManagement() {
       )}
 
       <section style={panel}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 16,
+          }}
+        >
           <div>
             <h2 style={{ margin: "0 0 5px" }}>Assignments</h2>
-            <span style={{ color: "#667085", fontSize: 13 }}>{filteredAssignments.length} shown · {assignments.length} total</span>
+
+            <span style={{ color: "#667085", fontSize: 13 }}>
+              {filteredAssignments.length} shown · {assignments.length} total
+            </span>
           </div>
+
           <input
             type="search"
             style={{ ...inputStyle, maxWidth: 340 }}
@@ -519,28 +796,86 @@ export default function VehicleAssignmentManagement() {
         ) : filteredAssignments.length === 0 ? (
           <div style={{ padding: "30px 10px", textAlign: "center" }}>
             <h3 style={{ margin: "0 0 8px" }}>No assignments found</h3>
-            <p style={{ color: "#667085", margin: 0 }}>Create a duty assignment to connect a vehicle and driver to an event.</p>
+
+            <p style={{ color: "#667085", margin: 0 }}>
+              Create a duty assignment to connect a vehicle and driver to an event.
+            </p>
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 850 }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                minWidth: 850,
+              }}
+            >
               <thead>
                 <tr style={{ textAlign: "left", background: "#f9fafb" }}>
-                  {["Assignment", "Event", "Vendor", "Vehicle", "Driver", "Reporting time", "Status", "Action"].map((label) => (
-                    <th key={label} style={{ padding: "12px 10px", fontSize: 12, color: "#475467", borderBottom: "1px solid #eaecf0" }}>{label}</th>
+                  {[
+                    "Assignment",
+                    "Event",
+                    "Vendor",
+                    "Vehicle",
+                    "Driver",
+                    "Reporting time",
+                    "Status",
+                    "Action",
+                  ].map((label) => (
+                    <th
+                      key={label}
+                      style={{
+                        padding: "12px 10px",
+                        fontSize: 12,
+                        color: "#475467",
+                        borderBottom: "1px solid #eaecf0",
+                      }}
+                    >
+                      {label}
+                    </th>
                   ))}
                 </tr>
               </thead>
+
               <tbody>
                 {filteredAssignments.map((item) => (
-                  <tr key={item._id} style={{ borderBottom: "1px solid #eaecf0" }}>
-                    <td style={{ padding: "13px 10px", fontWeight: 600 }}>{item.assignmentCode || item._id}</td>
-                    <td style={{ padding: "13px 10px" }}>{eventName(item.event)}</td>
-                    <td style={{ padding: "13px 10px" }}>{vendorName(item.vendor)}</td>
-                    <td style={{ padding: "13px 10px" }}>{vehicleName(item.vehicle)}</td>
-                    <td style={{ padding: "13px 10px" }}>{personName(item.driver)}</td>
-                    <td style={{ padding: "13px 10px", whiteSpace: "nowrap" }}>{formatDate(item.reportingTime)}</td>
-                    <td style={{ padding: "13px 10px" }}><StatusPill value={item.status} /></td>
+                  <tr
+                    key={item._id}
+                    style={{ borderBottom: "1px solid #eaecf0" }}
+                  >
+                    <td style={{ padding: "13px 10px", fontWeight: 600 }}>
+                      {item.assignmentCode || item._id}
+                    </td>
+
+                    <td style={{ padding: "13px 10px" }}>
+                      {eventName(item.event)}
+                    </td>
+
+                    <td style={{ padding: "13px 10px" }}>
+                      {vendorName(item.vendor)}
+                    </td>
+
+                    <td style={{ padding: "13px 10px" }}>
+                      {vehicleName(item.vehicle)}
+                    </td>
+
+                    <td style={{ padding: "13px 10px" }}>
+                      {personName(item.driver)}
+                    </td>
+
+                    <td
+                      style={{
+                        padding: "13px 10px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {formatDate(item.reportingTime)}
+                    </td>
+
+                    <td style={{ padding: "13px 10px" }}>
+                      <StatusPill value={item.status} />
+                    </td>
+
                     <td style={{ padding: "13px 10px" }}>
                       {canManage && item.status === "ASSIGNED" ? (
                         <button
@@ -551,7 +886,9 @@ export default function VehicleAssignmentManagement() {
                         >
                           {busyId === item._id ? "Cancelling…" : "Cancel"}
                         </button>
-                      ) : "—"}
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))}
