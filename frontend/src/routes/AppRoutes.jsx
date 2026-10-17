@@ -37,7 +37,8 @@ import { ROUTES } from "./routeConfig";
 import { AuthRedirect } from "./routeGuards";
 import VehicleAssignmentManagement
     from "../pages/admin/VehicleAssignmentManagement";
-
+import GuestAssignmentManagement
+    from "../pages/admin/GuestAssignmentManagement";
 
 
 function AppRoutes() {
@@ -117,6 +118,23 @@ function AppRoutes() {
                                     />
                                 }
                             >
+
+                                <Route
+                                    element={
+                                        <RoleRoute
+                                            allowedRoles={[
+                                                ROLES.ADMIN,
+                                                ROLES.OPERATIONS_MANAGER,
+                                                ROLES.DISPATCHER,
+                                            ]}
+                                        />
+                                    }
+                                >
+                                    <Route
+                                        path={ROUTES.ADMIN_GUEST_ASSIGNMENTS}
+                                        element={<GuestAssignmentManagement />}
+                                    />
+                                </Route>
                                 <Route
                                     path={ROUTES.ADMIN_VEHICLE_ASSIGNMENTS}
                                     element={<VehicleAssignmentManagement />}
