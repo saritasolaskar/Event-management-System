@@ -9,7 +9,7 @@ import {
 } from "../../api/vehicleAssignment.api";
 import { getEvents } from "../../api/event.api";
 import { getVendors } from "../../api/vendor.api";
-import { getVehicles } from "../../api/vehicle.api";
+import { getVehiclesByEvent } from "../../api/vehicle.api";
 import { getDrivers } from "../../api/driver.api";
 import { getLocations } from "../../api/location.api";
 import api from "../../api/axios";
@@ -202,6 +202,7 @@ export default function VehicleAssignmentManagement() {
 
   const [loading, setLoading] = useState(true);
   const [optionsLoading, setOptionsLoading] = useState(true);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -230,7 +231,6 @@ export default function VehicleAssignmentManagement() {
     const requests = await Promise.allSettled([
       getEvents(),
       getVendors(),
-      getVehicles(),
       getDrivers(),
       api.get("/commercial-packages/active"),
       getLocations(),
@@ -239,7 +239,6 @@ export default function VehicleAssignmentManagement() {
     const setters = [
       setEvents,
       setVendors,
-      setVehicles,
       setDrivers,
       setPackages,
       setLocations,
@@ -248,7 +247,6 @@ export default function VehicleAssignmentManagement() {
     const names = [
       "events",
       "vendors",
-      "vehicles",
       "drivers",
       "commercial packages",
       "locations",
@@ -286,32 +284,58 @@ export default function VehicleAssignmentManagement() {
     loadOptions();
   }, [loadAssignments, loadOptions]);
 
-  // Only show vehicles registered for the chosen event and vendor.
+  // Fetch vehicles registered for the selected event only.
+  // Ignore stale responses if the user switches events before a request finishes.
+  useEffect(() => {
+    let active = true;
+
+    if (!form.event) {
+      setVehicles([]);
+      setVehiclesLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setVehicles([]);
+    setVehiclesLoading(true);
+
+    getVehiclesByEvent(form.event)
+      .then((response) => {
+        if (active) {
+          setVehicles(listFrom(response));
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setVehicles([]);
+          setError(errorMessage(err));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setVehiclesLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [form.event]);
+
+  // The backend endpoint already scopes this list to the selected event.
+  // These additional checks restrict it to the selected vendor and eligible status.
   const filteredVehicles = useMemo(() => {
     if (!form.event || !form.vendor) return [];
 
     return vehicles.filter((vehicle) => {
       const sameVendor = getId(vehicle.vendor) === form.vendor;
-
-      const registeredEvents = Array.isArray(vehicle.eventsUsedFor)
-        ? vehicle.eventsUsedFor
-        : [];
-
-      const registeredForEvent = registeredEvents.some(
-        (eventId) => getId(eventId) === form.event
-      );
-
-      const hasAssignedDriver = Boolean(vehicle.currentDriver);
+      const hasAssignedDriver = Boolean(getId(vehicle.currentDriver));
 
       const eligibleStatus =
         !vehicle.status || vehicle.status === "ASSIGNED";
 
-      return (
-        sameVendor &&
-        registeredForEvent &&
-        hasAssignedDriver &&
-        eligibleStatus
-      );
+      return sameVendor && hasAssignedDriver && eligibleStatus;
     });
   }, [vehicles, form.event, form.vendor]);
 
@@ -348,7 +372,6 @@ export default function VehicleAssignmentManagement() {
     setForm((current) => {
       const next = { ...current, [field]: value };
 
-      // An old vehicle may not be registered for the newly selected event.
       if (field === "event") {
         next.vehicle = "";
       }
@@ -396,7 +419,6 @@ export default function VehicleAssignmentManagement() {
       (item) => getId(item) === form.vehicle
     );
 
-    // Validate against the same event-filtered options shown in the dropdown.
     const vehicleIsEligible = filteredVehicles.some(
       (item) => getId(item) === form.vehicle
     );
@@ -561,7 +583,7 @@ export default function VehicleAssignmentManagement() {
           <h2 style={{ marginTop: 0 }}>New assignment</h2>
 
           {optionsLoading ? (
-            <p>Loading events, vehicles, drivers and packages…</p>
+            <p>Loading events, drivers and packages…</p>
           ) : (
             <form
               onSubmit={handleCreate}
@@ -624,9 +646,13 @@ export default function VehicleAssignmentManagement() {
                     style={inputStyle}
                     value={form.vehicle}
                     onChange={(e) => updateField("vehicle", e.target.value)}
-                    disabled={!form.event || !form.vendor}
+                    disabled={!form.event || !form.vendor || vehiclesLoading}
                   >
-                    <option value="">Select vehicle</option>
+                    <option value="">
+                      {vehiclesLoading
+                        ? "Loading event vehicles…"
+                        : "Select vehicle"}
+                    </option>
 
                     {filteredVehicles.map((item) => (
                       <option key={item._id} value={item._id}>
@@ -636,8 +662,9 @@ export default function VehicleAssignmentManagement() {
                   </select>
 
                   <small style={{ color: "#667085" }}>
-                    Only vehicles registered for the selected event and vendor,
-                    with an assigned driver, are shown.
+                    {vehiclesLoading
+                      ? "Loading vehicles registered for this event."
+                      : "Only vehicles registered for the selected event and vendor, with an assigned driver, are shown."}
                   </small>
                 </Field>
 
@@ -724,12 +751,16 @@ export default function VehicleAssignmentManagement() {
                 </Field>
               </div>
 
-              {form.event && form.vendor && filteredVehicles.length === 0 && (
-                <p style={{ color: "#b54708", margin: 0 }}>
-                  No eligible vehicles found for this event and vendor. Register
-                  a vehicle for this event and assign it an active driver first.
-                </p>
-              )}
+              {form.event &&
+                form.vendor &&
+                !vehiclesLoading &&
+                filteredVehicles.length === 0 && (
+                  <p style={{ color: "#b54708", margin: 0 }}>
+                    No eligible vehicles found for this event and vendor.
+                    Register a vehicle for this event and assign it a driver
+                    before creating the assignment.
+                  </p>
+                )}
 
               {form.vendor && filteredDrivers.length === 0 && (
                 <p style={{ color: "#b54708", margin: 0 }}>
@@ -741,7 +772,7 @@ export default function VehicleAssignmentManagement() {
                 <button
                   type="submit"
                   style={primaryButton}
-                  disabled={saving || optionsLoading}
+                  disabled={saving || optionsLoading || vehiclesLoading}
                 >
                   {saving ? "Creating…" : "Create assignment"}
                 </button>

@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 const XLSX = require("xlsx");
 const vehicleRepository =
@@ -54,7 +55,6 @@ const CREATE_FIELDS = [
     "event",
 ];
 
-
 const UPDATE_FIELDS = [
     "vehicleNumber",
     "vehicleType",
@@ -74,33 +74,24 @@ const UPDATE_FIELDS = [
     "remarks",
 ];
 
-
-const pickFields = (
-    data,
-    fields
-) => {
-
+const pickFields = (data, fields) => {
     const result = {};
 
     for (const field of fields) {
-
         if (
             Object.prototype.hasOwnProperty.call(
                 data,
                 field
             )
         ) {
-            result[field] =
-                data[field];
+            result[field] = data[field];
         }
     }
 
     return result;
 };
 
-
 const getId = (value) => {
-
     if (!value) {
         return null;
     }
@@ -114,7 +105,6 @@ const getId = (value) => {
 
     return value.toString();
 };
-
 
 const validateEventForVehicle = async (
     eventId,
@@ -153,14 +143,12 @@ const validateEventForVehicle = async (
     return event;
 };
 
-
 const validateDriver = async (
     driverId,
     vendorId,
     vehicleId = null,
     session = null
 ) => {
-
     if (!driverId) {
         return null;
     }
@@ -185,9 +173,7 @@ const validateDriver = async (
         );
     }
 
-    if (
-        driver.status !== "ACTIVE"
-    ) {
+    if (driver.status !== "ACTIVE") {
         throw new AppError(
             "Only active drivers can be assigned to a vehicle.",
             400
@@ -196,8 +182,7 @@ const validateDriver = async (
 
     if (
         vendorId &&
-        getId(driver.vendor) !==
-        getId(vendorId)
+        getId(driver.vendor) !== getId(vendorId)
     ) {
         throw new AppError(
             "Driver does not belong to the selected vendor.",
@@ -208,7 +193,7 @@ const validateDriver = async (
     if (
         driver.currentVehicle &&
         getId(driver.currentVehicle) !==
-        getId(vehicleId)
+            getId(vehicleId)
     ) {
         throw new AppError(
             "Driver is already assigned to another vehicle.",
@@ -219,22 +204,18 @@ const validateDriver = async (
     return driver;
 };
 
-
 const createVehicle = async (
     vehicleData,
     userId
 ) => {
-
     const session =
         await mongoose.startSession();
 
     try {
-
         let vehicle;
 
         await session.withTransaction(
             async () => {
-
                 const data =
                     pickFields(
                         vehicleData,
@@ -264,7 +245,8 @@ const createVehicle = async (
                     const alreadyUsed =
                         existingVehicle.eventsUsedFor?.some(
                             (eventId) =>
-                                getId(eventId) === getId(event._id)
+                                getId(eventId) ===
+                                getId(event._id)
                         );
 
                     if (alreadyUsed) {
@@ -317,7 +299,6 @@ const createVehicle = async (
                 }
 
                 if (data.currentDriver) {
-
                     await validateDriver(
                         data.currentDriver,
                         data.vendor,
@@ -331,14 +312,9 @@ const createVehicle = async (
                         ? VEHICLE_STATUS.ASSIGNED
                         : VEHICLE_STATUS.AVAILABLE;
 
-                data.createdBy =
-                    userId;
-
-                data.updatedBy =
-                    userId;
-
-                data.isDeleted =
-                    false;
+                data.createdBy = userId;
+                data.updatedBy = userId;
+                data.isDeleted = false;
 
                 vehicle =
                     await vehicleRepository.create(
@@ -353,12 +329,10 @@ const createVehicle = async (
                 );
 
                 if (data.currentDriver) {
-
                     await driverRepository.updateById(
                         data.currentDriver,
                         {
-                            currentVehicle:
-                                vehicle._id,
+                            currentVehicle: vehicle._id,
                         },
                         session
                     );
@@ -374,8 +348,7 @@ const createVehicle = async (
             description:
                 `Vehicle ${vehicle.vehicleNumber} was created.`,
             metadata: {
-                vehicleNumber:
-                    vehicle.vehicleNumber,
+                vehicleNumber: vehicle.vehicleNumber,
             },
         });
 
@@ -390,32 +363,18 @@ const createVehicle = async (
         });
 
         return vehicle;
-
     } finally {
-
         await session.endSession();
     }
 };
 
-
-const getAllVehicles = async (
-    filter = {}
-) => {
-
-    return vehicleRepository.findAll(
-        filter
-    );
+const getAllVehicles = async (filter = {}) => {
+    return vehicleRepository.findAll(filter);
 };
 
-
-const getVehicleById = async (
-    vehicleId
-) => {
-
+const getVehicleById = async (vehicleId) => {
     const vehicle =
-        await vehicleRepository.findById(
-            vehicleId
-        );
+        await vehicleRepository.findById(vehicleId);
 
     if (!vehicle) {
         throw new AppError(
@@ -427,23 +386,19 @@ const getVehicleById = async (
     return vehicle;
 };
 
-
 const updateVehicle = async (
     vehicleId,
     vehicleData,
     userId
 ) => {
-
     const session =
         await mongoose.startSession();
 
     try {
-
         let updatedVehicle;
 
         await session.withTransaction(
             async () => {
-
                 const vehicle =
                     await vehicleRepository.findById(
                         vehicleId,
@@ -463,10 +418,7 @@ const updateVehicle = async (
                         UPDATE_FIELDS
                     );
 
-                if (
-                    Object.keys(data).length ===
-                    0
-                ) {
+                if (Object.keys(data).length === 0) {
                     throw new AppError(
                         "No valid fields provided for update.",
                         400
@@ -481,10 +433,7 @@ const updateVehicle = async (
                         ? getId(data.vendor)
                         : oldVendorId;
 
-                if (
-                    data.vendor !== undefined
-                ) {
-
+                if (data.vendor !== undefined) {
                     const vendor =
                         await vendorRepository.findById(
                             data.vendor,
@@ -508,10 +457,8 @@ const updateVehicle = async (
 
                 if (
                     data.vehicleNumber &&
-                    data.vehicleNumber !==
-                    vehicle.vehicleNumber
+                    data.vehicleNumber !== vehicle.vehicleNumber
                 ) {
-
                     const existingVehicle =
                         await vehicleRepository.findByVehicleNumber(
                             data.vehicleNumber,
@@ -520,10 +467,8 @@ const updateVehicle = async (
 
                     if (
                         existingVehicle &&
-                        getId(
-                            existingVehicle._id
-                        ) !==
-                        getId(vehicleId)
+                        getId(existingVehicle._id) !==
+                            getId(vehicleId)
                     ) {
                         throw new AppError(
                             "Vehicle with this vehicle number already exists.",
@@ -533,9 +478,7 @@ const updateVehicle = async (
                 }
 
                 const oldDriverId =
-                    getId(
-                        vehicle.currentDriver
-                    );
+                    getId(vehicle.currentDriver);
 
                 const driverWasUpdated =
                     Object.prototype.hasOwnProperty.call(
@@ -545,16 +488,10 @@ const updateVehicle = async (
 
                 const newDriverId =
                     driverWasUpdated
-                        ? getId(
-                            data.currentDriver
-                        )
+                        ? getId(data.currentDriver)
                         : oldDriverId;
 
-                if (
-                    driverWasUpdated &&
-                    newDriverId
-                ) {
-
+                if (driverWasUpdated && newDriverId) {
                     await validateDriver(
                         newDriverId,
                         newVendorId,
@@ -565,10 +502,8 @@ const updateVehicle = async (
 
                 if (
                     driverWasUpdated &&
-                    oldDriverId !==
-                    newDriverId
+                    oldDriverId !== newDriverId
                 ) {
-
                     if (
                         vehicle.status ===
                         VEHICLE_STATUS.ON_DUTY
@@ -595,8 +530,7 @@ const updateVehicle = async (
                             : VEHICLE_STATUS.AVAILABLE;
                 }
 
-                data.updatedBy =
-                    userId;
+                data.updatedBy = userId;
 
                 updatedVehicle =
                     await vehicleRepository.updateById(
@@ -615,15 +549,12 @@ const updateVehicle = async (
                 if (
                     driverWasUpdated &&
                     oldDriverId &&
-                    oldDriverId !==
-                    newDriverId
+                    oldDriverId !== newDriverId
                 ) {
-
                     await driverRepository.updateById(
                         oldDriverId,
                         {
-                            currentVehicle:
-                                null,
+                            currentVehicle: null,
                         },
                         session
                     );
@@ -632,15 +563,12 @@ const updateVehicle = async (
                 if (
                     driverWasUpdated &&
                     newDriverId &&
-                    oldDriverId !==
-                    newDriverId
+                    oldDriverId !== newDriverId
                 ) {
-
                     await driverRepository.updateById(
                         newDriverId,
                         {
-                            currentVehicle:
-                                vehicleId,
+                            currentVehicle: vehicleId,
                         },
                         session
                     );
@@ -653,43 +581,35 @@ const updateVehicle = async (
             action: "UPDATE",
             module: "VEHICLE",
             referenceId: vehicleId,
-            description:
-                "Vehicle updated.",
+            description: "Vehicle updated.",
             metadata: {
-                updatedFields:
-                    Object.keys(
-                        pickFields(
-                            vehicleData,
-                            UPDATE_FIELDS
-                        )
-                    ),
+                updatedFields: Object.keys(
+                    pickFields(
+                        vehicleData,
+                        UPDATE_FIELDS
+                    )
+                ),
             },
         });
 
         return updatedVehicle;
-
     } finally {
-
         await session.endSession();
     }
 };
-
 
 const deleteVehicle = async (
     vehicleId,
     userId
 ) => {
-
     const session =
         await mongoose.startSession();
 
     try {
-
         let deletedVehicle;
 
         await session.withTransaction(
             async () => {
-
                 const vehicle =
                     await vehicleRepository.findById(
                         vehicleId,
@@ -730,9 +650,7 @@ const deleteVehicle = async (
                 }
 
                 const driverId =
-                    getId(
-                        vehicle.currentDriver
-                    );
+                    getId(vehicle.currentDriver);
 
                 deletedVehicle =
                     await vehicleRepository.softDelete(
@@ -741,12 +659,10 @@ const deleteVehicle = async (
                     );
 
                 if (driverId) {
-
                     await driverRepository.updateById(
                         driverId,
                         {
-                            currentVehicle:
-                                null,
+                            currentVehicle: null,
                         },
                         session
                     );
@@ -759,35 +675,28 @@ const deleteVehicle = async (
             action: "DELETE",
             module: "VEHICLE",
             referenceId: vehicleId,
-            description:
-                "Vehicle deleted.",
+            description: "Vehicle deleted.",
         });
 
         return deletedVehicle;
-
     } finally {
-
         await session.endSession();
     }
 };
-
 
 const updateVehicleStatus = async (
     vehicleId,
     status,
     userId
 ) => {
-
     const session =
         await mongoose.startSession();
 
     try {
-
         let vehicle;
 
         await session.withTransaction(
             async () => {
-
                 const existingVehicle =
                     await vehicleRepository.findById(
                         vehicleId,
@@ -802,9 +711,7 @@ const updateVehicleStatus = async (
                 }
 
                 if (
-                    !Object.values(
-                        VEHICLE_STATUS
-                    ).includes(status)
+                    !Object.values(VEHICLE_STATUS).includes(status)
                 ) {
                     throw new AppError(
                         "Invalid vehicle status.",
@@ -813,8 +720,7 @@ const updateVehicleStatus = async (
                 }
 
                 if (
-                    status ===
-                    VEHICLE_STATUS.AVAILABLE &&
+                    status === VEHICLE_STATUS.AVAILABLE &&
                     existingVehicle.currentDriver
                 ) {
                     throw new AppError(
@@ -824,8 +730,7 @@ const updateVehicleStatus = async (
                 }
 
                 if (
-                    status ===
-                    VEHICLE_STATUS.ASSIGNED &&
+                    status === VEHICLE_STATUS.ASSIGNED &&
                     !existingVehicle.currentDriver
                 ) {
                     throw new AppError(
@@ -835,10 +740,8 @@ const updateVehicleStatus = async (
                 }
 
                 if (
-                    existingVehicle.status ===
-                    VEHICLE_STATUS.ON_DUTY &&
-                    status !==
-                    VEHICLE_STATUS.ON_DUTY
+                    existingVehicle.status === VEHICLE_STATUS.ON_DUTY &&
+                    status !== VEHICLE_STATUS.ON_DUTY
                 ) {
                     throw new AppError(
                         "Vehicle status cannot be changed while the vehicle is on duty.",
@@ -876,23 +779,14 @@ const updateVehicleStatus = async (
         });
 
         return vehicle;
-
     } finally {
-
         await session.endSession();
     }
 };
 
-
-
-const getVehiclesByEvent = async (
-    eventId
-) => {
-
+const getVehiclesByEvent = async (eventId) => {
     const event =
-        await eventRepository.findById(
-            eventId
-        );
+        await eventRepository.findById(eventId);
 
     if (!event) {
         throw new AppError(
@@ -901,18 +795,14 @@ const getVehiclesByEvent = async (
         );
     }
 
-    return vehicleRepository.findByEvent(
-        eventId
-    );
+    return vehicleRepository.findByEvent(eventId);
 };
-
 
 const importVehiclesFromExcel = async (
     fileBuffer,
     eventId,
     userId
 ) => {
-
     if (!fileBuffer) {
         throw new AppError(
             "Excel file is required.",
@@ -926,8 +816,7 @@ const importVehiclesFromExcel = async (
             cellDates: true,
         });
 
-    const sheetName =
-        workbook.SheetNames[0];
+    const sheetName = workbook.SheetNames[0];
 
     if (!sheetName) {
         throw new AppError(
@@ -936,8 +825,7 @@ const importVehiclesFromExcel = async (
         );
     }
 
-    const worksheet =
-        workbook.Sheets[sheetName];
+    const worksheet = workbook.Sheets[sheetName];
 
     const rows =
         XLSX.utils.sheet_to_json(
@@ -955,9 +843,7 @@ const importVehiclesFromExcel = async (
     }
 
     const event =
-        await validateEventForVehicle(
-            eventId
-        );
+        await validateEventForVehicle(eventId);
 
     const imported = [];
     const skipped = [];
@@ -968,23 +854,18 @@ const importVehiclesFromExcel = async (
         index < rows.length;
         index++
     ) {
-
-        const row =
-            rows[index];
-
-        const rowNumber =
-            index + 2;
+        const row = rows[index];
+        const rowNumber = index + 2;
 
         try {
-
             const vehicleNumber =
                 String(
                     row["Vehicle Number"] ||
                     row["vehicleNumber"] ||
                     ""
                 )
-                .trim()
-                .toUpperCase();
+                    .trim()
+                    .toUpperCase();
 
             const vehicleType =
                 String(
@@ -992,8 +873,8 @@ const importVehiclesFromExcel = async (
                     row["vehicleType"] ||
                     ""
                 )
-                .trim()
-                .toUpperCase();
+                    .trim()
+                    .toUpperCase();
 
             const vendorName =
                 String(
@@ -1041,10 +922,9 @@ const importVehiclesFromExcel = async (
             }
 
             const vendor =
-                await vendorRepository
-                    .findByCompanyName(
-                        vendorName
-                    );
+                await vendorRepository.findByCompanyName(
+                    vendorName
+                );
 
             if (!vendor) {
                 throw new Error(
@@ -1055,12 +935,10 @@ const importVehiclesFromExcel = async (
             let driverId = null;
 
             if (driverPhone) {
-
                 const driver =
-                    await driverRepository
-                        .findByPhone(
-                            driverPhone
-                        );
+                    await driverRepository.findByPhone(
+                        driverPhone
+                    );
 
                 if (!driver) {
                     throw new Error(
@@ -1068,30 +946,43 @@ const importVehiclesFromExcel = async (
                     );
                 }
 
-                driverId =
-                    driver._id;
+                if (driver.isDeleted) {
+                    throw new Error(
+                        `Driver with phone ${driverPhone} is not available.`
+                    );
+                }
+
+                if (driver.status !== "ACTIVE") {
+                    throw new Error(
+                        `Driver with phone ${driverPhone} is not active.`
+                    );
+                }
+
+                if (
+                    getId(driver.vendor) !==
+                    getId(vendor._id)
+                ) {
+                    throw new Error(
+                        `Driver with phone ${driverPhone} does not belong to vendor "${vendorName}".`
+                    );
+                }
+
+                driverId = driver._id;
             }
 
             const existingVehicle =
-                await vehicleRepository
-                    .findByVehicleNumber(
-                        vehicleNumber
-                    );
+                await vehicleRepository.findByVehicleNumber(
+                    vehicleNumber
+                );
 
             if (existingVehicle) {
-
                 const alreadyRegistered =
-                    existingVehicle
-                        .eventsUsedFor
-                        ?.some(
-                            (id) =>
-                                getId(id) ===
-                                getId(event._id)
-                        );
+                    existingVehicle.eventsUsedFor?.some(
+                        (id) =>
+                            getId(id) === getId(event._id)
+                    );
 
-                if (
-                    alreadyRegistered
-                ) {
+                if (alreadyRegistered) {
                     skipped.push({
                         row: rowNumber,
                         vehicleNumber,
@@ -1102,11 +993,32 @@ const importVehiclesFromExcel = async (
                     continue;
                 }
 
-                await vehicleRepository
-                    .addEventUsage(
-                        existingVehicle._id,
-                        event._id
+                // Never silently reuse a vehicle belonging to a different vendor.
+                if (
+                    getId(existingVehicle.vendor) !==
+                    getId(vendor._id)
+                ) {
+                    throw new Error(
+                        `Vehicle ${vehicleNumber} is already registered under a different vendor. The existing vehicle was not added to this event.`
                     );
+                }
+
+                // If the spreadsheet supplies a driver, it must match the
+                // driver's existing link to this vehicle.
+                if (
+                    driverId &&
+                    getId(existingVehicle.currentDriver) !==
+                    getId(driverId)
+                ) {
+                    throw new Error(
+                        `Vehicle ${vehicleNumber} is not currently linked to the driver with phone ${driverPhone}. Update the vehicle's driver first, then import again.`
+                    );
+                }
+
+                await vehicleRepository.addEventUsage(
+                    existingVehicle._id,
+                    event._id
+                );
 
                 imported.push({
                     row: rowNumber,
@@ -1123,8 +1035,7 @@ const importVehiclesFromExcel = async (
                     vehicleType,
                     seatingCapacity,
                     vendor: vendor._id,
-                    currentDriver:
-                        driverId,
+                    currentDriver: driverId,
                     brand:
                         row["Brand"] ||
                         row["brand"] ||
@@ -1151,9 +1062,7 @@ const importVehiclesFromExcel = async (
                 vehicleNumber,
                 action: "CREATED",
             });
-
         } catch (error) {
-
             failed.push({
                 row: rowNumber,
                 vehicleNumber:
@@ -1183,7 +1092,6 @@ const importVehiclesFromExcel = async (
     };
 };
 
-
 module.exports = {
     createVehicle,
     getAllVehicles,
@@ -1193,5 +1101,4 @@ module.exports = {
     updateVehicleStatus,
     getVehiclesByEvent,
     importVehiclesFromExcel,
-
 };
