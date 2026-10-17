@@ -1,21 +1,42 @@
+
 import { useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import {
+  Outlet,
+  useLocation,
+  matchPath,
+} from "react-router-dom";
 
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import MobileNavigation from "./MobileNavigation";
 
-import { ADMIN_ROUTES } from "../routes/routeConfig";
+import { ADMIN_ROUTES, ROUTES } from "../routes/routeConfig";
 
 function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
-  const currentRoute = ADMIN_ROUTES.find(
-    (item) => item.path === location.pathname
+  const currentRoute = ADMIN_ROUTES.find((item) =>
+    matchPath(
+      {
+        path: item.path,
+        end: true,
+      },
+      location.pathname
+    )
   );
 
-  const title = currentRoute?.label || "Dashboard";
+  const isEventVehicleRoute = matchPath(
+    {
+      path: ROUTES.ADMIN_EVENT_VEHICLES,
+      end: true,
+    },
+    location.pathname
+  );
+
+  const title =
+    currentRoute?.label ||
+    (isEventVehicleRoute ? "Event Vehicles" : "Dashboard");
 
   return (
     <div className="app-shell">
