@@ -130,7 +130,7 @@ function ClientManagement() {
   const { user } = useAuth();
 
   const canManage =
-    user?.role === ROLES.ADMIN;
+    [ROLES.SUPER_ADMIN, ROLES.ADMIN].includes(user?.role);
 
   const [activeTab, setActiveTab] =
     useState("active");

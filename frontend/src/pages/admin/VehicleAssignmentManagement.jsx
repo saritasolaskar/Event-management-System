@@ -165,7 +165,7 @@ function StatusPill({ value }) {
 
 export default function VehicleAssignmentManagement() {
   const { user } = useAuth();
-  const canManage = ["ADMIN", "OPERATIONS_MANAGER"].includes(user?.role);
+  const canManage = ["SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER"].includes(user?.role);
 
   const [assignments, setAssignments] = useState([]);
   const [events, setEvents] = useState([]);

@@ -40,6 +40,12 @@ export const hasAnyRole = (user, roles = []) => {
     return false;
   }
 
+  // SUPER_ADMIN inherits administrative access only.
+  // Client, vendor and driver-only portals remain separate.
+  if (user.role === ROLES.SUPER_ADMIN) {
+    return roles.some((role) => ADMIN_ROLES.includes(role));
+  }
+
   return roles.includes(user.role);
 };
 

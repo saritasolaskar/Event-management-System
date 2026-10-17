@@ -92,20 +92,24 @@ function AdminDashboard() {
   const role = user?.role;
 
   const canViewClients =
+    role === ROLES.SUPER_ADMIN ||
     role === ROLES.ADMIN ||
     role === ROLES.OPERATIONS_MANAGER;
 
   const canViewGuests =
+    role === ROLES.SUPER_ADMIN ||
     role === ROLES.ADMIN ||
     role === ROLES.OPERATIONS_MANAGER ||
     role === ROLES.DISPATCHER;
 
   const canViewVehicles =
+    role === ROLES.SUPER_ADMIN ||
     role === ROLES.ADMIN ||
     role === ROLES.OPERATIONS_MANAGER ||
     role === ROLES.DISPATCHER;
 
   const canViewDrivers =
+    role === ROLES.SUPER_ADMIN ||
     role === ROLES.ADMIN ||
     role === ROLES.OPERATIONS_MANAGER ||
     role === ROLES.DISPATCHER;

@@ -264,10 +264,32 @@ p {
    APPLICATION SHELL
 ========================================= */
 
+/* Application shell */
 .app-shell {
   min-height: 100vh;
   display: flex;
-  background: var(--color-background);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.app-shell__main {
+  min-width: 0;
+  flex: 1;
+  margin-left: 260px;
+  background: var(--color-bg);
+}
+
+.app-shell__content {
+  min-width: 0;
+  min-height: calc(100vh - 72px);
+  padding: 28px;
+  background: var(--color-bg);
+}
+
+.page-container {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .app-shell__main {
@@ -832,5 +854,21 @@ p {
 
   .auth-card {
     padding: 24px 20px;
+  }
+}
+
+/* Admin layout responsiveness */
+@media (max-width: 768px) {
+  .app-shell__main {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .app-shell__content {
+    padding: 18px 14px;
+  }
+
+  .sidebar {
+    display: none;
   }
 }

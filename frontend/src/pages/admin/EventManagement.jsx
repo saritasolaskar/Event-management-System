@@ -27,6 +27,7 @@ const EVENT_STATUS = {
 };
 
 const MUTATION_ROLES = [
+    "SUPER_ADMIN",
     "ADMIN",
     "OPERATIONS_MANAGER",
 ];
@@ -135,7 +136,7 @@ function EventManagement() {
     const { user } = useAuth();
 
     const canMutate = MUTATION_ROLES.includes(user?.role);
-    const canDelete = user?.role === "ADMIN";
+    const canDelete = ["SUPER_ADMIN", "ADMIN"].includes(user?.role);
 
     const [events, setEvents] = useState([]);
     const [clients, setClients] = useState([]);

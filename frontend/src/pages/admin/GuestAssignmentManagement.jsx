@@ -160,7 +160,7 @@ function StatusPill({ value }) {
 
 export default function GuestAssignmentManagement() {
   const { user } = useAuth();
-  const canManage = ["ADMIN", "OPERATIONS_MANAGER"].includes(user?.role);
+  const canManage = ["SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER"].includes(user?.role);
 
   const [events, setEvents] = useState([]);
   const [guests, setGuests] = useState([]);

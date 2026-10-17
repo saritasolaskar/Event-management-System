@@ -22,6 +22,7 @@ const GUEST_STATUS = {
 };
 
 const MUTATION_ROLES = [
+  "SUPER_ADMIN",
   "ADMIN",
   "OPERATIONS_MANAGER",
 ];
@@ -129,7 +130,7 @@ function GuestManagement() {
     user?.role
   );
 
-  const canDelete = user?.role === "ADMIN";
+  const canDelete = ["SUPER_ADMIN", "ADMIN"].includes(user?.role);
 
   const [guests, setGuests] = useState([]);
   const [events, setEvents] = useState([]);

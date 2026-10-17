@@ -1,6 +1,7 @@
 
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { hasAnyRole } from "../utils/roles";
 
 function MobileNavigation({
   items = [],
@@ -14,7 +15,7 @@ function MobileNavigation({
       return true;
     }
 
-    return item.roles.includes(user?.role);
+    return hasAnyRole(user, item.roles);
   });
 
   if (!isOpen) {
