@@ -73,11 +73,19 @@ const getId = (value) => {
 };
 
 
+/**
+ * Validate that the driver is active, belongs to the
+ * selected vendor, and is not linked to another vehicle.
+ *
+ * allowedCurrentVehicleId permits the existing driver
+ * to be moved from this assignment's old vehicle.
+ */
 const validateDriverForAssignment = async (
     driverId,
     vendorId,
     vehicleId = null,
-    session = null
+    session = null,
+    allowedCurrentVehicleId = null
 ) => {
     const driver =
         await driverRepository.findById(
@@ -92,9 +100,15 @@ const validateDriverForAssignment = async (
         );
     }
 
+    if (driver.isDeleted) {
+        throw new AppError(
+            "Driver not found.",
+            404
+        );
+    }
+
     if (
-        driver.status !==
-        STATUS.ACTIVE
+        driver.status !== STATUS.ACTIVE
     ) {
         throw new AppError(
             `Driver cannot be assigned because driver status is ${driver.status}.`,
@@ -102,14 +116,12 @@ const validateDriverForAssignment = async (
         );
     }
 
-    const driverVendor =
-        driver.vendor?._id ||
-        driver.vendor;
+    const driverVendorId =
+        getId(driver.vendor);
 
     if (
-        !driverVendor ||
-        driverVendor.toString() !==
-            vendorId.toString()
+        !driverVendorId ||
+        driverVendorId !== getId(vendorId)
     ) {
         throw new AppError(
             "Driver does not belong to the selected vendor.",
@@ -117,10 +129,13 @@ const validateDriverForAssignment = async (
         );
     }
 
+    const currentVehicleId =
+        getId(driver.currentVehicle);
+
     if (
-        driver.currentVehicle &&
-        getId(driver.currentVehicle) !==
-            getId(vehicleId)
+        currentVehicleId &&
+        currentVehicleId !== getId(vehicleId) &&
+        currentVehicleId !== getId(allowedCurrentVehicleId)
     ) {
         throw new AppError(
             "Driver is already assigned to another vehicle.",
@@ -132,11 +147,20 @@ const validateDriverForAssignment = async (
 };
 
 
+/**
+ * Validate that a vehicle belongs to the selected vendor
+ * and is in a usable state.
+ *
+ * An AVAILABLE vehicle can be assigned a driver during
+ * an assignment update. An ASSIGNED vehicle must have
+ * the expected driver relationship.
+ */
 const validateVehicleForAssignment = async (
     vehicleId,
     vendorId,
     driverId = null,
-    session = null
+    session = null,
+    options = {}
 ) => {
     const vehicle =
         await vehicleRepository.findById(
@@ -151,14 +175,15 @@ const validateVehicleForAssignment = async (
         );
     }
 
-    const vehicleVendor =
-        vehicle.vendor?._id ||
-        vehicle.vendor;
+    if (vehicle.isDeleted) {
+        throw new AppError(
+            "Vehicle not found.",
+            404
+        );
+    }
 
     if (
-        !vehicleVendor ||
-        vehicleVendor.toString() !==
-            vendorId.toString()
+        getId(vehicle.vendor) !== getId(vendorId)
     ) {
         throw new AppError(
             "Vehicle does not belong to the selected vendor.",
@@ -166,23 +191,59 @@ const validateVehicleForAssignment = async (
         );
     }
 
-    if (
-        vehicle.status !==
-        VEHICLE_STATUS.ASSIGNED
-    ) {
+    const allowedStatuses =
+        options.allowAvailable
+            ? [
+                VEHICLE_STATUS.ASSIGNED,
+                VEHICLE_STATUS.AVAILABLE,
+            ]
+            : [
+                VEHICLE_STATUS.ASSIGNED,
+            ];
+
+    if (!allowedStatuses.includes(vehicle.status)) {
         throw new AppError(
-            "Only a vehicle with an assigned driver can be used for a vehicle assignment.",
+            options.allowAvailable
+                ? "Only assigned or available vehicles can be used for this assignment."
+                : "Only a vehicle with an assigned driver can be used for a vehicle assignment.",
             400
         );
     }
 
+    const vehicleDriverId =
+        getId(vehicle.currentDriver);
+
     if (
-        driverId &&
-        getId(vehicle.currentDriver) !==
-            getId(driverId)
+        vehicleDriverId &&
+        vehicleDriverId !== getId(driverId) &&
+        !(
+            options.allowExistingAssignmentDriver &&
+            vehicleDriverId ===
+                getId(options.existingAssignmentDriverId)
+        )
     ) {
         throw new AppError(
             "Selected vehicle is assigned to a different driver.",
+            409
+        );
+    }
+
+    if (
+        vehicle.status === VEHICLE_STATUS.ASSIGNED &&
+        !vehicleDriverId
+    ) {
+        throw new AppError(
+            "Vehicle is marked ASSIGNED but has no linked driver. Correct the vehicle record before continuing.",
+            409
+        );
+    }
+
+    if (
+        vehicle.status === VEHICLE_STATUS.AVAILABLE &&
+        vehicleDriverId
+    ) {
+        throw new AppError(
+            "Vehicle is marked AVAILABLE but still has a linked driver. Correct the vehicle record before continuing.",
             409
         );
     }
@@ -238,8 +299,7 @@ const validateEvent = async (
     }
 
     if (
-        event.status ===
-        EVENT_STATUS.CANCELLED
+        event.status === EVENT_STATUS.CANCELLED
     ) {
         throw new AppError(
             "Vehicle cannot be assigned to a cancelled event.",
@@ -248,8 +308,7 @@ const validateEvent = async (
     }
 
     if (
-        event.status ===
-        EVENT_STATUS.COMPLETED
+        event.status === EVENT_STATUS.COMPLETED
     ) {
         throw new AppError(
             "Vehicle cannot be assigned to a completed event.",
@@ -360,9 +419,15 @@ const createVehicleAssignment = async (
                     );
                 }
 
+                if (vendor.isDeleted) {
+                    throw new AppError(
+                        "Vendor not found.",
+                        404
+                    );
+                }
+
                 if (
-                    vendor.status !==
-                    STATUS.ACTIVE
+                    vendor.status !== STATUS.ACTIVE
                 ) {
                     throw new AppError(
                         "Vendor is not active.",
@@ -386,7 +451,6 @@ const createVehicleAssignment = async (
                         session
                     );
 
-                // NEW: The vehicle must be registered for this event.
                 validateVehicleRegisteredForEvent(
                     vehicle,
                     event._id
@@ -480,10 +544,7 @@ const createVehicleAssignment = async (
                             session
                         );
                 } catch (error) {
-                    if (
-                        error.code ===
-                        11000
-                    ) {
+                    if (error.code === 11000) {
                         throw new AppError(
                             "Driver, vehicle, or assignment code is already in use.",
                             409
@@ -571,6 +632,14 @@ const getVehicleAssignmentById = async (
 
 /**
  * Update Assignment
+ *
+ * Supports changing the driver, vehicle, reporting location,
+ * reporting time, and remarks while the assignment is still
+ * in its editable ASSIGNED state.
+ *
+ * Driver/vehicle relationship changes are synchronized inside
+ * one database transaction so a failed update does not leave
+ * partially updated links.
  */
 const updateVehicleAssignment = async (
     id,
@@ -610,24 +679,24 @@ const updateVehicleAssignment = async (
 
     const sanitizedUpdateData = {};
 
-    for (
-        const field of allowedFields
-    ) {
-        if (
-            updateData[field] !==
-            undefined
-        ) {
+    for (const field of allowedFields) {
+        if (updateData[field] !== undefined) {
             sanitizedUpdateData[field] =
                 updateData[field];
         }
     }
 
-    updateData =
-        sanitizedUpdateData;
+    updateData = sanitizedUpdateData;
+
+    if (Object.keys(updateData).length === 0) {
+        throw new AppError(
+            "No valid fields provided for update.",
+            400
+        );
+    }
 
     const vendorId =
-        assignment.vendor?._id ||
-        assignment.vendor;
+        getId(assignment.vendor);
 
     if (!vendorId) {
         throw new AppError(
@@ -635,74 +704,6 @@ const updateVehicleAssignment = async (
             400
         );
     }
-
-    const effectiveDriverId =
-        updateData.driver ||
-        getId(assignment.driver);
-
-    const effectiveVehicleId =
-        updateData.vehicle ||
-        getId(assignment.vehicle);
-
-    await validateDriverForAssignment(
-        effectiveDriverId,
-        vendorId,
-        effectiveVehicleId
-    );
-
-    const updatedVehicle =
-        await validateVehicleForAssignment(
-            effectiveVehicleId,
-            vendorId,
-            effectiveDriverId
-        );
-
-    // NEW: Keep the vehicle registered for the assignment's event.
-    validateVehicleRegisteredForEvent(
-        updatedVehicle,
-        assignment.event?._id || assignment.event
-    );
-
-    if (updateData.driver) {
-        const existingDriverAssignment =
-            await vehicleAssignmentRepository.findActiveByDriver(
-                updateData.driver,
-                id
-            );
-
-        if (existingDriverAssignment) {
-            throw new AppError(
-                "Driver is already assigned.",
-                409
-            );
-        }
-    }
-
-    if (updateData.vehicle) {
-        const existingVehicleAssignment =
-            await vehicleAssignmentRepository.findActiveByVehicle(
-                updateData.vehicle,
-                id
-            );
-
-        if (existingVehicleAssignment) {
-            throw new AppError(
-                "Vehicle is already assigned.",
-                409
-            );
-        }
-    }
-
-    if (
-        updateData.reportingLocation
-    ) {
-        await validateReportingLocation(
-            updateData.reportingLocation
-        );
-    }
-
-    updateData.updatedBy =
-        userId;
 
     const driverWasUpdated =
         Object.prototype.hasOwnProperty.call(
@@ -723,16 +724,28 @@ const updateVehicleAssignment = async (
         getId(assignment.vehicle);
 
     const newDriverId =
-        getId(
-            updateData.driver ||
-            oldDriverId
-        );
+        driverWasUpdated
+            ? getId(updateData.driver)
+            : oldDriverId;
 
     const newVehicleId =
-        getId(
-            updateData.vehicle ||
-            oldVehicleId
+        vehicleWasUpdated
+            ? getId(updateData.vehicle)
+            : oldVehicleId;
+
+    if (!newDriverId) {
+        throw new AppError(
+            "A driver is required for a vehicle assignment.",
+            400
         );
+    }
+
+    if (!newVehicleId) {
+        throw new AppError(
+            "A vehicle is required for a vehicle assignment.",
+            400
+        );
+    }
 
     const session =
         await mongoose.startSession();
@@ -742,11 +755,146 @@ const updateVehicleAssignment = async (
     try {
         await session.withTransaction(
             async () => {
+                /*
+                 * Re-fetch the assignment within the transaction
+                 * so relationship checks use the latest records.
+                 */
+                const currentAssignment =
+                    await vehicleAssignmentRepository.findById(
+                        id,
+                        session
+                    );
+
+                if (!currentAssignment) {
+                    throw new AppError(
+                        "Vehicle Assignment not found.",
+                        404
+                    );
+                }
+
+                if (
+                    currentAssignment.status !==
+                    assignment.status
+                ) {
+                    throw new AppError(
+                        "Vehicle Assignment was changed by another operation. Please refresh and try again.",
+                        409
+                    );
+                }
+
+                const currentOldDriverId =
+                    getId(currentAssignment.driver);
+
+                const currentOldVehicleId =
+                    getId(currentAssignment.vehicle);
+
+                if (
+                    currentOldDriverId !== oldDriverId ||
+                    currentOldVehicleId !== oldVehicleId
+                ) {
+                    throw new AppError(
+                        "Vehicle Assignment relationships changed by another operation. Please refresh and try again.",
+                        409
+                    );
+                }
+
+                await validateDriverForAssignment(
+                    newDriverId,
+                    vendorId,
+                    newVehicleId,
+                    session,
+                    newDriverId === oldDriverId
+                        ? oldVehicleId
+                        : null
+                );
+
+                const updatedVehicle =
+                    await validateVehicleForAssignment(
+                        newVehicleId,
+                        vendorId,
+                        newDriverId,
+                        session,
+                        {
+                            allowAvailable: true,
+                            allowExistingAssignmentDriver: true,
+                            existingAssignmentDriverId:
+                                newDriverId === oldDriverId
+                                    ? oldDriverId
+                                    : null,
+                        }
+                    );
+
+                validateVehicleRegisteredForEvent(
+                    updatedVehicle,
+                    getId(currentAssignment.event)
+                );
+
+                const driverChanged =
+                    oldDriverId !== newDriverId;
+
+                const vehicleChanged =
+                    oldVehicleId !== newVehicleId;
+
+                /*
+                 * Prevent conflicts with another active assignment.
+                 * Exclude this assignment from both searches.
+                 */
+                if (driverChanged) {
+                    const existingDriverAssignment =
+                        await vehicleAssignmentRepository.findActiveByDriver(
+                            newDriverId,
+                            id,
+                            session
+                        );
+
+                    if (existingDriverAssignment) {
+                        throw new AppError(
+                            "Driver is already assigned to another active assignment.",
+                            409
+                        );
+                    }
+                }
+
+                if (vehicleChanged) {
+                    const existingVehicleAssignment =
+                        await vehicleAssignmentRepository.findActiveByVehicle(
+                            newVehicleId,
+                            id,
+                            session
+                        );
+
+                    if (existingVehicleAssignment) {
+                        throw new AppError(
+                            "Vehicle is already assigned to another active assignment.",
+                            409
+                        );
+                    }
+                }
+
+                if (
+                    updateData.reportingLocation !== undefined &&
+                    updateData.reportingLocation
+                ) {
+                    await validateReportingLocation(
+                        updateData.reportingLocation,
+                        session
+                    );
+                }
+
+                /*
+                 * Update the assignment record first using the
+                 * expected status as an optimistic concurrency check.
+                 */
+                const assignmentUpdate = {
+                    ...updateData,
+                    updatedBy: userId,
+                };
+
                 updatedAssignment =
                     await vehicleAssignmentRepository.updateByIdAndStatus(
                         id,
-                        assignment.status,
-                        updateData,
+                        currentAssignment.status,
+                        assignmentUpdate,
                         session
                     );
 
@@ -758,12 +906,12 @@ const updateVehicleAssignment = async (
                 }
 
                 /*
-                 * If the driver changes, release the
-                 * old driver's vehicle relationship.
+                 * Release the old driver's vehicle link only when
+                 * the driver is actually being changed.
                  */
                 if (
-                    driverWasUpdated &&
-                    oldDriverId !== newDriverId
+                    driverChanged &&
+                    oldDriverId
                 ) {
                     const oldDriver =
                         await driverRepository.findById(
@@ -773,18 +921,13 @@ const updateVehicleAssignment = async (
 
                     if (
                         oldDriver &&
-                        getId(
-                            oldDriver.currentVehicle
-                        ) === oldVehicleId
+                        getId(oldDriver.currentVehicle) === oldVehicleId
                     ) {
                         await driverRepository.updateById(
                             oldDriverId,
                             {
-                                currentVehicle:
-                                    null,
-
-                                updatedBy:
-                                    userId,
+                                currentVehicle: null,
+                                updatedBy: userId,
                             },
                             session
                         );
@@ -792,12 +935,13 @@ const updateVehicleAssignment = async (
                 }
 
                 /*
-                 * If the vehicle changes, release the
-                 * old vehicle relationship.
+                 * Release the old vehicle when switching vehicles.
+                 * Do not release it if another active assignment
+                 * still references that vehicle.
                  */
                 if (
-                    vehicleWasUpdated &&
-                    oldVehicleId !== newVehicleId
+                    vehicleChanged &&
+                    oldVehicleId
                 ) {
                     const oldVehicle =
                         await vehicleRepository.findById(
@@ -807,21 +951,14 @@ const updateVehicleAssignment = async (
 
                     if (
                         oldVehicle &&
-                        getId(
-                            oldVehicle.currentDriver
-                        ) === oldDriverId
+                        getId(oldVehicle.currentDriver) === oldDriverId
                     ) {
                         await vehicleRepository.updateById(
                             oldVehicleId,
                             {
-                                currentDriver:
-                                    null,
-
-                                status:
-                                    VEHICLE_STATUS.AVAILABLE,
-
-                                updatedBy:
-                                    userId,
+                                currentDriver: null,
+                                status: VEHICLE_STATUS.AVAILABLE,
+                                updatedBy: userId,
                             },
                             session
                         );
@@ -829,100 +966,71 @@ const updateVehicleAssignment = async (
                 }
 
                 /*
-                 * Ensure the new driver points to
-                 * the vehicle used by this assignment.
+                 * Link the selected driver to the selected vehicle.
+                 * This also handles changing only the vehicle while
+                 * retaining the same driver.
                  */
+                const linkedDriver =
+                    await driverRepository.findById(
+                        newDriverId,
+                        session
+                    );
+
+                if (!linkedDriver) {
+                    throw new AppError(
+                        "Driver not found while synchronizing vehicle assignment.",
+                        404
+                    );
+                }
+
                 if (
-                    newDriverId &&
-                    (
-                        driverWasUpdated ||
-                        vehicleWasUpdated
-                    )
+                    getId(linkedDriver.currentVehicle) !== newVehicleId
                 ) {
-                    const linkedDriver =
-                        await driverRepository.findById(
-                            newDriverId,
-                            session
-                        );
-
-                    if (!linkedDriver) {
-                        throw new AppError(
-                            "Driver not found while synchronizing vehicle assignment.",
-                            404
-                        );
-                    }
-
-                    if (
-                        getId(
-                            linkedDriver.currentVehicle
-                        ) !== newVehicleId
-                    ) {
-                        await driverRepository.updateById(
-                            newDriverId,
-                            {
-                                currentVehicle:
-                                    newVehicleId,
-
-                                updatedBy:
-                                    userId,
-                            },
-                            session
-                        );
-                    }
+                    await driverRepository.updateById(
+                        newDriverId,
+                        {
+                            currentVehicle: newVehicleId,
+                            updatedBy: userId,
+                        },
+                        session
+                    );
                 }
 
                 /*
-                 * Ensure the new vehicle points to
-                 * the driver used by this assignment.
+                 * Link the selected vehicle to the selected driver
+                 * and ensure its status matches the relationship.
                  */
+                const linkedVehicle =
+                    await vehicleRepository.findById(
+                        newVehicleId,
+                        session
+                    );
+
+                if (!linkedVehicle) {
+                    throw new AppError(
+                        "Vehicle not found while synchronizing vehicle assignment.",
+                        404
+                    );
+                }
+
                 if (
-                    newVehicleId &&
-                    (
-                        driverWasUpdated ||
-                        vehicleWasUpdated
-                    )
+                    getId(linkedVehicle.currentDriver) !== newDriverId ||
+                    linkedVehicle.status !== VEHICLE_STATUS.ASSIGNED
                 ) {
-                    const linkedVehicle =
-                        await vehicleRepository.findById(
-                            newVehicleId,
-                            session
-                        );
-
-                    if (!linkedVehicle) {
-                        throw new AppError(
-                            "Vehicle not found while synchronizing vehicle assignment.",
-                            404
-                        );
-                    }
-
-                    if (
-                        getId(
-                            linkedVehicle.currentDriver
-                        ) !== newDriverId
-                    ) {
-                        await vehicleRepository.updateById(
-                            newVehicleId,
-                            {
-                                currentDriver:
-                                    newDriverId,
-
-                                status:
-                                    VEHICLE_STATUS.ASSIGNED,
-
-                                updatedBy:
-                                    userId,
-                            },
-                            session
-                        );
-                    }
+                    await vehicleRepository.updateById(
+                        newVehicleId,
+                        {
+                            currentDriver: newDriverId,
+                            status: VEHICLE_STATUS.ASSIGNED,
+                            updatedBy: userId,
+                        },
+                        session
+                    );
                 }
             }
         );
     } catch (error) {
-        if (
-            error.code ===
-            11000
-        ) {
+        if (error.code === 11000) {
             throw new AppError(
                 "Driver or vehicle is already assigned to another active assignment.",
                 409
@@ -935,20 +1043,11 @@ const updateVehicleAssignment = async (
     }
 
     await auditLogService.createLog({
-        user:
-            userId,
-
-        action:
-            "UPDATE",
-
-        module:
-            "VEHICLE_ASSIGNMENT",
-
-        referenceId:
-            updatedAssignment._id,
-
-        description:
-            "Vehicle Assignment updated.",
+        user: userId,
+        action: "UPDATE",
+        module: "VEHICLE_ASSIGNMENT",
+        referenceId: updatedAssignment._id,
+        description: "Vehicle Assignment updated.",
     });
 
     return updatedAssignment;
@@ -1018,25 +1117,15 @@ const deleteVehicleAssignment = async (
     }
 
     await auditLogService.createLog({
-        user:
-            userId,
-
-        action:
-            "DELETE",
-
-        module:
-            "VEHICLE_ASSIGNMENT",
-
-        referenceId:
-            assignment._id,
-
-        description:
-            "Vehicle Assignment deleted.",
+        user: userId,
+        action: "DELETE",
+        module: "VEHICLE_ASSIGNMENT",
+        referenceId: assignment._id,
+        description: "Vehicle Assignment deleted.",
     });
 
     return {
-        message:
-            "Vehicle Assignment deleted successfully.",
+        message: "Vehicle Assignment deleted successfully.",
     };
 };
 
@@ -1061,19 +1150,14 @@ const updateVehicleAssignmentStatus = async (
         );
     }
 
-    if (
-        status !== "CANCELLED"
-    ) {
+    if (status !== "CANCELLED") {
         throw new AppError(
             "Only cancellation is allowed through the manual status endpoint.",
             400
         );
     }
 
-    if (
-        assignment.status ===
-        "ON_DUTY"
-    ) {
+    if (assignment.status === "ON_DUTY") {
         throw new AppError(
             "Vehicle Assignment cannot be cancelled after duty has started.",
             400
@@ -1099,9 +1183,7 @@ const updateVehicleAssignmentStatus = async (
             id
         );
 
-    if (
-        guestAssignments.length > 0
-    ) {
+    if (guestAssignments.length > 0) {
         throw new AppError(
             "Vehicle Assignment cannot be cancelled because guests are assigned to it.",
             409
@@ -1116,11 +1198,8 @@ const updateVehicleAssignmentStatus = async (
             id,
             expectedStatus,
             {
-                status:
-                    "CANCELLED",
-
-                updatedBy:
-                    userId,
+                status: "CANCELLED",
+                updatedBy: userId,
             }
         );
 
@@ -1132,40 +1211,20 @@ const updateVehicleAssignmentStatus = async (
     }
 
     await notificationService.createNotification({
-        recipientUser:
-            userId,
-
-        title:
-            "Vehicle Assignment Cancelled",
-
-        message:
-            "Vehicle assignment has been cancelled.",
-
-        type:
-            "VEHICLE_ASSIGNMENT_CANCELLED",
-
-        referenceType:
-            "VEHICLE_ASSIGNMENT",
-
-        referenceId:
-            updatedAssignment._id,
+        recipientUser: userId,
+        title: "Vehicle Assignment Cancelled",
+        message: "Vehicle assignment has been cancelled.",
+        type: "VEHICLE_ASSIGNMENT_CANCELLED",
+        referenceType: "VEHICLE_ASSIGNMENT",
+        referenceId: updatedAssignment._id,
     });
 
     await auditLogService.createLog({
-        user:
-            userId,
-
-        action:
-            "UPDATE",
-
-        module:
-            "VEHICLE_ASSIGNMENT",
-
-        referenceId:
-            updatedAssignment._id,
-
-        description:
-            "Vehicle Assignment cancelled.",
+        user: userId,
+        action: "UPDATE",
+        module: "VEHICLE_ASSIGNMENT",
+        referenceId: updatedAssignment._id,
+        description: "Vehicle Assignment cancelled.",
     });
 
     return updatedAssignment;

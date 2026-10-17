@@ -517,14 +517,17 @@ const updateVehicle = async (
                         ? getId(data.currentDriver)
                         : oldDriverId;
 
-                if (driverWasUpdated && newDriverId) {
-                    await validateDriver(
-                        newDriverId,
-                        newVendorId,
-                        vehicleId,
-                        session
-                    );
-                }
+                if (
+    (driverWasUpdated || data.vendor !== undefined) &&
+    newDriverId
+) {
+    await validateDriver(
+        newDriverId,
+        newVendorId,
+        vehicleId,
+        session
+    );
+}
 
                 if (
                     driverWasUpdated &&
