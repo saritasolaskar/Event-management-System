@@ -4,7 +4,8 @@ const vendorBillPdfService =
 const vendorBillService = require("../services/vendorBill.service");
 
 const asyncHandler =  require("../utils/asyncHandler");
-
+const vendorBillRepository =
+    require("../repositories/vendorBill.repository");
 const { successResponse,} = require("../utils/response.utils");
 
 const createVendorBill =
@@ -56,7 +57,19 @@ asyncHandler(async(req,res)=>{
 
 });
 
+const getVendorBills = asyncHandler(async (req, res) => {
+    const bills = await vendorBillRepository.findAll();
+
+    return successResponse(
+        res,
+        200,
+        "Vendor bills fetched successfully.",
+        bills
+    );
+});
+
 module.exports = {
     createVendorBill,
     downloadVendorBillPdf,
+    getVendorBills,
 };

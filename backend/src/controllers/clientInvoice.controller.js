@@ -6,7 +6,8 @@ const clientInvoiceService = require("../services/clientInvoice.service");
 const asyncHandler = require("../utils/asyncHandler");
 
 const { successResponse,} = require("../utils/response.utils");
-
+const clientInvoiceRepository =
+    require("../repositories/clientInvoice.repository");
 const createClientInvoice =
     asyncHandler(async (req, res) => {
 
@@ -53,7 +54,20 @@ const downloadInvoicePdf =
         return res.send(pdf);
     });
 
+
+    const getClientInvoices = asyncHandler(async (req, res) => {
+    const invoices = await clientInvoiceRepository.findAll();
+
+    return successResponse(
+        res,
+        200,
+        "Client invoices fetched successfully.",
+        invoices
+    );
+});
+
 module.exports = {
     createClientInvoice,
     downloadInvoicePdf,
+    getClientInvoices,
 };
