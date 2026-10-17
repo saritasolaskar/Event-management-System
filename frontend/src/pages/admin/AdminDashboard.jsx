@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../auth/AuthContext";
@@ -9,7 +10,6 @@ import { getVehicles } from "../../api/vehicle.api";
 import { getDrivers } from "../../api/driver.api";
 
 import { ROLES } from "../../utils/roles";
-import { getApiErrorMessage } from "../../utils/errorHandler";
 
 import "../../styles/admin-dashboard.css";
 
@@ -74,7 +74,9 @@ function getStatusClass(status) {
     return "";
   }
 
-  return `status-${String(status).toLowerCase().replaceAll("_", "-")}`;
+  return `status-${String(status)
+    .toLowerCase()
+    .replaceAll("_", "-")}`;
 }
 
 function AdminDashboard() {
@@ -91,28 +93,39 @@ function AdminDashboard() {
 
   const role = user?.role;
 
-  const canViewClients =
-    role === ROLES.SUPER_ADMIN ||
-    role === ROLES.ADMIN ||
-    role === ROLES.OPERATIONS_MANAGER;
+  const canViewClients = [
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER,
+  ].includes(role);
 
-  const canViewGuests =
-    role === ROLES.SUPER_ADMIN ||
-    role === ROLES.ADMIN ||
-    role === ROLES.OPERATIONS_MANAGER ||
-    role === ROLES.DISPATCHER;
+  const canViewEvents = [
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER,
+    ROLES.DISPATCHER,
+  ].includes(role);
 
-  const canViewVehicles =
-    role === ROLES.SUPER_ADMIN ||
-    role === ROLES.ADMIN ||
-    role === ROLES.OPERATIONS_MANAGER ||
-    role === ROLES.DISPATCHER;
+  const canViewGuests = [
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER,
+    ROLES.DISPATCHER,
+  ].includes(role);
 
-  const canViewDrivers =
-    role === ROLES.SUPER_ADMIN ||
-    role === ROLES.ADMIN ||
-    role === ROLES.OPERATIONS_MANAGER ||
-    role === ROLES.DISPATCHER;
+  const canViewVehicles = [
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER,
+    ROLES.DISPATCHER,
+  ].includes(role);
+
+  const canViewDrivers = [
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER,
+    ROLES.DISPATCHER,
+  ].includes(role);
 
   useEffect(() => {
     let mounted = true;
@@ -123,12 +136,14 @@ function AdminDashboard() {
 
       const requests = [];
 
-      requests.push(
-        getEvents().then((response) => ({
-          type: "events",
-          data: getArray(response),
-        }))
-      );
+      if (canViewEvents) {
+        requests.push(
+          getEvents().then((response) => ({
+            type: "events",
+            data: getArray(response),
+          }))
+        );
+      }
 
       if (canViewClients) {
         requests.push(
@@ -218,6 +233,7 @@ function AdminDashboard() {
       mounted = false;
     };
   }, [
+    canViewEvents,
     canViewClients,
     canViewGuests,
     canViewVehicles,
@@ -311,7 +327,9 @@ function AdminDashboard() {
 
         <div className="dashboard-user">
           <span>Signed in as</span>
-          <strong>{user?.name || user?.email || "User"}</strong>
+          <strong>
+            {user?.name || user?.email || "User"}
+          </strong>
         </div>
       </header>
 
@@ -345,25 +363,27 @@ function AdminDashboard() {
           </div>
         )}
 
-        <div className="dashboard-card">
-          <div className="dashboard-card__top">
-            <span className="dashboard-card__icon">
-              E
+        {canViewEvents && (
+          <div className="dashboard-card">
+            <div className="dashboard-card__top">
+              <span className="dashboard-card__icon">
+                E
+              </span>
+
+              <span className="dashboard-card__trend">
+                Live
+              </span>
+            </div>
+
+            <span className="dashboard-card__label">
+              Upcoming Events
             </span>
 
-            <span className="dashboard-card__trend">
-              Live
-            </span>
+            <strong className="dashboard-card__value">
+              {metrics.upcomingEvents}
+            </strong>
           </div>
-
-          <span className="dashboard-card__label">
-            Upcoming Events
-          </span>
-
-          <strong className="dashboard-card__value">
-            {metrics.upcomingEvents}
-          </strong>
-        </div>
+        )}
 
         {canViewGuests && (
           <div className="dashboard-card">
@@ -411,84 +431,86 @@ function AdminDashboard() {
       </section>
 
       <div className="dashboard-grid">
-        <section className="dashboard-panel dashboard-panel--wide">
-          <div className="dashboard-panel__header">
-            <div>
-              <span className="dashboard-panel__eyebrow">
-                Events
+        {canViewEvents && (
+          <section className="dashboard-panel dashboard-panel--wide">
+            <div className="dashboard-panel__header">
+              <div>
+                <span className="dashboard-panel__eyebrow">
+                  Events
+                </span>
+
+                <h2>Recent Events</h2>
+              </div>
+
+              <span className="dashboard-count">
+                {events.length} total
               </span>
-
-              <h2>Recent Events</h2>
             </div>
 
-            <span className="dashboard-count">
-              {events.length} total
-            </span>
-          </div>
-
-          {recentEvents.length === 0 ? (
-            <div className="dashboard-empty">
-              <h3>No events found</h3>
-              <p>
-                Events created in the system will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="dashboard-table-wrapper">
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>Event</th>
-                    <th>Client</th>
-                    <th>Start Date</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {recentEvents.map((event) => (
-                    <tr key={event._id || event.id}>
-                      <td>
-                        <strong>
-                          {event.name ||
-                            event.eventCode ||
-                            "Unnamed Event"}
-                        </strong>
-
-                        {event.eventCode &&
-                          event.name && (
-                            <small>
-                              {event.eventCode}
-                            </small>
-                          )}
-                      </td>
-
-                      <td>
-                        {event.client?.companyName ||
-                          event.client?.name ||
-                          "—"}
-                      </td>
-
-                      <td>
-                        {formatDate(event.startDate)}
-                      </td>
-
-                      <td>
-                        <span
-                          className={`dashboard-status ${getStatusClass(
-                            event.status
-                          )}`}
-                        >
-                          {event.status || "—"}
-                        </span>
-                      </td>
+            {recentEvents.length === 0 ? (
+              <div className="dashboard-empty">
+                <h3>No events found</h3>
+                <p>
+                  Events created in the system will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="dashboard-table-wrapper">
+                <table className="dashboard-table">
+                  <thead>
+                    <tr>
+                      <th>Event</th>
+                      <th>Client</th>
+                      <th>Start Date</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                  </thead>
+
+                  <tbody>
+                    {recentEvents.map((event) => (
+                      <tr key={event._id || event.id}>
+                        <td>
+                          <strong>
+                            {event.name ||
+                              event.eventCode ||
+                              "Unnamed Event"}
+                          </strong>
+
+                          {event.eventCode &&
+                            event.name && (
+                              <small>
+                                {event.eventCode}
+                              </small>
+                            )}
+                        </td>
+
+                        <td>
+                          {event.client?.companyName ||
+                            event.client?.name ||
+                            "—"}
+                        </td>
+
+                        <td>
+                          {formatDate(event.startDate)}
+                        </td>
+
+                        <td>
+                          <span
+                            className={`dashboard-status ${getStatusClass(
+                              event.status
+                            )}`}
+                          >
+                            {event.status || "—"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
 
         {canViewVehicles && (
           <section className="dashboard-panel">
@@ -539,10 +561,12 @@ function AdminDashboard() {
             </div>
           )}
 
-          <div className="summary-item">
-            <span>Events</span>
-            <strong>{events.length}</strong>
-          </div>
+          {canViewEvents && (
+            <div className="summary-item">
+              <span>Events</span>
+              <strong>{events.length}</strong>
+            </div>
+          )}
 
           {canViewGuests && (
             <div className="summary-item">
