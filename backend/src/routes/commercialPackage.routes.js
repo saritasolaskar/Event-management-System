@@ -38,7 +38,7 @@ router.get(
 
 router.get(
     "/active",
-    authorize("ADMIN", "ACCOUNTS"),
+    authorize("ADMIN", "ACCOUNTS", "OPERATIONS_MANAGER"),
     controller.getActiveCommercialPackages
 );
 
