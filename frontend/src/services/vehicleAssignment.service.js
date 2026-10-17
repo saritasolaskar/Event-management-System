@@ -42,9 +42,6 @@ const {
 } = require("../constants/status");
 
 
-/**
- * Generate a unique Vehicle Assignment code.
- */
 const generateAssignmentCode = () => {
     const datePart = new Date()
         .toISOString()
@@ -194,6 +191,35 @@ const validateVehicleForAssignment = async (
 };
 
 
+/**
+ * Ensure the vehicle is registered for the event
+ * before creating or updating its duty assignment.
+ */
+const validateVehicleRegisteredForEvent = (
+    vehicle,
+    eventId
+) => {
+    const registeredEvents =
+        vehicle.eventsUsedFor || [];
+
+    const isRegistered =
+        registeredEvents.some(
+            (registeredEventId) =>
+                getId(registeredEventId) ===
+                getId(eventId)
+        );
+
+    if (!isRegistered) {
+        throw new AppError(
+            "Selected vehicle is not registered for this event.",
+            400
+        );
+    }
+
+    return vehicle;
+};
+
+
 const validateEvent = async (
     eventId,
     session = null
@@ -315,42 +341,6 @@ const createVehicleAssignment = async (
                         session
                     );
 
-                /*
-                 * IMPORTANT:
-                 * A vehicle must be registered for
-                 * the selected event before it can
-                 * be assigned to that event.
-                 */
-                const registeredVehicle =
-                    await vehicleRepository.findById(
-                        data.vehicle,
-                        session
-                    );
-
-                if (!registeredVehicle) {
-                    throw new AppError(
-                        "Vehicle not found.",
-                        404
-                    );
-                }
-
-                const isRegisteredForEvent =
-                    Array.isArray(
-                        registeredVehicle.eventsUsedFor
-                    ) &&
-                    registeredVehicle.eventsUsedFor.some(
-                        (registeredEventId) =>
-                            getId(registeredEventId) ===
-                            getId(event._id)
-                    );
-
-                if (!isRegisteredForEvent) {
-                    throw new AppError(
-                        "Vehicle is not registered for the selected event. Register it for this event before creating the assignment.",
-                        400
-                    );
-                }
-
                 const commercialPackage =
                     await validateCommercialPackage(
                         data.commercialPackage,
@@ -395,6 +385,12 @@ const createVehicleAssignment = async (
                         data.driver,
                         session
                     );
+
+                // NEW: The vehicle must be registered for this event.
+                validateVehicleRegisteredForEvent(
+                    vehicle,
+                    event._id
+                );
 
                 await validateReportingLocation(
                     data.reportingLocation,
@@ -654,10 +650,17 @@ const updateVehicleAssignment = async (
         effectiveVehicleId
     );
 
-    await validateVehicleForAssignment(
-        effectiveVehicleId,
-        vendorId,
-        effectiveDriverId
+    const updatedVehicle =
+        await validateVehicleForAssignment(
+            effectiveVehicleId,
+            vendorId,
+            effectiveDriverId
+        );
+
+    // NEW: Keep the vehicle registered for the assignment's event.
+    validateVehicleRegisteredForEvent(
+        updatedVehicle,
+        assignment.event?._id || assignment.event
     );
 
     if (updateData.driver) {
@@ -755,8 +758,8 @@ const updateVehicleAssignment = async (
                 }
 
                 /*
-                 * Release the old driver's vehicle
-                 * relationship when the driver changes.
+                 * If the driver changes, release the
+                 * old driver's vehicle relationship.
                  */
                 if (
                     driverWasUpdated &&
@@ -777,8 +780,11 @@ const updateVehicleAssignment = async (
                         await driverRepository.updateById(
                             oldDriverId,
                             {
-                                currentVehicle: null,
-                                updatedBy: userId,
+                                currentVehicle:
+                                    null,
+
+                                updatedBy:
+                                    userId,
                             },
                             session
                         );
@@ -786,8 +792,8 @@ const updateVehicleAssignment = async (
                 }
 
                 /*
-                 * Release the old vehicle relationship
-                 * when the vehicle changes.
+                 * If the vehicle changes, release the
+                 * old vehicle relationship.
                  */
                 if (
                     vehicleWasUpdated &&
@@ -808,9 +814,14 @@ const updateVehicleAssignment = async (
                         await vehicleRepository.updateById(
                             oldVehicleId,
                             {
-                                currentDriver: null,
-                                status: VEHICLE_STATUS.AVAILABLE,
-                                updatedBy: userId,
+                                currentDriver:
+                                    null,
+
+                                status:
+                                    VEHICLE_STATUS.AVAILABLE,
+
+                                updatedBy:
+                                    userId,
                             },
                             session
                         );
@@ -849,8 +860,11 @@ const updateVehicleAssignment = async (
                         await driverRepository.updateById(
                             newDriverId,
                             {
-                                currentVehicle: newVehicleId,
-                                updatedBy: userId,
+                                currentVehicle:
+                                    newVehicleId,
+
+                                updatedBy:
+                                    userId,
                             },
                             session
                         );
@@ -889,9 +903,14 @@ const updateVehicleAssignment = async (
                         await vehicleRepository.updateById(
                             newVehicleId,
                             {
-                                currentDriver: newDriverId,
-                                status: VEHICLE_STATUS.ASSIGNED,
-                                updatedBy: userId,
+                                currentDriver:
+                                    newDriverId,
+
+                                status:
+                                    VEHICLE_STATUS.ASSIGNED,
+
+                                updatedBy:
+                                    userId,
                             },
                             session
                         );
@@ -916,11 +935,20 @@ const updateVehicleAssignment = async (
     }
 
     await auditLogService.createLog({
-        user: userId,
-        action: "UPDATE",
-        module: "VEHICLE_ASSIGNMENT",
-        referenceId: updatedAssignment._id,
-        description: "Vehicle Assignment updated.",
+        user:
+            userId,
+
+        action:
+            "UPDATE",
+
+        module:
+            "VEHICLE_ASSIGNMENT",
+
+        referenceId:
+            updatedAssignment._id,
+
+        description:
+            "Vehicle Assignment updated.",
     });
 
     return updatedAssignment;
@@ -958,8 +986,8 @@ const deleteVehicleAssignment = async (
     }
 
     /*
-     * Do not delete an assignment while guests
-     * are still assigned to it.
+     * A vehicle assignment cannot be deleted
+     * while guests are still assigned to it.
      */
     const guestAssignments =
         await guestAssignmentRepository.findByVehicleAssignment(
@@ -990,11 +1018,20 @@ const deleteVehicleAssignment = async (
     }
 
     await auditLogService.createLog({
-        user: userId,
-        action: "DELETE",
-        module: "VEHICLE_ASSIGNMENT",
-        referenceId: assignment._id,
-        description: "Vehicle Assignment deleted.",
+        user:
+            userId,
+
+        action:
+            "DELETE",
+
+        module:
+            "VEHICLE_ASSIGNMENT",
+
+        referenceId:
+            assignment._id,
+
+        description:
+            "Vehicle Assignment deleted.",
     });
 
     return {
@@ -1034,7 +1071,8 @@ const updateVehicleAssignmentStatus = async (
     }
 
     if (
-        assignment.status === "ON_DUTY"
+        assignment.status ===
+        "ON_DUTY"
     ) {
         throw new AppError(
             "Vehicle Assignment cannot be cancelled after duty has started.",
@@ -1053,8 +1091,8 @@ const updateVehicleAssignmentStatus = async (
     }
 
     /*
-     * Do not cancel an assignment while guests
-     * are still assigned to it.
+     * A vehicle assignment cannot be cancelled
+     * while guests are still assigned to it.
      */
     const guestAssignments =
         await guestAssignmentRepository.findByVehicleAssignment(
@@ -1078,8 +1116,11 @@ const updateVehicleAssignmentStatus = async (
             id,
             expectedStatus,
             {
-                status: "CANCELLED",
-                updatedBy: userId,
+                status:
+                    "CANCELLED",
+
+                updatedBy:
+                    userId,
             }
         );
 
@@ -1091,20 +1132,40 @@ const updateVehicleAssignmentStatus = async (
     }
 
     await notificationService.createNotification({
-        recipientUser: userId,
-        title: "Vehicle Assignment Cancelled",
-        message: "Vehicle assignment has been cancelled.",
-        type: "VEHICLE_ASSIGNMENT_CANCELLED",
-        referenceType: "VEHICLE_ASSIGNMENT",
-        referenceId: updatedAssignment._id,
+        recipientUser:
+            userId,
+
+        title:
+            "Vehicle Assignment Cancelled",
+
+        message:
+            "Vehicle assignment has been cancelled.",
+
+        type:
+            "VEHICLE_ASSIGNMENT_CANCELLED",
+
+        referenceType:
+            "VEHICLE_ASSIGNMENT",
+
+        referenceId:
+            updatedAssignment._id,
     });
 
     await auditLogService.createLog({
-        user: userId,
-        action: "UPDATE",
-        module: "VEHICLE_ASSIGNMENT",
-        referenceId: updatedAssignment._id,
-        description: "Vehicle Assignment cancelled.",
+        user:
+            userId,
+
+        action:
+            "UPDATE",
+
+        module:
+            "VEHICLE_ASSIGNMENT",
+
+        referenceId:
+            updatedAssignment._id,
+
+        description:
+            "Vehicle Assignment cancelled.",
     });
 
     return updatedAssignment;
