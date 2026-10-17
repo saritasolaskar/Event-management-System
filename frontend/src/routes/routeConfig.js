@@ -1,4 +1,3 @@
-
 import { ROLES } from "../utils/roles";
 
 export const ROUTES = {
@@ -12,14 +11,19 @@ export const ROUTES = {
   ADMIN_CLIENTS: "/admin/clients",
   ADMIN_EVENTS: "/admin/events",
   ADMIN_GUESTS: "/admin/guests",
+  ADMIN_LOCATIONS: "/admin/locations",
+  ADMIN_VENDORS: "/admin/vendors",
+  ADMIN_DRIVERS: "/admin/drivers",
   ADMIN_VEHICLES: "/admin/vehicles",
   ADMIN_EVENT_VEHICLES: "/admin/events/:eventId/vehicles",
   ADMIN_VEHICLE_ASSIGNMENTS: "/admin/vehicle-assignments",
+  ADMIN_GUEST_ASSIGNMENTS: "/admin/guest-assignments",
+
   CLIENT: "/client",
   CLIENT_DASHBOARD: "/client/dashboard",
   CLIENT_EVENTS: "/client/events",
   CLIENT_INVOICES: "/client/invoices",
-  ADMIN_GUEST_ASSIGNMENTS: "/admin/guest-assignments",
+
   DRIVER: "/driver",
   DRIVER_DASHBOARD: "/driver/dashboard",
 };
@@ -38,6 +42,18 @@ export const ROLE_HOME = {
 
 export const ADMIN_ROUTES = [
   {
+    path: ROUTES.ADMIN_DASHBOARD,
+    label: "Dashboard",
+    roles: [
+      ROLES.SUPER_ADMIN,
+      ROLES.ADMIN,
+      ROLES.OPERATIONS_MANAGER,
+      ROLES.DISPATCHER,
+      ROLES.ACCOUNTS,
+      ROLES.SUPPORT,
+    ],
+  },
+  {
     path: ROUTES.ADMIN_CLIENTS,
     label: "Clients",
     roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
@@ -45,39 +61,42 @@ export const ADMIN_ROUTES = [
   {
     path: ROUTES.ADMIN_EVENTS,
     label: "Events",
-    roles: [
-      ROLES.ADMIN,
-      ROLES.OPERATIONS_MANAGER,
-      ROLES.DISPATCHER,
-    ],
+    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER, ROLES.DISPATCHER],
   },
   {
     path: ROUTES.ADMIN_GUESTS,
     label: "Guests",
-    roles: [
-      ROLES.ADMIN,
-      ROLES.OPERATIONS_MANAGER,
-      ROLES.DISPATCHER,
-    ],
+    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER, ROLES.DISPATCHER],
   },
   {
-  path: ROUTES.ADMIN_GUEST_ASSIGNMENTS,
-  label: "Guest Assignments",
-  roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER, ROLES.DISPATCHER],
-},
+    path: ROUTES.ADMIN_GUEST_ASSIGNMENTS,
+    label: "Guest Assignments",
+    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER, ROLES.DISPATCHER],
+  },
   {
-  path: ROUTES.ADMIN_VEHICLE_ASSIGNMENTS,
-  label: "Vehicle Assignments",
-  roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
-},
+    path: ROUTES.ADMIN_VEHICLE_ASSIGNMENTS,
+    label: "Vehicle Assignments",
+    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
+  },
   {
     path: ROUTES.ADMIN_VEHICLES,
     label: "Vehicles",
-    roles: [
-      ROLES.ADMIN,
-      ROLES.OPERATIONS_MANAGER,
-      ROLES.DISPATCHER,
-    ],
+    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER, ROLES.DISPATCHER],
+  },
+  {
+    path: ROUTES.ADMIN_VENDORS,
+    label: "Vendors",
+    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
+  },
+  {
+    path: ROUTES.ADMIN_DRIVERS,
+    label: "Drivers",
+    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
+  },
+  {
+    path: ROUTES.ADMIN_LOCATIONS,
+    label: "Locations",
+    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
   },
 ];
 
