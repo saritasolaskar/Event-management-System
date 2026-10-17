@@ -1,3 +1,4 @@
+
 import {
   useEffect,
   useMemo,
@@ -69,7 +70,7 @@ function getId(value) {
     return value._id || value.id || "";
   }
 
-  return value;
+  return String(value);
 }
 
 function getVendorName(vehicle) {
@@ -139,6 +140,7 @@ function EventVehicleManagement() {
 
   const [form, setForm] = useState(emptyForm);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [importResult, setImportResult] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -157,24 +159,17 @@ function EventVehicleManagement() {
         getDrivers(),
       ]);
 
-      const eventData =
-        unwrapResponse(eventResponse);
-
-      const vehicleData =
-        unwrapResponse(vehicleResponse);
-
-      const vendorData =
-        unwrapResponse(vendorResponse);
-
-      const driverData =
-        unwrapResponse(driverResponse);
+      const eventData = unwrapResponse(eventResponse);
+      const vehicleData = unwrapResponse(vehicleResponse);
+      const vendorData = unwrapResponse(vendorResponse);
+      const driverData = unwrapResponse(driverResponse);
 
       const events = Array.isArray(eventData)
         ? eventData
         : [];
 
       const selectedEvent = events.find(
-        (item) => item._id === eventId
+        (item) => getId(item._id) === getId(eventId)
       );
 
       setEvent(selectedEvent || null);
@@ -197,9 +192,7 @@ function EventVehicleManagement() {
           : []
       );
     } catch (error) {
-      setError(
-        getErrorMessage(error)
-      );
+      setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -208,12 +201,14 @@ function EventVehicleManagement() {
   useEffect(() => {
     if (eventId) {
       loadData();
+    } else {
+      setLoading(false);
+      setError("Event ID is missing.");
     }
   }, [eventId]);
 
   const filteredVehicles = useMemo(() => {
-    const query =
-      search.trim().toLowerCase();
+    const query = search.trim().toLowerCase();
 
     if (!query) {
       return vehicles;
@@ -236,186 +231,202 @@ function EventVehicleManagement() {
     );
   }, [vehicles, search]);
 
+  // Only show drivers belonging to the selected vendor.
+  const filteredDrivers = useMemo(() => {
+    if (!form.vendor) {
+      return [];
+    }
+
+    return drivers.filter(
+      (driver) =>
+        getId(driver.vendor) === getId(form.vendor)
+    );
+  }, [drivers, form.vendor]);
+
   const resetForm = () => {
     setForm(emptyForm);
   };
 
   const handleFormChange = (event) => {
-    const {
-      name,
-      value,
-    } = event.target;
+    const { name, value } = event.target;
 
     setForm((previous) => ({
       ...previous,
       [name]: value,
+      ...(name === "vendor"
+        ? { currentDriver: "" }
+        : {}),
     }));
   };
 
-  const handleCreateVehicle =
-    async (event) => {
-      event.preventDefault();
+  const handleCreateVehicle = async (event) => {
+    event.preventDefault();
 
-      setError("");
-      setSuccess("");
+    setError("");
+    setSuccess("");
 
-      if (!form.vehicleNumber.trim()) {
-        setError(
-          "Vehicle number is required."
-        );
-        return;
+    if (!form.vehicleNumber.trim()) {
+      setError("Vehicle number is required.");
+      return;
+    }
+
+    if (!form.vehicleType) {
+      setError("Vehicle type is required.");
+      return;
+    }
+
+    if (
+      !form.seatingCapacity ||
+      Number(form.seatingCapacity) <= 0
+    ) {
+      setError("Enter a valid seating capacity.");
+      return;
+    }
+
+    if (!form.vendor) {
+      setError("Vendor is required.");
+      return;
+    }
+
+    if (
+      form.currentDriver &&
+      !filteredDrivers.some(
+        (driver) =>
+          getId(driver._id) === getId(form.currentDriver)
+      )
+    ) {
+      setError(
+        "The selected driver does not belong to the selected vendor. Please select the driver again."
+      );
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const payload = {
+        vehicleNumber: form.vehicleNumber
+          .trim()
+          .toUpperCase(),
+
+        vehicleType: form.vehicleType,
+
+        seatingCapacity: Number(
+          form.seatingCapacity
+        ),
+
+        vendor: form.vendor,
+
+        event: eventId,
+      };
+
+      if (form.brand.trim()) {
+        payload.brand = form.brand.trim();
       }
 
-      if (!form.vehicleType) {
-        setError(
-          "Vehicle type is required."
-        );
-        return;
+      if (form.model.trim()) {
+        payload.model = form.model.trim();
       }
 
-      if (!form.seatingCapacity) {
-        setError(
-          "Seating capacity is required."
+      if (form.manufactureYear) {
+        payload.manufactureYear = Number(
+          form.manufactureYear
         );
-        return;
       }
 
-      if (!form.vendor) {
-        setError(
-          "Vendor is required."
-        );
-        return;
+      if (form.fuelType) {
+        payload.fuelType = form.fuelType;
       }
 
-      setSaving(true);
-
-      try {
-        const payload = {
-          vehicleNumber:
-            form.vehicleNumber
-              .trim()
-              .toUpperCase(),
-
-          vehicleType:
-            form.vehicleType,
-
-          seatingCapacity:
-            Number(
-              form.seatingCapacity
-            ),
-
-          vendor: form.vendor,
-
-          event: eventId,
-        };
-
-        if (form.brand.trim()) {
-          payload.brand =
-            form.brand.trim();
-        }
-
-        if (form.model.trim()) {
-          payload.model =
-            form.model.trim();
-        }
-
-        if (form.manufactureYear) {
-          payload.manufactureYear =
-            Number(
-              form.manufactureYear
-            );
-        }
-
-        if (form.fuelType) {
-          payload.fuelType =
-            form.fuelType;
-        }
-
-        if (form.currentDriver) {
-          payload.currentDriver =
-            form.currentDriver;
-        }
-
-        await createVehicle(payload);
-
-        setSuccess(
-          "Vehicle added to this event successfully."
-        );
-
-        setShowForm(false);
-        resetForm();
-
-        await loadData();
-      } catch (error) {
-        setError(
-          getErrorMessage(error)
-        );
-      } finally {
-        setSaving(false);
-      }
-    };
-
-  const handleExcelImport =
-    async (event) => {
-      event.preventDefault();
-
-      setError("");
-      setSuccess("");
-
-      if (!selectedFile) {
-        setError(
-          "Please select an Excel file."
-        );
-        return;
+      if (form.currentDriver) {
+        payload.currentDriver = form.currentDriver;
       }
 
-      const fileName =
-        selectedFile.name.toLowerCase();
+      await createVehicle(payload);
 
-      if (
-        !fileName.endsWith(".xlsx") &&
-        !fileName.endsWith(".xls")
-      ) {
-        setError(
-          "Only .xlsx and .xls files are allowed."
-        );
-        return;
-      }
+      setSuccess(
+        "Vehicle added to this event successfully."
+      );
 
-      setImporting(true);
+      setShowForm(false);
+      resetForm();
 
-      try {
-        const response =
-          await importEventVehicles(
-            eventId,
-            selectedFile
-          );
+      await loadData();
+    } catch (error) {
+      setError(getErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
 
-        const result =
-          unwrapResponse(response);
+  const handleExcelImport = async (event) => {
+    event.preventDefault();
 
-        setSuccess(
-          `Import completed. Imported: ${
-            result?.importedCount || 0
-          }, skipped: ${
-            result?.skippedCount || 0
-          }, failed: ${
-            result?.failedCount || 0
-          }.`
-        );
+    setError("");
+    setSuccess("");
+    setImportResult(null);
 
-        setSelectedFile(null);
-        setShowImport(false);
+    if (!selectedFile) {
+      setError("Please select an Excel file.");
+      return;
+    }
 
-        await loadData();
-      } catch (error) {
-        setError(
-          getErrorMessage(error)
-        );
-      } finally {
-        setImporting(false);
-      }
-    };
+    const fileName = selectedFile.name.toLowerCase();
+
+    if (
+      !fileName.endsWith(".xlsx") &&
+      !fileName.endsWith(".xls")
+    ) {
+      setError(
+        "Only .xlsx and .xls files are allowed."
+      );
+      return;
+    }
+
+    setImporting(true);
+
+    try {
+      const response = await importEventVehicles(
+        eventId,
+        selectedFile
+      );
+
+      const result = unwrapResponse(response);
+
+      const details = {
+        imported: Array.isArray(result?.imported)
+          ? result.imported
+          : [],
+        skipped: Array.isArray(result?.skipped)
+          ? result.skipped
+          : [],
+        failed: Array.isArray(result?.failed)
+          ? result.failed
+          : [],
+      };
+
+      setImportResult(details);
+
+      setSuccess(
+        `Import completed. Imported: ${
+          result?.importedCount ?? details.imported.length
+        }, skipped: ${
+          result?.skippedCount ?? details.skipped.length
+        }, failed: ${
+          result?.failedCount ?? details.failed.length
+        }.`
+      );
+
+      setSelectedFile(null);
+      setShowImport(false);
+
+      await loadData();
+    } catch (error) {
+      setError(getErrorMessage(error));
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleFileChange = (event) => {
     setSelectedFile(
@@ -437,14 +448,13 @@ function EventVehicleManagement() {
     return (
       <div className="vehicle-page">
         <div className="vehicle-alert vehicle-alert--error">
-          Event not found.
+          {error || "Event not found."}
         </div>
 
         <button
+          type="button"
           className="vehicle-btn vehicle-btn--secondary"
-          onClick={() =>
-            navigate("/admin/events")
-          }
+          onClick={() => navigate("/admin/events")}
         >
           Back to Events
         </button>
@@ -454,32 +464,22 @@ function EventVehicleManagement() {
 
   return (
     <div className="vehicle-page">
-
       <div className="vehicle-page__header">
-
         <div>
           <button
             type="button"
             className="vehicle-btn vehicle-btn--secondary"
-            onClick={() =>
-              navigate("/admin/events")
-            }
-            style={{
-              marginBottom: "12px",
-            }}
+            onClick={() => navigate("/admin/events")}
+            style={{ marginBottom: "12px" }}
           >
             ← Back to Events
           </button>
 
-          <h1>
-            Event Vehicles
-          </h1>
+          <h1>Event Vehicles</h1>
 
           <p>
             {event.name}{" "}
-            <strong>
-              ({event.eventCode})
-            </strong>
+            <strong>({event.eventCode})</strong>
           </p>
         </div>
 
@@ -493,9 +493,11 @@ function EventVehicleManagement() {
           <button
             type="button"
             className="vehicle-btn vehicle-btn--secondary"
-            onClick={() =>
-              setShowImport(true)
-            }
+            onClick={() => {
+              setError("");
+              setSuccess("");
+              setShowImport(true);
+            }}
           >
             Import Excel
           </button>
@@ -505,13 +507,14 @@ function EventVehicleManagement() {
             className="vehicle-btn vehicle-btn--primary"
             onClick={() => {
               resetForm();
+              setError("");
+              setSuccess("");
               setShowForm(true);
             }}
           >
             + Add Vehicle
           </button>
         </div>
-
       </div>
 
       {error && (
@@ -526,78 +529,184 @@ function EventVehicleManagement() {
         </div>
       )}
 
+      {/* EXCEL IMPORT RESULTS */}
+
+      {importResult && (
+        <section
+          className="vehicle-table-card"
+          style={{
+            padding: "20px",
+            marginBottom: "20px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+              marginBottom: "16px",
+            }}
+          >
+            <h2 style={{ margin: 0 }}>
+              Excel Import Details
+            </h2>
+
+            <button
+              type="button"
+              className="vehicle-btn vehicle-btn--secondary"
+              onClick={() => setImportResult(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+
+          <p>
+            Imported: {importResult.imported.length}{" "}
+            | Skipped: {importResult.skipped.length}{" "}
+            | Failed: {importResult.failed.length}
+          </p>
+
+          {importResult.failed.length > 0 && (
+            <>
+              <h3>Failed Rows</h3>
+
+              <div className="vehicle-table-wrapper">
+                <table className="vehicle-table">
+                  <thead>
+                    <tr>
+                      <th>Excel Row</th>
+                      <th>Vehicle Number</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {importResult.failed.map(
+                      (item, index) => (
+                        <tr
+                          key={`${item.row}-${index}`}
+                        >
+                          <td>{item.row ?? "—"}</td>
+                          <td>
+                            {item.vehicleNumber || "—"}
+                          </td>
+                          <td>
+                            {item.reason ||
+                              "Unknown error"}
+                          </td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {importResult.skipped.length > 0 && (
+            <>
+              <h3 style={{ marginTop: "20px" }}>
+                Skipped Rows
+              </h3>
+
+              <div className="vehicle-table-wrapper">
+                <table className="vehicle-table">
+                  <thead>
+                    <tr>
+                      <th>Excel Row</th>
+                      <th>Vehicle Number</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {importResult.skipped.map(
+                      (item, index) => (
+                        <tr
+                          key={`${item.row}-${index}`}
+                        >
+                          <td>{item.row ?? "—"}</td>
+                          <td>
+                            {item.vehicleNumber || "—"}
+                          </td>
+                          <td>
+                            {item.reason ||
+                              "Already registered or skipped."}
+                          </td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {importResult.failed.length === 0 &&
+            importResult.skipped.length === 0 && (
+              <p>
+                All rows were imported successfully.
+              </p>
+            )}
+        </section>
+      )}
+
+      {/* VEHICLE STATISTICS */}
+
       <div className="vehicle-stats">
-
         <div className="vehicle-stat-card">
-          <span>
-            Vehicles for this event
-          </span>
-
-          <strong>
-            {vehicles.length}
-          </strong>
+          <span>Vehicles for this event</span>
+          <strong>{vehicles.length}</strong>
         </div>
 
         <div className="vehicle-stat-card">
-          <span>
-            Available
-          </span>
-
+          <span>Available</span>
           <strong>
             {
               vehicles.filter(
                 (vehicle) =>
-                  vehicle.status ===
-                  "AVAILABLE"
+                  vehicle.status === "AVAILABLE"
               ).length
             }
           </strong>
         </div>
 
         <div className="vehicle-stat-card">
-          <span>
-            Assigned
-          </span>
-
+          <span>Assigned</span>
           <strong>
             {
               vehicles.filter(
                 (vehicle) =>
-                  vehicle.status ===
-                  "ASSIGNED"
+                  vehicle.status === "ASSIGNED"
               ).length
             }
           </strong>
         </div>
 
         <div className="vehicle-stat-card">
-          <span>
-            On Duty
-          </span>
-
+          <span>On Duty</span>
           <strong>
             {
               vehicles.filter(
                 (vehicle) =>
-                  vehicle.status ===
-                  "ON_DUTY"
+                  vehicle.status === "ON_DUTY"
               ).length
             }
           </strong>
         </div>
-
       </div>
 
-      <div className="vehicle-toolbar">
+      {/* SEARCH AND REFRESH */}
 
+      <div className="vehicle-toolbar">
         <input
           type="search"
           placeholder="Search vehicle, vendor or driver..."
           value={search}
           onChange={(event) =>
-            setSearch(
-              event.target.value
-            )
+            setSearch(event.target.value)
           }
         />
 
@@ -609,191 +718,109 @@ function EventVehicleManagement() {
         >
           Refresh
         </button>
-
       </div>
 
+      {/* VEHICLE TABLE */}
+
       <div className="vehicle-table-card">
-
-        {filteredVehicles.length ===
-        0 ? (
+        {filteredVehicles.length === 0 ? (
           <div className="vehicle-empty">
-
-            <h3>
-              No vehicles added
-            </h3>
+            <h3>No vehicles added</h3>
 
             <p>
-              Add vehicles manually or
-              import the vendor vehicle
-              Excel sheet for this event.
+              Add vehicles manually or import the vendor
+              vehicle Excel sheet for this event.
             </p>
-
           </div>
         ) : (
           <div className="vehicle-table-wrapper">
-
             <table className="vehicle-table">
-
               <thead>
                 <tr>
-                  <th>
-                    Vehicle Number
-                  </th>
-
-                  <th>
-                    Type
-                  </th>
-
-                  <th>
-                    Seating
-                  </th>
-
-                  <th>
-                    Vendor
-                  </th>
-
-                  <th>
-                    Driver
-                  </th>
-
-                  <th>
-                    Status
-                  </th>
+                  <th>Vehicle Number</th>
+                  <th>Type</th>
+                  <th>Seating</th>
+                  <th>Vendor</th>
+                  <th>Driver</th>
+                  <th>Status</th>
                 </tr>
               </thead>
 
               <tbody>
+                {filteredVehicles.map((vehicle) => (
+                  <tr key={vehicle._id}>
+                    <td>
+                      <strong>
+                        {vehicle.vehicleNumber}
+                      </strong>
+                    </td>
 
-                {filteredVehicles.map(
-                  (vehicle) => (
-                    <tr
-                      key={
-                        vehicle._id
-                      }
-                    >
+                    <td>{vehicle.vehicleType}</td>
 
-                      <td>
-                        <strong>
-                          {
-                            vehicle.vehicleNumber
-                          }
-                        </strong>
-                      </td>
+                    <td>
+                      {vehicle.seatingCapacity || "-"}
+                    </td>
 
-                      <td>
-                        {
-                          vehicle.vehicleType
-                        }
-                      </td>
+                    <td>{getVendorName(vehicle)}</td>
 
-                      <td>
-                        {
-                          vehicle.seatingCapacity ||
-                          "-"
-                        }
-                      </td>
+                    <td>{getDriverName(vehicle)}</td>
 
-                      <td>
-                        {
-                          getVendorName(
-                            vehicle
-                          )
-                        }
-                      </td>
-
-                      <td>
-                        {
-                          getDriverName(
-                            vehicle
-                          )
-                        }
-                      </td>
-
-                      <td>
-                        <span
-                          className={`vehicle-status vehicle-status--${String(
-                            vehicle.status ||
-                              ""
-                          )
-                            .toLowerCase()
-                            .replace(
-                              "_",
-                              "-"
-                            )}`}
-                        >
-                          {
-                            vehicle.status ||
-                            "-"
-                          }
-                        </span>
-                      </td>
-
-                    </tr>
-                  )
-                )}
-
+                    <td>
+                      <span
+                        className={`vehicle-status vehicle-status--${String(
+                          vehicle.status || ""
+                        )
+                          .toLowerCase()
+                          .replace("_", "-")}`}
+                      >
+                        {vehicle.status || "-"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
-
             </table>
-
           </div>
         )}
-
       </div>
 
       {/* ADD VEHICLE MODAL */}
 
       {showForm && (
         <div className="vehicle-modal-backdrop">
-
           <div className="vehicle-modal">
-
             <div className="vehicle-modal__header">
-
               <div>
-                <h2>
-                  Add Vehicle
-                </h2>
+                <h2>Add Vehicle</h2>
 
                 <p>
-                  Add a vehicle specifically
-                  for this event.
+                  Add a vehicle specifically for this event.
                 </p>
               </div>
 
               <button
                 type="button"
                 className="vehicle-modal__close"
-                onClick={() =>
-                  setShowForm(false)
-                }
+                onClick={() => setShowForm(false)}
                 disabled={saving}
               >
                 ×
               </button>
-
             </div>
 
             <form
               className="vehicle-form"
-              onSubmit={
-                handleCreateVehicle
-              }
+              onSubmit={handleCreateVehicle}
             >
-
               <div className="vehicle-form-grid">
-
                 <label>
                   Vehicle Number *
                   <input
                     name="vehicleNumber"
-                    value={
-                      form.vehicleNumber
-                    }
-                    onChange={
-                      handleFormChange
-                    }
+                    value={form.vehicleNumber}
+                    onChange={handleFormChange}
                     placeholder="MH12AB1234"
+                    required
                   />
                 </label>
 
@@ -801,23 +828,15 @@ function EventVehicleManagement() {
                   Vehicle Type *
                   <select
                     name="vehicleType"
-                    value={
-                      form.vehicleType
-                    }
-                    onChange={
-                      handleFormChange
-                    }
+                    value={form.vehicleType}
+                    onChange={handleFormChange}
+                    required
                   >
-                    {VEHICLE_TYPES.map(
-                      (type) => (
-                        <option
-                          key={type}
-                          value={type}
-                        >
-                          {type}
-                        </option>
-                      )
-                    )}
+                    {VEHICLE_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
                   </select>
                 </label>
 
@@ -827,12 +846,9 @@ function EventVehicleManagement() {
                     type="number"
                     min="1"
                     name="seatingCapacity"
-                    value={
-                      form.seatingCapacity
-                    }
-                    onChange={
-                      handleFormChange
-                    }
+                    value={form.seatingCapacity}
+                    onChange={handleFormChange}
+                    required
                   />
                 </label>
 
@@ -840,33 +856,22 @@ function EventVehicleManagement() {
                   Vendor *
                   <select
                     name="vendor"
-                    value={
-                      form.vendor
-                    }
-                    onChange={
-                      handleFormChange
-                    }
+                    value={form.vendor}
+                    onChange={handleFormChange}
+                    required
                   >
                     <option value="">
                       Select Vendor
                     </option>
 
-                    {vendors.map(
-                      (vendor) => (
-                        <option
-                          key={
-                            vendor._id
-                          }
-                          value={
-                            vendor._id
-                          }
-                        >
-                          {
-                            vendor.companyName
-                          }
-                        </option>
-                      )
-                    )}
+                    {vendors.map((vendor) => (
+                      <option
+                        key={vendor._id}
+                        value={vendor._id}
+                      >
+                        {vendor.companyName}
+                      </option>
+                    ))}
                   </select>
                 </label>
 
@@ -874,55 +879,44 @@ function EventVehicleManagement() {
                   Driver
                   <select
                     name="currentDriver"
-                    value={
-                      form.currentDriver
-                    }
-                    onChange={
-                      handleFormChange
-                    }
+                    value={form.currentDriver}
+                    onChange={handleFormChange}
+                    disabled={!form.vendor}
                   >
                     <option value="">
                       No driver
                     </option>
 
-                    {drivers.map(
-                      (driver) => (
-                        <option
-                          key={
-                            driver._id
-                          }
-                          value={
-                            driver._id
-                          }
-                        >
-                          {
-                            [
-                              driver.firstName,
-                              driver.lastName,
-                            ]
-                              .filter(
-                                Boolean
-                              )
-                              .join(
-                                " "
-                              )
-                          }
-                        </option>
-                      )
-                    )}
+                    {filteredDrivers.map((driver) => (
+                      <option
+                        key={driver._id}
+                        value={driver._id}
+                      >
+                        {[
+                          driver.firstName,
+                          driver.lastName,
+                        ]
+                          .filter(Boolean)
+                          .join(" ") ||
+                          driver.phone ||
+                          "Unnamed Driver"}
+                      </option>
+                    ))}
                   </select>
+
+                  {form.vendor && filteredDrivers.length === 0 && (
+                    <small>
+                      No drivers found for this vendor.
+                    </small>
+                  )}
                 </label>
 
                 <label>
                   Brand
                   <input
                     name="brand"
-                    value={
-                      form.brand
-                    }
-                    onChange={
-                      handleFormChange
-                    }
+                    value={form.brand}
+                    onChange={handleFormChange}
                   />
                 </label>
 
@@ -930,12 +924,8 @@ function EventVehicleManagement() {
                   Model
                   <input
                     name="model"
-                    value={
-                      form.model
-                    }
-                    onChange={
-                      handleFormChange
-                    }
+                    value={form.model}
+                    onChange={handleFormChange}
                   />
                 </label>
 
@@ -944,12 +934,8 @@ function EventVehicleManagement() {
                   <input
                     type="number"
                     name="manufactureYear"
-                    value={
-                      form.manufactureYear
-                    }
-                    onChange={
-                      handleFormChange
-                    }
+                    value={form.manufactureYear}
+                    onChange={handleFormChange}
                     min="1980"
                     max="2100"
                   />
@@ -959,36 +945,23 @@ function EventVehicleManagement() {
                   Fuel Type
                   <select
                     name="fuelType"
-                    value={
-                      form.fuelType
-                    }
-                    onChange={
-                      handleFormChange
-                    }
+                    value={form.fuelType}
+                    onChange={handleFormChange}
                   >
-                    {FUEL_TYPES.map(
-                      (fuel) => (
-                        <option
-                          key={fuel}
-                          value={fuel}
-                        >
-                          {fuel}
-                        </option>
-                      )
-                    )}
+                    {FUEL_TYPES.map((fuel) => (
+                      <option key={fuel} value={fuel}>
+                        {fuel}
+                      </option>
+                    ))}
                   </select>
                 </label>
-
               </div>
 
               <div className="vehicle-form-actions">
-
                 <button
                   type="button"
                   className="vehicle-btn vehicle-btn--secondary"
-                  onClick={() =>
-                    setShowForm(false)
-                  }
+                  onClick={() => setShowForm(false)}
                   disabled={saving}
                 >
                   Cancel
@@ -999,17 +972,11 @@ function EventVehicleManagement() {
                   className="vehicle-btn vehicle-btn--primary"
                   disabled={saving}
                 >
-                  {saving
-                    ? "Adding..."
-                    : "Add Vehicle"}
+                  {saving ? "Adding..." : "Add Vehicle"}
                 </button>
-
               </div>
-
             </form>
-
           </div>
-
         </div>
       )}
 
@@ -1017,94 +984,65 @@ function EventVehicleManagement() {
 
       {showImport && (
         <div className="vehicle-modal-backdrop">
-
           <div className="vehicle-modal">
-
             <div className="vehicle-modal__header">
-
               <div>
-                <h2>
-                  Import Event Vehicles
-                </h2>
+                <h2>Import Event Vehicles</h2>
 
                 <p>
-                  Upload the vehicle list
-                  received from the vendor.
+                  Upload the vehicle list received from
+                  the vendor.
                 </p>
               </div>
 
               <button
                 type="button"
                 className="vehicle-modal__close"
-                onClick={() =>
-                  setShowImport(false)
-                }
+                onClick={() => setShowImport(false)}
                 disabled={importing}
               >
                 ×
               </button>
-
             </div>
 
             <form
               className="vehicle-form"
-              onSubmit={
-                handleExcelImport
-              }
+              onSubmit={handleExcelImport}
             >
-
               <div
                 style={{
-                  background:
-                    "#f9fafb",
-                  border:
-                    "1px solid #e5e7eb",
-                  borderRadius:
-                    "10px",
-                  padding:
-                    "16px",
-                  marginBottom:
-                    "18px",
+                  background: "#f9fafb",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "10px",
+                  padding: "16px",
+                  marginBottom: "18px",
                 }}
               >
-                <strong>
-                  Excel columns
-                </strong>
+                <strong>Excel columns</strong>
 
                 <p
                   style={{
-                    margin:
-                      "8px 0 0",
-                    color:
-                      "#6b7280",
-                    fontSize:
-                      "13px",
-                    lineHeight:
-                      "1.6",
+                    margin: "8px 0 0",
+                    color: "#6b7280",
+                    fontSize: "13px",
+                    lineHeight: "1.6",
                   }}
                 >
-                  Required: Vehicle Number,
-                  Vehicle Type, Vendor,
-                  Seating Capacity.
+                  Required: Vehicle Number, Vehicle Type,
+                  Vendor, Seating Capacity.
                   <br />
-                  Optional: Driver Phone,
-                  Brand, Model,
-                  Manufacture Year,
-                  Fuel Type.
+                  Optional: Driver Phone, Brand, Model,
+                  Manufacture Year, Fuel Type.
                 </p>
               </div>
 
               <label
                 style={{
-                  display:
-                    "flex",
-                  flexDirection:
-                    "column",
+                  display: "flex",
+                  flexDirection: "column",
                   gap: "8px",
-                  fontWeight:
-                    600,
-                  fontSize:
-                    "13px",
+                  fontWeight: 600,
+                  fontSize: "13px",
                 }}
               >
                 Excel File
@@ -1112,40 +1050,32 @@ function EventVehicleManagement() {
                 <input
                   type="file"
                   accept=".xlsx,.xls"
-                  onChange={
-                    handleFileChange
-                  }
+                  onChange={handleFileChange}
+                  required
                 />
               </label>
 
               {selectedFile && (
                 <p
                   style={{
-                    marginTop:
-                      "12px",
-                    fontSize:
-                      "13px",
-                    color:
-                      "#374151",
+                    marginTop: "12px",
+                    fontSize: "13px",
+                    color: "#374151",
                   }}
                 >
                   Selected:{" "}
-                  <strong>
-                    {
-                      selectedFile.name
-                    }
-                  </strong>
+                  <strong>{selectedFile.name}</strong>
                 </p>
               )}
 
               <div className="vehicle-form-actions">
-
                 <button
                   type="button"
                   className="vehicle-btn vehicle-btn--secondary"
-                  onClick={() =>
-                    setShowImport(false)
-                  }
+                  onClick={() => {
+                    setShowImport(false);
+                    setSelectedFile(null);
+                  }}
                   disabled={importing}
                 >
                   Cancel
@@ -1154,22 +1084,17 @@ function EventVehicleManagement() {
                 <button
                   type="submit"
                   className="vehicle-btn vehicle-btn--primary"
-                  disabled={importing}
+                  disabled={importing || !selectedFile}
                 >
                   {importing
                     ? "Importing..."
                     : "Import Vehicles"}
                 </button>
-
               </div>
-
             </form>
-
           </div>
-
         </div>
       )}
-
     </div>
   );
 }
