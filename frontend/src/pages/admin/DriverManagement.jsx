@@ -76,27 +76,59 @@ export default function DriverManagement() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [passwordSetupLink, setPasswordSetupLink] = useState("");
 
+  
   const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const [driverResponse, vendorResponse, vehicleResponse] =
-        await Promise.all([getDrivers(), getVendors(), getVehicles()]);
+      const results = await Promise.allSettled([
+        getDrivers(),
+        getVendors(),
+        getVehicles(),
+      ]);
 
-      const driverData = unwrap(driverResponse);
-      const vendorData = unwrap(vendorResponse);
-      const vehicleData = unwrap(vehicleResponse);
+      const setters = [
+        setDrivers,
+        setVendors,
+        setVehicles,
+      ];
 
-      setDrivers(Array.isArray(driverData) ? driverData : []);
-      setVendors(Array.isArray(vendorData) ? vendorData : []);
-      setVehicles(Array.isArray(vehicleData) ? vehicleData : []);
+      const names = [
+        "Drivers",
+        "Vendors",
+        "Vehicles",
+      ];
+
+      const failures = [];
+
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          const data = unwrap(result.value);
+
+          setters[index](
+            Array.isArray(data) ? data : []
+          );
+        } else {
+          setters[index]([]);
+          failures.push(
+            `${names[index]}: ${getApiErrorMessage(result.reason)}`
+          );
+        }
+      });
+
+      if (failures.length > 0) {
+        setError(
+          `Some data could not be loaded. ${failures.join(" | ")}`
+        );
+      }
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadData();

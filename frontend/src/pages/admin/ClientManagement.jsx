@@ -168,43 +168,52 @@ function ClientManagement() {
   const [detailsLoading, setDetailsLoading] =
     useState(false);
 
+  
   const loadClients = async () => {
     setLoading(true);
     setError("");
 
-    try {
-      const activeResponse =
-        await getClients();
+    const requests = [
+      getClients(),
+      canManage
+        ? getClients({ isDeleted: true })
+        : Promise.resolve({ data: [] }),
+    ];
 
-      let deletedResponse = {
-        data: [],
-      };
+    const results = await Promise.allSettled(requests);
+    const failures = [];
 
-      if (canManage) {
-        deletedResponse =
-          await getClients({
-            isDeleted: true,
-          });
-      }
-
-      setClients(
-        extractData(activeResponse)
+    if (results[0].status === "fulfilled") {
+      setClients(extractData(results[0].value));
+    } else {
+      setClients([]);
+      failures.push(
+        `Active clients: ${getApiErrorMessage(
+          results[0].reason,
+          "Unable to load active clients."
+        )}`
       );
-
-      setDeletedClients(
-        extractData(deletedResponse)
-      );
-    } catch (err) {
-      setError(
-        getApiErrorMessage(
-          err,
-          "Unable to load clients."
-        )
-      );
-    } finally {
-      setLoading(false);
     }
+
+    if (results[1].status === "fulfilled") {
+      setDeletedClients(extractData(results[1].value));
+    } else {
+      setDeletedClients([]);
+      failures.push(
+        `Deleted clients: ${getApiErrorMessage(
+          results[1].reason,
+          "Unable to load deleted clients."
+        )}`
+      );
+    }
+
+    if (failures.length > 0) {
+      setError(failures.join(" | "));
+    }
+
+    setLoading(false);
   };
+
 
   useEffect(() => {
     loadClients();
