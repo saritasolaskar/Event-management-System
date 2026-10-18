@@ -142,61 +142,112 @@ function EventVehicleManagement() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [importResult, setImportResult] = useState(null);
 
+  
   const loadData = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const [
-        eventResponse,
-        vehicleResponse,
-        vendorResponse,
-        driverResponse,
-      ] = await Promise.all([
+      const results = await Promise.allSettled([
         getEvents(),
         getVehiclesByEvent(eventId),
         getVendors(),
         getDrivers(),
       ]);
 
-      const eventData = unwrapResponse(eventResponse);
-      const vehicleData = unwrapResponse(vehicleResponse);
-      const vendorData = unwrapResponse(vendorResponse);
-      const driverData = unwrapResponse(driverResponse);
+      const [
+        eventResult,
+        vehicleResult,
+        vendorResult,
+        driverResult,
+      ] = results;
 
-      const events = Array.isArray(eventData)
-        ? eventData
-        : [];
+      const errors = [];
 
-      const selectedEvent = events.find(
-        (item) => getId(item._id) === getId(eventId)
-      );
+      // Events are required to identify the current event.
+      if (eventResult.status === "fulfilled") {
+        const eventData = unwrapResponse(eventResult.value);
 
-      setEvent(selectedEvent || null);
+        const events = Array.isArray(eventData)
+          ? eventData
+          : [];
 
-      setVehicles(
-        Array.isArray(vehicleData)
-          ? vehicleData
-          : []
-      );
+        const selectedEvent = events.find(
+          (item) => getId(item._id) === getId(eventId)
+        );
 
-      setVendors(
-        Array.isArray(vendorData)
-          ? vendorData
-          : []
-      );
+        setEvent(selectedEvent || null);
 
-      setDrivers(
-        Array.isArray(driverData)
-          ? driverData
-          : []
-      );
+        if (!selectedEvent) {
+          errors.push("The selected event could not be found.");
+        }
+      } else {
+        setEvent(null);
+        errors.push(
+          `Events could not be loaded: ${getErrorMessage(
+            eventResult.reason
+          )}`
+        );
+      }
+
+      // Vehicles are loaded independently of vendors and drivers.
+      if (vehicleResult.status === "fulfilled") {
+        const vehicleData = unwrapResponse(vehicleResult.value);
+
+        setVehicles(
+          Array.isArray(vehicleData) ? vehicleData : []
+        );
+      } else {
+        setVehicles([]);
+        errors.push(
+          `Vehicles could not be loaded: ${getErrorMessage(
+            vehicleResult.reason
+          )}`
+        );
+      }
+
+      // Vendor failure should not prevent the vehicle list from loading.
+      if (vendorResult.status === "fulfilled") {
+        const vendorData = unwrapResponse(vendorResult.value);
+
+        setVendors(
+          Array.isArray(vendorData) ? vendorData : []
+        );
+      } else {
+        setVendors([]);
+        errors.push(
+          `Vendors could not be loaded: ${getErrorMessage(
+            vendorResult.reason
+          )}`
+        );
+      }
+
+      // Driver failure should not prevent the vehicle list from loading.
+      if (driverResult.status === "fulfilled") {
+        const driverData = unwrapResponse(driverResult.value);
+
+        setDrivers(
+          Array.isArray(driverData) ? driverData : []
+        );
+      } else {
+        setDrivers([]);
+        errors.push(
+          `Drivers could not be loaded: ${getErrorMessage(
+            driverResult.reason
+          )}`
+        );
+      }
+
+      if (errors.length > 0) {
+        setError(errors.join(" "));
+      }
     } catch (error) {
       setError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     if (eventId) {
