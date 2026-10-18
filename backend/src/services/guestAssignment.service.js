@@ -416,6 +416,7 @@ const getGuestAssignmentById = async (id) => {
 /**
  * Update a Guest Assignment.
  */
+
 const updateGuestAssignment = async (
     id,
     data,
@@ -432,10 +433,8 @@ const updateGuestAssignment = async (
     }
 
     if (
-        assignment.pickupStatus !==
-            PICKUP_STATUS.PENDING ||
-        assignment.returnStatus !==
-            RETURN_STATUS.NOT_STARTED
+        assignment.pickupStatus !== PICKUP_STATUS.PENDING ||
+        assignment.returnStatus !== RETURN_STATUS.NOT_STARTED
     ) {
         throw new AppError(
             "Guest Assignment cannot be modified after the trip has started.",
@@ -451,7 +450,7 @@ const updateGuestAssignment = async (
         data.vehicleAssignment ||
         currentVehicleAssignmentId;
 
-    const vehicleAssignment =
+    const targetVehicleAssignment =
         await validateVehicleAssignment(
             targetVehicleAssignmentId
         );
@@ -464,97 +463,115 @@ const updateGuestAssignment = async (
         data.guest ||
         currentGuestId;
 
-    const guest =
-        await validateGuestForEvent(
-            targetGuestId,
-            vehicleAssignment.event
-        );
+    const guest = await validateGuestForEvent(
+        targetGuestId,
+        targetVehicleAssignment.event
+    );
 
-    const guestName =
-        getGuestDisplayName(guest);
-
-    if (
-        data.guest &&
-        data.guest.toString() !==
-            currentGuestId.toString()
-    ) {
-        const existingAssignment =
-            await guestAssignmentRepository.findActiveByGuest(
-                data.guest
-            );
-
-        if (
-            existingAssignment &&
-            existingAssignment._id.toString() !==
-                id.toString()
-        ) {
-            throw new AppError(
-                "Guest is already assigned to another vehicle.",
-                409
-            );
-        }
-    }
-
-    if (
-        data.vehicleAssignment &&
-        data.vehicleAssignment.toString() !==
-            currentVehicleAssignmentId.toString()
-    ) {
-        const existingAssignment =
-            await guestAssignmentRepository.findActiveByGuest(
-                targetGuestId
-            );
-
-        if (
-            existingAssignment &&
-            existingAssignment._id.toString() !==
-                id.toString()
-        ) {
-            throw new AppError(
-                "Guest is already assigned to another vehicle.",
-                409
-            );
-        }
-    }
+    const guestName = getGuestDisplayName(guest);
 
     const updateData = {
         updatedBy: userId,
     };
 
-    if (data.vehicleAssignment) {
+    if (data.vehicleAssignment !== undefined) {
         updateData.vehicleAssignment =
             data.vehicleAssignment;
     }
 
-    if (data.guest) {
+    if (data.guest !== undefined) {
         updateData.guest = data.guest;
     }
 
     if (data.pickupSequence !== undefined) {
-        updateData.pickupSequence =
-            data.pickupSequence;
+        updateData.pickupSequence = data.pickupSequence;
     }
 
     if (data.dropSequence !== undefined) {
-        updateData.dropSequence =
-            data.dropSequence;
+        updateData.dropSequence = data.dropSequence;
     }
 
     if (data.remarks !== undefined) {
         updateData.remarks = data.remarks;
     }
 
-    const updatedAssignment =
-        await guestAssignmentRepository.updateByIdIfPending(
-            id,
-            updateData
-        );
+    const assignmentIds = [
+        ...new Set([
+            currentVehicleAssignmentId.toString(),
+            targetVehicleAssignmentId.toString(),
+        ]),
+    ].sort();
 
-    if (!updatedAssignment) {
-        throw new AppError(
-            "Guest Assignment state changed before it could be updated.",
-            409
-        );
+    const session = await mongoose.startSession();
+    let updatedAssignment;
+
+    try {
+        await session.withTransaction(async () => {
+            // Lock both parent assignments in deterministic order.
+            // This prevents moving a guest while either vehicle
+            // assignment transitions out of ASSIGNED.
+            for (const vehicleAssignmentId of assignmentIds) {
+                const lockedAssignment =
+                    await vehicleAssignmentRepository.updateByIdAndStatus(
+                        vehicleAssignmentId,
+                        VEHICLE_ASSIGNMENT_STATUS.ASSIGNED,
+                        {
+                            updatedBy: userId,
+                        },
+                        session
+                    );
+
+                if (!lockedAssignment) {
+                    throw new AppError(
+                        "Guests can only be modified before vehicle duty starts. Refresh and try again.",
+                        409
+                    );
+                }
+            }
+
+            const guestChanged =
+                targetGuestId.toString() !==
+                currentGuestId.toString();
+
+            const vehicleChanged =
+                targetVehicleAssignmentId.toString() !==
+                currentVehicleAssignmentId.toString();
+
+            if (guestChanged || vehicleChanged) {
+                const existingAssignment =
+                    await guestAssignmentRepository.findActiveByGuest(
+                        targetGuestId,
+                        session
+                    );
+
+                if (
+                    existingAssignment &&
+                    existingAssignment._id.toString() !==
+                        id.toString()
+                ) {
+                    throw new AppError(
+                        "Guest is already assigned to another vehicle.",
+                        409
+                    );
+                }
+            }
+
+            updatedAssignment =
+                await guestAssignmentRepository.updateByIdIfPending(
+                    id,
+                    updateData,
+                    session
+                );
+
+            if (!updatedAssignment) {
+                throw new AppError(
+                    "Guest Assignment state changed before it could be updated.",
+                    409
+                );
+            }
+        });
+    } finally {
+        await session.endSession();
     }
 
     await auditLogService.createLog({
@@ -570,9 +587,11 @@ const updateGuestAssignment = async (
 };
 
 
+
 /**
  * Delete a Guest Assignment.
  */
+
 const deleteGuestAssignment = async (
     id,
     userId
@@ -588,10 +607,8 @@ const deleteGuestAssignment = async (
     }
 
     if (
-        assignment.pickupStatus !==
-            PICKUP_STATUS.PENDING ||
-        assignment.returnStatus !==
-            RETURN_STATUS.NOT_STARTED
+        assignment.pickupStatus !== PICKUP_STATUS.PENDING ||
+        assignment.returnStatus !== RETURN_STATUS.NOT_STARTED
     ) {
         throw new AppError(
             "Guest Assignment cannot be deleted after the trip has started.",
@@ -599,16 +616,47 @@ const deleteGuestAssignment = async (
         );
     }
 
-    const deletedAssignment =
-        await guestAssignmentRepository.softDeleteIfPending(
-            id
-        );
+    const vehicleAssignmentId =
+        assignment.vehicleAssignment?._id ||
+        assignment.vehicleAssignment;
 
-    if (!deletedAssignment) {
-        throw new AppError(
-            "Guest Assignment state changed before it could be deleted.",
-            409
-        );
+    const session = await mongoose.startSession();
+    let deletedAssignment;
+
+    try {
+        await session.withTransaction(async () => {
+            const lockedAssignment =
+                await vehicleAssignmentRepository.updateByIdAndStatus(
+                    vehicleAssignmentId,
+                    VEHICLE_ASSIGNMENT_STATUS.ASSIGNED,
+                    {
+                        updatedBy: userId,
+                    },
+                    session
+                );
+
+            if (!lockedAssignment) {
+                throw new AppError(
+                    "Guest assignments can only be deleted before vehicle duty starts. Refresh and try again.",
+                    409
+                );
+            }
+
+            deletedAssignment =
+                await guestAssignmentRepository.softDeleteIfPending(
+                    id,
+                    session
+                );
+
+            if (!deletedAssignment) {
+                throw new AppError(
+                    "Guest Assignment state changed before it could be deleted.",
+                    409
+                );
+            }
+        });
+    } finally {
+        await session.endSession();
     }
 
     await auditLogService.createLog({
@@ -616,12 +664,12 @@ const deleteGuestAssignment = async (
         action: "DELETE",
         module: "GUEST_ASSIGNMENT",
         referenceId: deletedAssignment._id,
-        description:
-            "Deleted pending guest assignment.",
+        description: "Deleted pending guest assignment.",
     });
 
     return deletedAssignment;
 };
+
 
 
 module.exports = {

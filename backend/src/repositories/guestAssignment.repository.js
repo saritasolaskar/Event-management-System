@@ -94,11 +94,13 @@ const updateById = async (id, data) => {
     );
 };
 
-/**
- * Atomically update a Guest Assignment only when
- * its current lifecycle state matches the expected state.
- */
-const updateByIdIfState = async (id, expectedState, data) => {
+
+const updateByIdIfState = async (
+    id,
+    expectedState,
+    data,
+    session = null
+) => {
     return GuestAssignment.findOneAndUpdate(
         {
             _id: id,
@@ -109,23 +111,27 @@ const updateByIdIfState = async (id, expectedState, data) => {
         {
             new: true,
             runValidators: true,
+            ...(session ? { session } : {}),
         }
     );
 };
 
-/**
- * Update only if the trip has not started.
- */
-const updateByIdIfPending = async (id, data) => {
+const updateByIdIfPending = async (
+    id,
+    data,
+    session = null
+) => {
     return updateByIdIfState(
         id,
         {
             pickupStatus: "PENDING",
             returnStatus: "NOT_STARTED",
         },
-        data
+        data,
+        session
     );
 };
+
 
 /**
  * Soft Delete Guest Assignment
@@ -147,7 +153,11 @@ const softDelete = async (id) => {
 /**
  * Soft Delete only if trip has not started.
  */
-const softDeleteIfPending = async (id) => {
+
+const softDeleteIfPending = async (
+    id,
+    session = null
+) => {
     return GuestAssignment.findOneAndUpdate(
         {
             _id: id,
@@ -155,13 +165,17 @@ const softDeleteIfPending = async (id) => {
             pickupStatus: "PENDING",
             returnStatus: "NOT_STARTED",
         },
-        { isDeleted: true },
+        {
+            isDeleted: true,
+        },
         {
             new: true,
             runValidators: true,
+            ...(session ? { session } : {}),
         }
     );
 };
+
 
 /**
  * Find Guest Assignments By Event
