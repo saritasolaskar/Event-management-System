@@ -1,21 +1,27 @@
-const GuestAssignment =
-    require("../models/guestAssignment.model");
+
+const GuestAssignment = require("../models/guestAssignment.model");
 const mongoose = require("mongoose");
-const VehicleAssignment =
-    require("../models/vehicleAssignment.model");
+const VehicleAssignment = require("../models/vehicleAssignment.model");
+
+/**
+ * Populate guest details, including pickup and drop locations.
+ * Required by the duty-sheet PDF generator.
+ */
+const guestDetailsPopulate = {
+    path: "guest",
+    populate: [
+        { path: "pickupLocation" },
+        { path: "dropLocation" },
+    ],
+};
 
 /**
  * Create Guest Assignment
  */
-const create = (
-    data,
-    session = null
-) => {
+const create = (data, session = null) => {
     return GuestAssignment.create(
         [data],
-        session
-            ? { session }
-            : undefined
+        session ? { session } : undefined
     ).then((docs) => docs[0]);
 };
 
@@ -27,28 +33,25 @@ const findById = async (id) => {
         _id: id,
         isDeleted: false,
     })
-        .populate("guest")
+        .populate(guestDetailsPopulate)
         .populate({
             path: "vehicleAssignment",
             populate: [
                 {
                     path: "driver",
-                    select:
-                        "firstName lastName phone",
+                    select: "firstName lastName phone",
                 },
                 {
                     path: "vehicle",
-                    select:
-                        "vehicleNumber vehicleType",
-                    },
+                    select: "vehicleNumber vehicleType",
+                },
                 {
                     path: "vendor",
                     select: "companyName",
                 },
                 {
                     path: "event",
-                    select:
-                        "name eventCode",
+                    select: "name eventCode",
                 },
             ],
         });
@@ -61,7 +64,7 @@ const findAll = async () => {
     return GuestAssignment.find({
         isDeleted: false,
     })
-        .populate("guest")
+        .populate(guestDetailsPopulate)
         .populate({
             path: "vehicleAssignment",
             populate: [
@@ -71,18 +74,13 @@ const findAll = async () => {
                 { path: "event" },
             ],
         })
-        .sort({
-            createdAt: -1,
-        });
+        .sort({ createdAt: -1 });
 };
 
 /**
  * Update Guest Assignment
  */
-const updateById = async (
-    id,
-    data
-) => {
+const updateById = async (id, data) => {
     return GuestAssignment.findOneAndUpdate(
         {
             _id: id,
@@ -96,16 +94,11 @@ const updateById = async (
     );
 };
 
-
 /**
  * Atomically update a Guest Assignment only when
  * its current lifecycle state matches the expected state.
  */
-const updateByIdIfState = async (
-    id,
-    expectedState,
-    data
-) => {
+const updateByIdIfState = async (id, expectedState, data) => {
     return GuestAssignment.findOneAndUpdate(
         {
             _id: id,
@@ -122,14 +115,8 @@ const updateByIdIfState = async (
 
 /**
  * Update only if the trip has not started.
- *
- * This prevents a stale request from modifying
- * an assignment after pickup/return processing begins.
  */
-const updateByIdIfPending = async (
-    id,
-    data
-) => {
+const updateByIdIfPending = async (id, data) => {
     return updateByIdIfState(
         id,
         {
@@ -149,9 +136,7 @@ const softDelete = async (id) => {
             _id: id,
             isDeleted: false,
         },
-        {
-            isDeleted: true,
-        },
+        { isDeleted: true },
         {
             new: true,
             runValidators: true,
@@ -162,9 +147,7 @@ const softDelete = async (id) => {
 /**
  * Soft Delete only if trip has not started.
  */
-const softDeleteIfPending = async (
-    id
-) => {
+const softDeleteIfPending = async (id) => {
     return GuestAssignment.findOneAndUpdate(
         {
             _id: id,
@@ -172,9 +155,7 @@ const softDeleteIfPending = async (
             pickupStatus: "PENDING",
             returnStatus: "NOT_STARTED",
         },
-        {
-            isDeleted: true,
-        },
+        { isDeleted: true },
         {
             new: true,
             runValidators: true,
@@ -185,23 +166,15 @@ const softDeleteIfPending = async (
 /**
  * Find Guest Assignments By Event
  */
-const findByEvent = async (
-    eventId
-) => {
-   
-const vehicleAssignments =
-        await VehicleAssignment.find({
-            event: eventId,
-            isDeleted: false,
-        }).select("_id");
+const findByEvent = async (eventId) => {
+    const vehicleAssignments = await VehicleAssignment.find({
+        event: eventId,
+        isDeleted: false,
+    }).select("_id");
 
-
-
-    const assignmentIds =
-        vehicleAssignments.map(
-            (assignment) =>
-                assignment._id
-        );
+    const assignmentIds = vehicleAssignments.map(
+        (assignment) => assignment._id
+    );
 
     return GuestAssignment.find({
         vehicleAssignment: {
@@ -209,19 +182,13 @@ const vehicleAssignments =
         },
         isDeleted: false,
     })
-        .populate("guest")
+        .populate(guestDetailsPopulate)
         .populate({
             path: "vehicleAssignment",
             populate: [
-                {
-                    path: "vehicle",
-                },
-                {
-                    path: "driver",
-                },
-                {
-                    path: "event",
-                },
+                { path: "vehicle" },
+                { path: "driver" },
+                { path: "event" },
             ],
         })
         .sort({
@@ -231,141 +198,104 @@ const vehicleAssignments =
 };
 
 /**
- * Find active Guest Assignment By Guest
- *
+ * Find active Guest Assignment By Guest.
  * Historical assignments belonging to COMPLETED/CANCELLED
  * vehicle assignments are intentionally ignored.
  */
-const findActiveByGuest = async (
-    guestId
-) => {
-    const assignments =
-        await GuestAssignment.aggregate([
-            {
-                $match: {
-                    guest:
-                        new mongoose.Types.ObjectId(
-                            guestId
-                        ),
-                    isDeleted: false,
+const findActiveByGuest = async (guestId) => {
+    const assignments = await GuestAssignment.aggregate([
+        {
+            $match: {
+                guest: new mongoose.Types.ObjectId(guestId),
+                isDeleted: false,
+            },
+        },
+        {
+            $lookup: {
+                from: "vehicleassignments",
+                localField: "vehicleAssignment",
+                foreignField: "_id",
+                as: "vehicleAssignment",
+            },
+        },
+        {
+            $unwind: "$vehicleAssignment",
+        },
+        {
+            $match: {
+                "vehicleAssignment.isDeleted": false,
+                "vehicleAssignment.status": {
+                    $in: ["ASSIGNED", "ON_DUTY"],
                 },
             },
-            {
-                $lookup: {
-                    from: "vehicleassignments",
-                    localField:
-                        "vehicleAssignment",
-                    foreignField: "_id",
-                    as: "vehicleAssignment",
-                },
-            },
-            {
-                $unwind:
-                    "$vehicleAssignment",
-            },
-            {
-                $match: {
-                    "vehicleAssignment.isDeleted":
-                        false,
-
-                    "vehicleAssignment.status": {
-                        $in: [
-                            "ASSIGNED",
-                            "ON_DUTY",
-                        ],
-                    },
-                },
-            },
-            {
-                $limit: 1,
-            },
-        ]);
+        },
+        { $limit: 1 },
+    ]);
 
     return assignments[0] || null;
 };
 
-
-
 /**
  * Find Guest Assignment By Guest
  */
-const findByGuest = async (
-    guestId
-) => {
+const findByGuest = async (guestId) => {
     return GuestAssignment.findOne({
         guest: guestId,
         isDeleted: false,
-    }).populate({
-        path: "vehicleAssignment",
-        populate: [
-            {
-                path: "driver",
-            },
-            {
-                path: "vehicle",
-            },
-            {
-                path: "vendor",
-            },
-            {
-                path: "event",
-            },
-        ],
-    });
+    })
+        .populate(guestDetailsPopulate)
+        .populate({
+            path: "vehicleAssignment",
+            populate: [
+                { path: "driver" },
+                { path: "vehicle" },
+                { path: "vendor" },
+                { path: "event" },
+            ],
+        });
 };
 
 /**
- * Find Guest Assignments By Vehicle Assignment
+ * Find Guest Assignments By Vehicle Assignment.
+ *
+ * Populating the guest's location references ensures the duty-sheet
+ * PDF can display actual pickup and drop location names.
  */
-const findByVehicleAssignment =
-    async (
-        vehicleAssignmentId
-    ) => {
-        return GuestAssignment.find({
-            vehicleAssignment:
-                vehicleAssignmentId,
-            isDeleted: false,
-        })
-            .populate("guest")
-            .sort({
-                pickupSequence: 1,
-                dropSequence: 1,
-            });
-    };
+const findByVehicleAssignment = async (vehicleAssignmentId) => {
+    return GuestAssignment.find({
+        vehicleAssignment: vehicleAssignmentId,
+        isDeleted: false,
+    })
+        .populate(guestDetailsPopulate)
+        .sort({
+            pickupSequence: 1,
+            dropSequence: 1,
+        });
+};
 
 /**
  * Find Guest Assignments By Driver
  */
-const findByDriver = async (
-    driverId
-) => {
-    const assignments =
-        await GuestAssignment.find({
-            isDeleted: false,
+const findByDriver = async (driverId) => {
+    const assignments = await GuestAssignment.find({
+        isDeleted: false,
+    })
+        .populate({
+            path: "vehicleAssignment",
+            match: {
+                driver: driverId,
+                isDeleted: false,
+            },
+            populate: [
+                { path: "vehicle" },
+                { path: "event" },
+                { path: "vendor" },
+            ],
         })
-            .populate({
-                path: "vehicleAssignment",
-                match: {
-                    driver: driverId,
-                    isDeleted: false,
-                },
-                populate: [
-                    {
-                        path: "vehicle",
-                    },
-                    {
-                        path: "event",
-                    },
-                    {
-                        path: "vendor",
-                    },
-                ],
-            })
-            .populate("guest");
+        .populate(guestDetailsPopulate);
 
     return assignments.filter(
-        (assignment) =>
-            assignment.vehicleAssignment
+        (assignment) => assignment.vehicleAssignment
     );
 };
 
