@@ -215,7 +215,10 @@ export default function DriverDashboard() {
     }
 
     setError("");
-    setNotice("");
+
+if (!isRefresh) {
+  setNotice("");
+}
 
     try {
       const results = await Promise.allSettled([
