@@ -178,33 +178,58 @@ export default function GuestAssignmentManagement() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  
   const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const [
-        eventsResponse,
-        guestsResponse,
-        vehicleResponse,
-        guestAssignmentResponse,
-      ] = await Promise.all([
+      const results = await Promise.allSettled([
         getEvents(),
         getGuests(),
         getVehicleAssignments(),
         getGuestAssignments(),
       ]);
 
-      setEvents(listFrom(eventsResponse));
-      setGuests(listFrom(guestsResponse));
-      setVehicleAssignments(listFrom(vehicleResponse));
-      setGuestAssignments(listFrom(guestAssignmentResponse));
+      const setters = [
+        setEvents,
+        setGuests,
+        setVehicleAssignments,
+        setGuestAssignments,
+      ];
+
+      const names = [
+        "Events",
+        "Guests",
+        "Vehicle assignments",
+        "Guest assignments",
+      ];
+
+      const failures = [];
+
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          setters[index](listFrom(result.value));
+        } else {
+          setters[index]([]);
+          failures.push(
+            `${names[index]}: ${getErrorMessage(result.reason)}`
+          );
+        }
+      });
+
+      if (failures.length > 0) {
+        setError(
+          `Some data could not be loaded. ${failures.join(" | ")}`
+        );
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadData();
