@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   approveInvoice,
@@ -91,16 +92,38 @@ export default function BillingManagement() {
     setError("");
 
     try {
-      const [invoiceResponse, billResponse] = await Promise.all([
+      // Load both lists independently. A failure in one endpoint should not
+      // hide valid billing data returned by the other endpoint.
+      const [invoiceResult, billResult] = await Promise.allSettled([
         getClientInvoices(),
         getVendorBills(),
       ]);
 
-      const invoiceData = unwrap(invoiceResponse);
-      const billData = unwrap(billResponse);
+      const loadErrors = [];
 
-      setInvoices(Array.isArray(invoiceData) ? invoiceData : []);
-      setVendorBills(Array.isArray(billData) ? billData : []);
+      if (invoiceResult.status === "fulfilled") {
+        const invoiceData = unwrap(invoiceResult.value);
+        setInvoices(Array.isArray(invoiceData) ? invoiceData : []);
+      } else {
+        setInvoices([]);
+        loadErrors.push(
+          `Client invoices: ${getApiErrorMessage(invoiceResult.reason)}`
+        );
+      }
+
+      if (billResult.status === "fulfilled") {
+        const billData = unwrap(billResult.value);
+        setVendorBills(Array.isArray(billData) ? billData : []);
+      } else {
+        setVendorBills([]);
+        loadErrors.push(
+          `Vendor bills: ${getApiErrorMessage(billResult.reason)}`
+        );
+      }
+
+      if (loadErrors.length > 0) {
+        setError(loadErrors.join(" "));
+      }
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -427,7 +450,9 @@ export default function BillingManagement() {
           >
             <option value="ALL">All statuses</option>
             {STATUSES.map((status) => (
-              <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
+              <option key={status} value={status}>
+                {status.replaceAll("_", " ")}
+              </option>
             ))}
           </select>
         </div>
@@ -474,9 +499,7 @@ export default function BillingManagement() {
                           item.invoiceDate || item.billDate || item.createdAt
                         )}
                       </td>
-                      <td>
-                        {formatCurrency(item.totalAmount)}
-                      </td>
+                      <td>{formatCurrency(item.totalAmount)}</td>
                       <td>
                         <span className={`management-status management-status--${String(item.status || "unknown").toLowerCase()}`}>
                           {String(item.status || "UNKNOWN").replaceAll("_", " ")}

@@ -371,16 +371,17 @@ export default function DriverDashboard() {
     const payload = {};
 
     for (const key of ["DA", "toll", "parking", "entry"]) {
-      if (expenses[key].trim() !== "") {
-        const value = Number(expenses[key]);
+      // Blank fields mean zero. Send all fields so clearing a saved amount
+      // actually clears it on the server.
+      const rawValue = expenses[key].trim();
+      const value = rawValue === "" ? 0 : Number(rawValue);
 
-        if (!Number.isFinite(value) || value < 0) {
-          setError(`${key} must be a valid non-negative amount.`);
-          return;
-        }
-
-        payload[key] = value;
+      if (!Number.isFinite(value) || value < 0) {
+        setError(`${key} must be a valid non-negative amount.`);
+        return;
       }
+
+      payload[key] = value;
     }
 
     payload.remarks = expenses.remarks;
