@@ -134,32 +134,6 @@ const updateByIdIfPending = async (
 };
 
 
-const softDeleteIfPending = async (
-    id,
-    session = null
-) => {
-    return GuestAssignment.findOneAndUpdate(
-        {
-            _id: id,
-            isDeleted: false,
-            pickupStatus: "PENDING",
-            returnStatus: "NOT_STARTED",
-        },
-        {
-            isDeleted: true,
-        },
-        {
-            new: true,
-            runValidators: true,
-            ...(session ? { session } : {}),
-        }
-    );
-};
-
-
-/**
- * Soft Delete only if trip has not started.
- */
 
 const softDeleteIfPending = async (
     id,
@@ -182,6 +156,8 @@ const softDeleteIfPending = async (
         }
     );
 };
+
+
 
 
 /**

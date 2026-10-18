@@ -142,6 +142,30 @@ const lockVehicleAssignmentForGuestChanges = async (
 };
 
 
+
+
+const lockGuestForAssignment = async (
+    guestId,
+    session
+) => {
+    const guest =
+        await guestRepository.lockForAssignment(
+            guestId,
+            session
+        );
+
+    if (!guest) {
+        throw new AppError(
+            "Guest not found or no longer available.",
+            404
+        );
+    }
+
+    return guest;
+};
+
+
+
 /**
  * Create a single Guest Assignment.
  */
@@ -176,6 +200,11 @@ const createGuestAssignment = async (
                     userId,
                     session
                 );
+
+                await lockGuestForAssignment(
+    data.guest,
+    session
+);
 
                 const alreadyAssigned =
                     await guestAssignmentRepository.findActiveByGuest(
@@ -297,6 +326,15 @@ const bulkAssignGuests = async (
                     userId,
                     session
                 );
+
+                // Lock guests in a stable order to reduce conflicts
+// when overlapping bulk requests run concurrently.
+for (const guestId of [...uniqueGuestIds].sort()) {
+    await lockGuestForAssignment(
+        guestId,
+        session
+    );
+}
 
                 for (
                     const [
@@ -555,6 +593,11 @@ const updateGuestAssignment = async (
                         );
                     }
                 }
+
+                await lockGuestForAssignment(
+    targetGuestId,
+    session
+);
 
                 updatedAssignment =
                     await guestAssignmentRepository.updateByIdIfPending(
