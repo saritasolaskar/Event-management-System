@@ -165,57 +165,97 @@ function EventManagement() {
 
     const [deleteTarget, setDeleteTarget] = useState(null);
 
+    
     const loadData = async () => {
         setLoading(true);
         setError("");
 
         try {
-            const [
-                eventsResponse,
-                clientsResponse,
-                locationsResponse,
-            ] = await Promise.all([
+            const results = await Promise.allSettled([
                 getEvents(),
                 getClients(),
                 getLocations(),
             ]);
 
-            const eventsData =
-                unwrapResponse(eventsResponse);
+            const [
+                eventsResult,
+                clientsResult,
+                locationsResult,
+            ] = results;
 
-            const clientsData =
-                unwrapResponse(clientsResponse);
+            const errors = [];
 
-            const locationsData =
-                unwrapResponse(locationsResponse);
+            if (eventsResult.status === "fulfilled") {
+                const data = unwrapResponse(
+                    eventsResult.value
+                );
 
-            setEvents(
-                Array.isArray(eventsData)
-                    ? eventsData
-                    : []
-            );
+                setEvents(
+                    Array.isArray(data) ? data : []
+                );
+            } else {
+                setEvents([]);
+                errors.push(
+                    `Events failed to load: ${
+                        eventsResult.reason?.response?.data?.message ||
+                        eventsResult.reason?.message ||
+                        "Unknown error"
+                    }`
+                );
+            }
 
-            setClients(
-                Array.isArray(clientsData)
-                    ? clientsData
-                    : []
-            );
+            if (clientsResult.status === "fulfilled") {
+                const data = unwrapResponse(
+                    clientsResult.value
+                );
 
-            setLocations(
-                Array.isArray(locationsData)
-                    ? locationsData
-                    : []
-            );
-        } catch (err) {
+                setClients(
+                    Array.isArray(data) ? data : []
+                );
+            } else {
+                setClients([]);
+                errors.push(
+                    `Clients failed to load: ${
+                        clientsResult.reason?.response?.data?.message ||
+                        clientsResult.reason?.message ||
+                        "Unknown error"
+                    }`
+                );
+            }
+
+            if (locationsResult.status === "fulfilled") {
+                const data = unwrapResponse(
+                    locationsResult.value
+                );
+
+                setLocations(
+                    Array.isArray(data) ? data : []
+                );
+            } else {
+                setLocations([]);
+                errors.push(
+                    `Locations failed to load: ${
+                        locationsResult.reason?.response?.data?.message ||
+                        locationsResult.reason?.message ||
+                        "Unknown error"
+                    }`
+                );
+            }
+
+            if (errors.length > 0) {
+                setError(errors.join(" "));
+            }
+        } catch (error) {
             setError(
-                err?.response?.data?.message ||
-                err?.message ||
+                error?.response?.data?.message ||
+                error?.message ||
                 "Unable to load event data."
             );
         } finally {
             setLoading(false);
         }
     };
+
 
     useEffect(() => {
         loadData();
