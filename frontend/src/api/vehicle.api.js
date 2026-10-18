@@ -27,7 +27,9 @@ export const deleteVehicle = async (id) => {
 };
 
 export const updateVehicleStatus = async (id, status) => {
-  const response = await api.patch(`/vehicles/${id}/status`, { status });
+  const response = await api.patch(`/vehicles/${id}/status`, {
+    status,
+  });
   return response.data;
 };
 
@@ -42,11 +44,9 @@ export const importEventVehicles = async (eventId, file) => {
   formData.append("eventId", eventId);
   formData.append("file", file);
 
-  const response = await api.post("/vehicles/import", formData, {
-    headers: {
-      "Content-Type": undefined,
-    },
-  });
+  // Let Axios and the browser set multipart/form-data
+  // with the correct boundary automatically.
+  const response = await api.post("/vehicles/import", formData);
 
   return response.data;
 };
