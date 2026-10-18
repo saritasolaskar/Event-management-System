@@ -32,14 +32,32 @@ const findById = async (id, session = null) => {
 };
 
 /**
- * Find Vendor By Company Name
+ * Find Vendor By Company Name.
+ *
+ * Excel imports may contain different capitalization or
+ * accidental leading/trailing spaces. Match the complete
+ * company name without requiring an exact-case match.
  */
 const findByCompanyName = async (
     companyName,
     session = null
 ) => {
+    const normalizedName = String(companyName ?? "").trim();
+
+    if (!normalizedName) {
+        return null;
+    }
+
+    const escapedName = normalizedName.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+    );
+
     const query = Vendor.findOne({
-        companyName,
+        companyName: {
+            $regex: `^${escapedName}$`,
+            $options: "i",
+        },
         isDeleted: false,
     });
 
@@ -134,9 +152,6 @@ const updateById = async (
  *   id
  *   updatedBy
  *   session
- *
- * This matches the service layer:
- * vendorRepository.softDelete(vendorId, userId)
  */
 const softDelete = async (
     id,
@@ -254,4 +269,3 @@ module.exports = {
     updateStatus,
     updateStatusIfCurrent,
 };
-
