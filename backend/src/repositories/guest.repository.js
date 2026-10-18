@@ -239,4 +239,5 @@ module.exports = {
     updateStatus,
     count,
     updateStatusIfCurrent,
+    lockForAssignment,
 };
