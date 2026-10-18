@@ -162,39 +162,63 @@ function VehicleManagement() {
     setLoading(true);
     setError("");
 
+    const requests = [
+      {
+        name: "vehicles",
+        load: getVehicles,
+        update: setVehicles,
+      },
+      {
+        name: "vendors",
+        load: getVendors,
+        update: setVendors,
+      },
+      {
+        name: "drivers",
+        load: getDrivers,
+        update: setDrivers,
+      },
+      {
+        name: "events",
+        load: getEvents,
+        update: setEvents,
+      },
+    ];
+
     try {
-      const [
-        vehicleResponse,
-        vendorResponse,
-        driverResponse,
-        eventResponse,
-      ] = await Promise.all([
-        getVehicles(),
-        getVendors(),
-        getDrivers(),
-        getEvents(),
-      ]);
-
-      const vehicleData = unwrapResponse(vehicleResponse);
-      const vendorData = unwrapResponse(vendorResponse);
-      const driverData = unwrapResponse(driverResponse);
-      const eventData = unwrapResponse(eventResponse);
-
-      setVehicles(
-        Array.isArray(vehicleData) ? vehicleData : []
+      const results = await Promise.allSettled(
+        requests.map(({ load }) => load())
       );
 
-      setVendors(
-        Array.isArray(vendorData) ? vendorData : []
-      );
+      const failures = [];
 
-      setDrivers(
-        Array.isArray(driverData) ? driverData : []
-      );
+      results.forEach((result, index) => {
+        const request = requests[index];
 
-      setEvents(
-        Array.isArray(eventData) ? eventData : []
-      );
+        if (result.status === "fulfilled") {
+          const data = unwrapResponse(result.value);
+
+          if (Array.isArray(data)) {
+            request.update(data);
+          } else {
+            failures.push(
+              `${request.name}: the server returned an unexpected response.`
+            );
+          }
+
+          return;
+        }
+
+        failures.push(
+          `${request.name}: ${getErrorMessage(result.reason)}`
+        );
+      });
+
+      if (failures.length > 0) {
+        setError(
+          `Some vehicle-management data could not be loaded:\n${failures.join("\n")}`
+        );
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -349,7 +373,11 @@ function VehicleManagement() {
       </div>
 
       {error && (
-        <div className="vehicle-alert vehicle-alert--error">
+        <div
+          className="vehicle-alert vehicle-alert--error"
+          role="alert"
+          style={{ whiteSpace: "pre-line" }}
+        >
           {error}
         </div>
       )}
@@ -374,7 +402,7 @@ function VehicleManagement() {
           onClick={loadData}
           disabled={loading}
         >
-          Refresh
+          {loading ? "Refreshing..." : "Refresh"}
         </button>
       </div>
 
