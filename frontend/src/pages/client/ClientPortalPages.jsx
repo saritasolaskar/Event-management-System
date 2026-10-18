@@ -196,7 +196,7 @@ export function ClientDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  
+
   async function loadDashboard() {
     setLoading(true);
     setError("");
@@ -419,12 +419,17 @@ export function ClientInvoices() {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
 
+
       anchor.href = url;
       anchor.download = `invoice-${invoice.invoiceNumber || id}.pdf`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      URL.revokeObjectURL(url);
+
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+
     } catch (err) {
       setError(getError(err));
     } finally {
