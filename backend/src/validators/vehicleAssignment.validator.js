@@ -35,10 +35,12 @@ const createVehicleAssignmentValidator = [
         .withMessage("Invalid Reporting Location ID."),
 
     body("reportingTime")
-        .optional()
-        .isISO8601()
-        .withMessage("Invalid Reporting Time."),
-
+    .notEmpty()
+    .withMessage("Reporting date and time are required.")
+    .bail()
+    .isISO8601()
+    .withMessage("Invalid Reporting Time."),
+    
     body("commercialPackage")
         .notEmpty()
         .withMessage("Commercial Package is required.")

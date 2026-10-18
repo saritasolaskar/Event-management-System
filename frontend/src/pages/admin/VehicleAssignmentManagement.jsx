@@ -403,17 +403,18 @@ export default function VehicleAssignmentManagement() {
     setNotice("");
 
     if (
-      !form.event ||
-      !form.vendor ||
-      !form.vehicle ||
-      !form.driver ||
-      !form.commercialPackage
-    ) {
-      setError(
-        "Select an event, vendor, vehicle, driver, and commercial package."
-      );
-      return;
-    }
+  !form.event ||
+  !form.vendor ||
+  !form.vehicle ||
+  !form.driver ||
+  !form.commercialPackage ||
+  !form.reportingTime
+) {
+  setError(
+    "Select an event, vendor, vehicle, driver, commercial package, and reporting date/time."
+  );
+  return;
+}
 
     const selectedVehicle = vehicles.find(
       (item) => getId(item) === form.vehicle
@@ -729,16 +730,17 @@ export default function VehicleAssignmentManagement() {
                   </select>
                 </Field>
 
-                <Field label="Reporting date and time">
-                  <input
-                    type="datetime-local"
-                    style={inputStyle}
-                    value={form.reportingTime}
-                    onChange={(e) =>
-                      updateField("reportingTime", e.target.value)
-                    }
-                  />
-                </Field>
+                <Field label="Reporting date and time *">
+  <input
+    type="datetime-local"
+    required
+    style={inputStyle}
+    value={form.reportingTime}
+    onChange={(e) =>
+      updateField("reportingTime", e.target.value)
+    }
+  />
+</Field>
 
                 <Field label="Remarks">
                   <input

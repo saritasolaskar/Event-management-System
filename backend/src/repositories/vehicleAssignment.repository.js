@@ -119,10 +119,17 @@ const findTodayByDriver = async (
             },
             {
                 status: "ASSIGNED",
-                reportingTime: {
-                    $gte: startOfToday,
-                    $lt: startOfTomorrow,
-                },
+                $or: [
+                    {
+                        reportingTime: {
+                            $gte: startOfToday,
+                            $lt: startOfTomorrow,
+                        },
+                    },
+                    {
+                        reportingTime: null,
+                    },
+                ],
             },
         ],
     })
@@ -141,7 +148,6 @@ const findTodayByDriver = async (
 
     return query;
 };
-
 
 
 const findByEvent = async (eventId) => {
