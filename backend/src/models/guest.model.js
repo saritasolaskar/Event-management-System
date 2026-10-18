@@ -100,7 +100,12 @@ const guestSchema = new mongoose.Schema(
             enum: Object.values(GUEST_STATUS),
             default: GUEST_STATUS.PENDING,
         },
-
+        
+        assignmentLockVersion: {
+    type: Number,
+    default: 0,
+    select: false,
+},
         isDeleted: {
             type: Boolean,
             default: false,

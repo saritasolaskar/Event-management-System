@@ -205,6 +205,27 @@ const count = async (
     });
 };
 
+const lockForAssignment = async (
+    guestId,
+    session
+) => {
+    return Guest.findOneAndUpdate(
+        {
+            _id: guestId,
+            isDeleted: false,
+        },
+        {
+            $inc: {
+                assignmentLockVersion: 1,
+            },
+        },
+        {
+            new: true,
+            session,
+        }
+    );
+};  
+
 
 module.exports = {
     create,
