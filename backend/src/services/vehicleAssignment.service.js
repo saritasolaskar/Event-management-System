@@ -1133,23 +1133,12 @@ const deleteVehicleAssignment = async (
 /**
  * Update Assignment Status
  */
+
 const updateVehicleAssignmentStatus = async (
     id,
     status,
     userId
 ) => {
-    const assignment =
-        await vehicleAssignmentRepository.findById(
-            id
-        );
-
-    if (!assignment) {
-        throw new AppError(
-            "Vehicle Assignment not found.",
-            404
-        );
-    }
-
     if (status !== "CANCELLED") {
         throw new AppError(
             "Only cancellation is allowed through the manual status endpoint.",
@@ -1157,31 +1146,10 @@ const updateVehicleAssignmentStatus = async (
         );
     }
 
-    if (assignment.status === "ON_DUTY") {
-        throw new AppError(
-            "Vehicle Assignment cannot be cancelled after duty has started.",
-            400
-        );
-    }
-
-    if (
-        assignment.status === "COMPLETED" ||
-        assignment.status === "CANCELLED"
-    ) {
-        throw new AppError(
-            `Cannot cancel an assignment with status ${assignment.status}.`,
-            400
-        );
-    }
-
-    /*
-     * A vehicle assignment cannot be cancelled
-     * while guests are still assigned to it.
-     */
+    // Preserve the existing restriction on cancelling duties
+    // that still have guest assignments.
     const guestAssignments =
-        await guestAssignmentRepository.findByVehicleAssignment(
-            id
-        );
+        await guestAssignmentRepository.findByVehicleAssignment(id);
 
     if (guestAssignments.length > 0) {
         throw new AppError(
@@ -1190,24 +1158,124 @@ const updateVehicleAssignmentStatus = async (
         );
     }
 
-    const expectedStatus =
-        assignment.status;
+    const session = await mongoose.startSession();
 
-    const updatedAssignment =
-        await vehicleAssignmentRepository.updateByIdAndStatus(
-            id,
-            expectedStatus,
-            {
-                status: "CANCELLED",
-                updatedBy: userId,
+    let updatedAssignment;
+    let driverId;
+    let vehicleId;
+
+    try {
+        await session.withTransaction(async () => {
+            const assignment =
+                await vehicleAssignmentRepository.findById(
+                    id,
+                    session
+                );
+
+            if (!assignment) {
+                throw new AppError(
+                    "Vehicle Assignment not found.",
+                    404
+                );
             }
-        );
 
-    if (!updatedAssignment) {
-        throw new AppError(
-            "Vehicle Assignment was changed by another operation. Please refresh and try again.",
-            409
-        );
+            if (assignment.status === "ON_DUTY") {
+                throw new AppError(
+                    "Vehicle Assignment cannot be cancelled after duty has started.",
+                    400
+                );
+            }
+
+            if (
+                assignment.status === "COMPLETED" ||
+                assignment.status === "CANCELLED"
+            ) {
+                throw new AppError(
+                    `Cannot cancel an assignment with status ${assignment.status}.`,
+                    400
+                );
+            }
+
+            driverId = getId(assignment.driver);
+            vehicleId = getId(assignment.vehicle);
+
+            // Cancel only if the assignment still has its expected status.
+            updatedAssignment =
+                await vehicleAssignmentRepository.updateByIdAndStatus(
+                    id,
+                    assignment.status,
+                    {
+                        status: "CANCELLED",
+                        updatedBy: userId,
+                    },
+                    session
+                );
+
+            if (!updatedAssignment) {
+                throw new AppError(
+                    "Vehicle Assignment was changed by another operation. Please refresh and try again.",
+                    409
+                );
+            }
+
+            // Release the driver's vehicle link only if it still
+            // points to the vehicle from this assignment.
+            if (driverId && vehicleId) {
+                const driver =
+                    await driverRepository.findById(
+                        driverId,
+                        session
+                    );
+
+                if (
+                    driver &&
+                    getId(driver.currentVehicle) === vehicleId
+                ) {
+                    await driverRepository.updateById(
+                        driverId,
+                        {
+                            currentVehicle: null,
+                            updatedBy: userId,
+                        },
+                        session
+                    );
+                }
+
+                // Release the vehicle only if it still points to
+                // this assignment's driver.
+                const vehicle =
+                    await vehicleRepository.findById(
+                        vehicleId,
+                        session
+                    );
+
+                if (
+                    vehicle &&
+                    getId(vehicle.currentDriver) === driverId
+                ) {
+                    await vehicleRepository.updateById(
+                        vehicleId,
+                        {
+                            currentDriver: null,
+                            status: VEHICLE_STATUS.AVAILABLE,
+                            updatedBy: userId,
+                        },
+                        session
+                    );
+                }
+            }
+        });
+    } catch (error) {
+        if (error.code === 11000) {
+            throw new AppError(
+                "The assignment or its relationships changed. Refresh and try again.",
+                409
+            );
+        }
+
+        throw error;
+    } finally {
+        await session.endSession();
     }
 
     await notificationService.createNotification({
@@ -1229,6 +1297,8 @@ const updateVehicleAssignmentStatus = async (
 
     return updatedAssignment;
 };
+
+
 
 
 module.exports = {
