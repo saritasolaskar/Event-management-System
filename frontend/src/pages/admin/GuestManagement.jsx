@@ -163,52 +163,61 @@ function GuestManagement() {
   const [form, setForm] =
     useState(emptyForm);
 
+  
   const loadData = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const [
-        guestsResponse,
-        eventsResponse,
-        locationsResponse,
-      ] = await Promise.all([
+      const results = await Promise.allSettled([
         getGuests(),
         getEvents(),
         getLocations(),
       ]);
 
-      const guestsData =
-        unwrapResponse(guestsResponse);
+      const setters = [
+        setGuests,
+        setEvents,
+        setLocations,
+      ];
 
-      const eventsData =
-        unwrapResponse(eventsResponse);
+      const names = [
+        "Guests",
+        "Events",
+        "Locations",
+      ];
 
-      const locationsData =
-        unwrapResponse(locationsResponse);
+      const failures = [];
 
-      setGuests(
-        Array.isArray(guestsData)
-          ? guestsData
-          : []
-      );
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          const data = unwrapResponse(result.value);
 
-      setEvents(
-        Array.isArray(eventsData)
-          ? eventsData
-          : []
-      );
+          setters[index](
+            Array.isArray(data) ? data : []
+          );
+        } else {
+          setters[index]([]);
+          failures.push(
+            `${names[index]}: ${
+              result.reason?.response?.data?.message ||
+              result.reason?.message ||
+              "Unknown error"
+            }`
+          );
+        }
+      });
 
-      setLocations(
-        Array.isArray(locationsData)
-          ? locationsData
-          : []
-      );
+      if (failures.length > 0) {
+        setError(
+          `Some data could not be loaded. ${failures.join(" | ")}`
+        );
+      }
     } catch (err) {
       setError(
         err?.response?.data?.message ||
-          err?.message ||
-          "Unable to load guest data."
+        err?.message ||
+        "Unable to load guest data."
       );
     } finally {
       setLoading(false);
