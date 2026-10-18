@@ -122,105 +122,106 @@ const validateGuestForEvent =
 /**
  * Create Guest Assignment
  */
-const createGuestAssignment =
-    async (
-        data,
-        userId
-    ) => {
-        const vehicleAssignment =
-            await validateVehicleAssignment(
-                data.vehicleAssignment
-            );
 
-        const guest =
-            await validateGuestForEvent(
-                data.guest,
-                vehicleAssignment.event
-            );
+const createGuestAssignment = async (
+    data,
+    userId
+) => {
+    const vehicleAssignment =
+        await validateVehicleAssignment(
+            data.vehicleAssignment
+        );
 
-        const guestName =
-            getGuestDisplayName(guest);
-
-        const alreadyAssigned =
-    await guestAssignmentRepository.findActiveByGuest(
-        data.guest
+    const guest = await validateGuestForEvent(
+        data.guest,
+        vehicleAssignment.event
     );
 
-        if (alreadyAssigned) {
-            throw new AppError(
-                "Guest is already assigned to a vehicle.",
-                409
-            );
-        }
+    const guestName = getGuestDisplayName(guest);
 
-        const assignmentData = {
-            ...data,
-            createdBy: userId,
-            updatedBy: userId,
-        };
+    const session = await mongoose.startSession();
+    let assignment;
 
-        let assignment;
-
-        try {
-            assignment =
-                await guestAssignmentRepository.create(
-                    assignmentData
+    try {
+        await session.withTransaction(async () => {
+            // Conditional write: prevents guest assignment
+            // if the vehicle assignment is no longer ASSIGNED.
+            const lockedAssignment =
+                await vehicleAssignmentRepository.updateByIdAndStatus(
+                    data.vehicleAssignment,
+                    VEHICLE_ASSIGNMENT_STATUS.ASSIGNED,
+                    {
+                        updatedBy: userId,
+                    },
+                    session
                 );
-        } catch (error) {
-            if (
-                error.code === 11000
-            ) {
+
+            if (!lockedAssignment) {
+                throw new AppError(
+                    "Guest assignments can only be added before vehicle duty starts. Refresh and try again.",
+                    409
+                );
+            }
+
+            const alreadyAssigned =
+                await guestAssignmentRepository.findActiveByGuest(
+                    data.guest,
+                    session
+                );
+
+            if (alreadyAssigned) {
                 throw new AppError(
                     "Guest is already assigned to a vehicle.",
                     409
                 );
             }
 
-            throw error;
-        }
+            try {
+                assignment =
+                    await guestAssignmentRepository.create(
+                        {
+                            ...data,
+                            createdBy: userId,
+                            updatedBy: userId,
+                        },
+                        session
+                    );
+            } catch (error) {
+                if (error.code === 11000) {
+                    throw new AppError(
+                        "Guest is already assigned to a vehicle.",
+                        409
+                    );
+                }
 
-        await notificationService.createNotification(
-            {
-                recipientUser:
-                    userId,
-
-                title:
-                    "Guest Assigned",
-
-                message:
-                    `${guestName} assigned successfully.`,
-
-                type:
-                    "GUEST_ASSIGNED",
-
-                referenceType:
-                    "GUEST_ASSIGNMENT",
-
-                referenceId:
-                    assignment._id,
+                throw error;
             }
-        );
+        });
+    } finally {
+        await session.endSession();
+    }
 
-        await auditLogService.createLog(
-            {
-                user: userId,
+    // Notify and audit only after the transaction commits.
+    await notificationService.createNotification({
+        recipientUser: userId,
+        title: "Guest Assigned",
+        message: `${guestName} assigned successfully.`,
+        type: "GUEST_ASSIGNED",
+        referenceType: "GUEST_ASSIGNMENT",
+        referenceId: assignment._id,
+    });
 
-                action:
-                    "ASSIGN",
+    await auditLogService.createLog({
+        user: userId,
+        action: "ASSIGN",
+        module: "GUEST_ASSIGNMENT",
+        referenceId: assignment._id,
+        description: `Assigned guest ${guestName} to vehicle.`,
+    });
 
-                module:
-                    "GUEST_ASSIGNMENT",
+    return assignment;
+};
 
-                referenceId:
-                    assignment._id,
-
-                description:
-                    `Assigned guest ${guestName} to vehicle.`,
-            }
-        );
-
-        return assignment;
-    };
 
 /**
  * Bulk Assign Guests
@@ -278,6 +279,24 @@ const bulkAssignGuests =
         try {
             await session.withTransaction(
                 async () => {
+                    assignments.length = 0;
+
+const lockedAssignment =
+    await vehicleAssignmentRepository.updateByIdAndStatus(
+        vehicleAssignmentId,
+        VEHICLE_ASSIGNMENT_STATUS.ASSIGNED,
+        {
+            updatedBy: userId,
+        },
+        session
+    );
+
+if (!lockedAssignment) {
+    throw new AppError(
+        "Guests can only be assigned before vehicle duty starts. Refresh and try again.",
+        409
+    );
+}
                     for (
                         const [
                             index,
@@ -297,7 +316,8 @@ const bulkAssignGuests =
 
                         const alreadyAssigned =
     await guestAssignmentRepository.findActiveByGuest(
-        guestId
+        guestId,
+        session
     );
 
                         if (

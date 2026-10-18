@@ -202,11 +202,17 @@ const findByEvent = async (eventId) => {
  * Historical assignments belonging to COMPLETED/CANCELLED
  * vehicle assignments are intentionally ignored.
  */
-const findActiveByGuest = async (guestId) => {
-    const assignments = await GuestAssignment.aggregate([
+
+const findActiveByGuest = async (
+    guestId,
+    session = null
+) => {
+    const aggregate = GuestAssignment.aggregate([
         {
             $match: {
-                guest: new mongoose.Types.ObjectId(guestId),
+                guest: new mongoose.Types.ObjectId(
+                    guestId
+                ),
                 isDeleted: false,
             },
         },
@@ -229,11 +235,19 @@ const findActiveByGuest = async (guestId) => {
                 },
             },
         },
-        { $limit: 1 },
+        {
+            $limit: 1,
+        },
     ]);
 
+    if (session) {
+        aggregate.session(session);
+    }
+
+    const assignments = await aggregate;
     return assignments[0] || null;
 };
+
 
 /**
  * Find Guest Assignment By Guest
