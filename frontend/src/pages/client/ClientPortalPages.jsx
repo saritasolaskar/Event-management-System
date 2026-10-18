@@ -196,6 +196,7 @@ export function ClientDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  
   async function loadDashboard() {
     setLoading(true);
     setError("");
@@ -224,10 +225,13 @@ export function ClientDashboard() {
             : getError(eventsResult.reason)
         );
       }
+    } catch (err) {
+      setError(getError(err));
     } finally {
       setLoading(false);
     }
   }
+
 
   useEffect(() => {
     loadDashboard();

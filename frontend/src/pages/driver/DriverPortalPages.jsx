@@ -222,6 +222,7 @@ export default function DriverDashboard() {
   const [endKm, setEndKm] = useState("");
   const [expenses, setExpenses] = useState(emptyExpenses);
 
+  
   const loadDashboard = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
@@ -268,11 +269,14 @@ export default function DriverDashboard() {
           );
         }
       }
+    } catch (err) {
+      setError(getError(err));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadDashboard();
