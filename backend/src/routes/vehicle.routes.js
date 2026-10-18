@@ -1,4 +1,7 @@
+
 const express = require("express");
+const path = require("path");
+const multer = require("multer");
 
 const vehicleController = require("../controllers/vehicle.controller");
 
@@ -9,49 +12,58 @@ const validate = require("../middleware/validate");
 const { ROLES } = require("../constants/roles");
 
 const {
-    createVehicleValidator,
-    updateVehicleValidator,
-    vehicleIdValidator,
-    vehicleStatusValidator,
+  createVehicleValidator,
+  updateVehicleValidator,
+  vehicleIdValidator,
+  vehicleStatusValidator,
 } = require("../validators/vehicle.validator");
 
 const router = express.Router();
 
-const multer = require("multer");
+const ALLOWED_EXCEL_EXTENSIONS = new Set([
+  ".xlsx",
+  ".xls",
+]);
+
+const ALLOWED_EXCEL_MIME_TYPES = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "application/octet-stream",
+]);
 
 const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 5 * 1024 * 1024,
-    },
-    fileFilter: (
-        req,
-        file,
-        cb
-    ) => {
+  storage: multer.memoryStorage(),
 
-        const allowed =
-            [
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "application/vnd.ms-excel",
-            ];
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1,
+  },
 
-        if (
-            allowed.includes(
-                file.mimetype
-            )
-        ) {
-            cb(null, true);
-        } else {
-            cb(
-                new Error(
-                    "Only Excel files (.xlsx or .xls) are allowed."
-                )
-            );
-        }
-    },
+  fileFilter: (req, file, callback) => {
+    const extension = path
+      .extname(file.originalname || "")
+      .toLowerCase();
+
+    const mimeType = String(file.mimetype || "")
+      .toLowerCase();
+
+    const validExtension =
+      ALLOWED_EXCEL_EXTENSIONS.has(extension);
+
+    const validMimeType =
+      ALLOWED_EXCEL_MIME_TYPES.has(mimeType);
+
+    if (!validExtension || !validMimeType) {
+      return callback(
+        new Error(
+          "Please upload a valid .xlsx or .xls Excel file."
+        )
+      );
+    }
+
+    callback(null, true);
+  },
 });
-
 
 /**
  * Create Vehicle
@@ -79,18 +91,33 @@ router.get(
   vehicleController.getAllVehicles
 );
 
-
+/**
+ * Get Vehicles By Event
+ */
 router.get(
-    "/event/:eventId",
-    protect,
-    authorize(
-        ROLES.ADMIN,
-        ROLES.OPERATIONS_MANAGER,
-        ROLES.DISPATCHER
-    ),
-    vehicleController.getVehiclesByEvent
+  "/event/:eventId",
+  protect,
+  authorize(
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER,
+    ROLES.DISPATCHER
+  ),
+  vehicleController.getVehiclesByEvent
 );
 
+/**
+ * Import Event Vehicles From Excel
+ */
+router.post(
+  "/import",
+  protect,
+  authorize(
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER
+  ),
+  upload.single("file"),
+  vehicleController.importVehiclesFromExcel
+);
 
 /**
  * Get Vehicle By ID
@@ -108,25 +135,16 @@ router.get(
   vehicleController.getVehicleById
 );
 
-
-router.post(
-    "/import",
-    protect,
-    authorize(
-        ROLES.ADMIN,
-        ROLES.OPERATIONS_MANAGER
-    ),
-    upload.single("file"),
-    vehicleController.importVehiclesFromExcel
-);
-
 /**
  * Update Vehicle
  */
 router.put(
   "/:id",
   protect,
-  authorize(ROLES.ADMIN, ROLES.OPERATIONS_MANAGER),
+  authorize(
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER
+  ),
   updateVehicleValidator,
   validate,
   vehicleController.updateVehicle
@@ -148,14 +166,15 @@ router.delete(
  * Update Vehicle Status
  */
 router.patch(
-    "/:id/status",
-    protect,
-    authorize(ROLES.ADMIN, ROLES.OPERATIONS_MANAGER),
-    vehicleStatusValidator,
-    validate,
-    vehicleController.updateVehicleStatus
+  "/:id/status",
+  protect,
+  authorize(
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER
+  ),
+  vehicleStatusValidator,
+  validate,
+  vehicleController.updateVehicleStatus
 );
-
-
 
 module.exports = router;
