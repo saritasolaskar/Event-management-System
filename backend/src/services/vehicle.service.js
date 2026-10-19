@@ -173,6 +173,17 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
         existingVehicle._id
       );
 
+      if (
+        [VEHICLE_STATUS.MAINTENANCE, VEHICLE_STATUS.INACTIVE].includes(
+          existingVehicle.status
+        )
+      ) {
+        throw new AppError(
+          "A vehicle in maintenance or inactive status cannot be linked to a driver.",
+          409
+        );
+      }
+
       const existingDriverId = getId(existingVehicle.currentDriver);
 
       if (
@@ -185,15 +196,19 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
         );
       }
 
-      if (!existingDriverId) {
+      if (
+        !existingDriverId ||
+        existingVehicle.status !== VEHICLE_STATUS.ASSIGNED
+      ) {
         await vehicleRepository.updateById(existingVehicle._id, {
           currentDriver: selectedDriver._id,
-          updatedBy: createdBy || undefined,
+          status: VEHICLE_STATUS.ASSIGNED,
+          ...(createdBy ? { updatedBy: createdBy } : {}),
         });
 
         await driverRepository.updateById(selectedDriver._id, {
           currentVehicle: existingVehicle._id,
-          updatedBy: createdBy || undefined,
+          ...(createdBy ? { updatedBy: createdBy } : {}),
         });
       }
     }
@@ -229,6 +244,30 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
     ? await validateDriver(driverId, vendor._id)
     : null;
 
+  const requestedStatus = vehicleData.status || VEHICLE_STATUS.AVAILABLE;
+
+  if (
+    !selectedDriver &&
+    requestedStatus === VEHICLE_STATUS.ASSIGNED
+  ) {
+    throw new AppError(
+      "A vehicle cannot be marked ASSIGNED without a linked driver.",
+      400
+    );
+  }
+
+  if (
+    selectedDriver &&
+    [VEHICLE_STATUS.MAINTENANCE, VEHICLE_STATUS.INACTIVE].includes(
+      requestedStatus
+    )
+  ) {
+    throw new AppError(
+      "A vehicle in maintenance or inactive status cannot be linked to a driver.",
+      400
+    );
+  }
+
   const allowedFields = [
     "vehicleType",
     "brand",
@@ -258,7 +297,9 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
     vendor: vendor._id,
     currentDriver: selectedDriver?._id || null,
     eventsUsedFor: [eventId],
-    status: vehicleData.status || VEHICLE_STATUS.AVAILABLE,
+    status: selectedDriver
+      ? VEHICLE_STATUS.ASSIGNED
+      : requestedStatus,
     isDeleted: false,
     ...(createdBy ? { createdBy } : {}),
   });
@@ -376,12 +417,35 @@ const updateVehicle = async (
     ? await validateDriver(requestedDriverId, vendorId, vehicle._id)
     : null;
 
+  if (
+    driverWasProvided &&
+    selectedDriver &&
+    [VEHICLE_STATUS.MAINTENANCE, VEHICLE_STATUS.INACTIVE].includes(
+      vehicle.status
+    )
+  ) {
+    throw new AppError(
+      "A vehicle in maintenance or inactive status cannot be linked to a driver.",
+      409
+    );
+  }
+
   if (vendorChanged) {
     changes.vendor = vendorId;
   }
 
   if (driverWasProvided) {
     changes.currentDriver = selectedDriver?._id || null;
+
+    if (selectedDriver) {
+      changes.status = VEHICLE_STATUS.ASSIGNED;
+    } else if (
+      [VEHICLE_STATUS.ASSIGNED, VEHICLE_STATUS.ON_DUTY].includes(
+        vehicle.status
+      )
+    ) {
+      changes.status = VEHICLE_STATUS.AVAILABLE;
+    }
   }
 
   if (updatedBy) {
