@@ -1,13 +1,26 @@
+
 import { ROLES } from "../utils/roles";
+
+const ADMIN_MANAGEMENT_ROLES = [
+  ROLES.SUPER_ADMIN,
+  ROLES.ADMIN,
+  ROLES.OPERATIONS_MANAGER,
+];
+
+const EVENT_OPERATIONS_ROLES = [
+  ...ADMIN_MANAGEMENT_ROLES,
+  ROLES.DISPATCHER,
+];
 
 export const ROUTES = {
   LOGIN: "/login",
   REGISTER: "/register",
   SET_PASSWORD: "/set-password",
   UNAUTHORIZED: "/unauthorized",
-  ADMIN_BILLING: "/admin/billing",
+
   ADMIN: "/admin",
   ADMIN_DASHBOARD: "/admin/dashboard",
+  ADMIN_BILLING: "/admin/billing",
   ADMIN_CLIENTS: "/admin/clients",
   ADMIN_EVENTS: "/admin/events",
   ADMIN_GUESTS: "/admin/guests",
@@ -56,52 +69,56 @@ export const ADMIN_ROUTES = [
   {
     path: ROUTES.ADMIN_CLIENTS,
     label: "Clients",
-    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
+    roles: ADMIN_MANAGEMENT_ROLES,
   },
   {
-  path: ROUTES.ADMIN_BILLING,
-  label: "Billing",
-  roles: [ROLES.ADMIN, ROLES.ACCOUNTS],
-},
+    path: ROUTES.ADMIN_BILLING,
+    label: "Billing",
+    roles: [
+      ROLES.SUPER_ADMIN,
+      ROLES.ADMIN,
+      ROLES.ACCOUNTS,
+    ],
+  },
   {
     path: ROUTES.ADMIN_EVENTS,
     label: "Events",
-    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER, ROLES.DISPATCHER],
+    roles: EVENT_OPERATIONS_ROLES,
   },
   {
     path: ROUTES.ADMIN_GUESTS,
     label: "Guests",
-    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER, ROLES.DISPATCHER],
+    roles: EVENT_OPERATIONS_ROLES,
   },
   {
     path: ROUTES.ADMIN_GUEST_ASSIGNMENTS,
     label: "Guest Assignments",
-    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER, ROLES.DISPATCHER],
+    roles: EVENT_OPERATIONS_ROLES,
   },
   {
     path: ROUTES.ADMIN_VEHICLE_ASSIGNMENTS,
     label: "Vehicle Assignments",
-    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
+    roles: ADMIN_MANAGEMENT_ROLES,
   },
   {
     path: ROUTES.ADMIN_VEHICLES,
     label: "Vehicles",
-    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER, ROLES.DISPATCHER],
+    roles: EVENT_OPERATIONS_ROLES,
   },
   {
     path: ROUTES.ADMIN_VENDORS,
     label: "Vendors",
-    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
+    roles: ADMIN_MANAGEMENT_ROLES,
   },
   {
     path: ROUTES.ADMIN_DRIVERS,
     label: "Drivers",
-    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
+    roles: ADMIN_MANAGEMENT_ROLES,
   },
   {
     path: ROUTES.ADMIN_LOCATIONS,
     label: "Locations",
-    roles: [ROLES.ADMIN, ROLES.OPERATIONS_MANAGER],
+    roles: ADMIN_MANAGEMENT_ROLES,
   },
 ];
 

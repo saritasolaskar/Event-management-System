@@ -1,31 +1,18 @@
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
-
 import { getVehicles, createVehicle } from "../../api/vehicle.api";
 import { getVendors } from "../../api/vendor.api";
 import { getDrivers } from "../../api/driver.api";
 import { getEvents } from "../../api/event.api";
-
 import "../../styles/vehicle-management.css";
 
 const VEHICLE_TYPES = [
-  "HATCHBACK",
-  "SEDAN",
-  "SUV",
-  "MUV",
-  "TEMPO_TRAVELLER",
-  "MINI_BUS",
-  "BUS",
+  "HATCHBACK", "SEDAN", "SUV", "MUV",
+  "TEMPO_TRAVELLER", "MINI_BUS", "BUS",
 ];
 
-const FUEL_TYPES = [
-  "PETROL",
-  "DIESEL",
-  "CNG",
-  "ELECTRIC",
-  "HYBRID",
-];
+const FUEL_TYPES = ["PETROL", "DIESEL", "CNG", "ELECTRIC", "HYBRID"];
 
 const EMPTY_FORM = {
   vehicleNumber: "",
@@ -41,49 +28,43 @@ const EMPTY_FORM = {
 };
 
 function unwrapResponse(response) {
-  if (response?.data?.data !== undefined) {
-    return response.data.data;
-  }
-
-  if (response?.data !== undefined) {
-    return response.data;
-  }
-
+  if (response?.data?.data !== undefined) return response.data.data;
+  if (response?.data !== undefined) return response.data;
   return response;
+}
+
+function listFrom(response) {
+  const data = unwrapResponse(response);
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.results)) return data.results;
+  return [];
 }
 
 function getId(value) {
   if (!value) return "";
-
-  if (typeof value === "object") {
-    return String(value._id || value.id || "");
-  }
-
+  if (typeof value === "object") return String(value._id || value.id || "");
   return String(value);
 }
 
 function getVendorName(vehicle) {
-  if (typeof vehicle?.vendor === "object") {
-    return vehicle.vendor.companyName || "-";
+  if (vehicle?.vendor && typeof vehicle.vendor === "object") {
+    return vehicle.vendor.companyName || vehicle.vendor.name || "-";
   }
-
   return vehicle?.vendor || "-";
 }
 
 function getDriverName(vehicle) {
   if (!vehicle?.currentDriver) return "Unassigned";
-
   if (typeof vehicle.currentDriver === "object") {
     return (
-      [
-        vehicle.currentDriver.firstName,
-        vehicle.currentDriver.lastName,
-      ]
+      [vehicle.currentDriver.firstName, vehicle.currentDriver.lastName]
         .filter(Boolean)
-        .join(" ") || "Assigned"
+        .join(" ") ||
+      vehicle.currentDriver.name ||
+      "Assigned"
     );
   }
-
   return String(vehicle.currentDriver);
 }
 
@@ -96,10 +77,11 @@ function getErrorMessage(error) {
   );
 }
 
-function VehicleManagement() {
+export default function VehicleManagement() {
   const { user } = useAuth();
 
   const canCreate = [
+    "SUPER_ADMIN",
     "ADMIN",
     "OPERATIONS_MANAGER",
   ].includes(user?.role);
@@ -108,15 +90,12 @@ function VehicleManagement() {
   const [vendors, setVendors] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [events, setEvents] = useState([]);
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
-
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
   const [form, setForm] = useState(EMPTY_FORM);
 
   const availableEvents = useMemo(
@@ -124,7 +103,7 @@ function VehicleManagement() {
       events.filter(
         (event) =>
           !["COMPLETED", "CANCELLED"].includes(
-            event.status
+            String(event.status || "").toUpperCase()
           )
       ),
     [events]
@@ -134,7 +113,7 @@ function VehicleManagement() {
     () =>
       drivers.filter(
         (driver) =>
-          driver.status === "ACTIVE" &&
+          String(driver.status || "").toUpperCase() === "ACTIVE" &&
           !driver.currentVehicle &&
           getId(driver.vendor) === form.vendor
       ),
@@ -143,7 +122,6 @@ function VehicleManagement() {
 
   const filteredVehicles = useMemo(() => {
     const query = search.trim().toLowerCase();
-
     if (!query) return vehicles;
 
     return vehicles.filter((vehicle) =>
@@ -158,79 +136,50 @@ function VehicleManagement() {
     );
   }, [vehicles, search]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
 
     const requests = [
-      {
-        name: "vehicles",
-        load: getVehicles,
-        update: setVehicles,
-      },
-      {
-        name: "vendors",
-        load: getVendors,
-        update: setVendors,
-      },
-      {
-        name: "drivers",
-        load: getDrivers,
-        update: setDrivers,
-      },
-      {
-        name: "events",
-        load: getEvents,
-        update: setEvents,
-      },
+      { name: "vehicles", load: getVehicles, update: setVehicles },
+      { name: "vendors", load: getVendors, update: setVendors },
+      { name: "drivers", load: getDrivers, update: setDrivers },
+      { name: "events", load: getEvents, update: setEvents },
     ];
 
-    try {
-      const results = await Promise.allSettled(
-        requests.map(({ load }) => load())
-      );
+    const results = await Promise.allSettled(
+      requests.map(({ load }) => load())
+    );
 
-      const failures = [];
+    const failures = [];
 
-      results.forEach((result, index) => {
-        const request = requests[index];
+    results.forEach((result, index) => {
+      const request = requests[index];
 
-        if (result.status === "fulfilled") {
-          const data = unwrapResponse(result.value);
-
-          if (Array.isArray(data)) {
-            request.update(data);
-          } else {
-            failures.push(
-              `${request.name}: the server returned an unexpected response.`
-            );
-          }
-
-          return;
-        }
-
+      if (result.status === "fulfilled") {
+        const data = listFrom(result.value);
+        request.update(data);
+      } else {
         failures.push(
           `${request.name}: ${getErrorMessage(result.reason)}`
         );
-      });
-
-      if (failures.length > 0) {
-        setError(
-          `Some vehicle-management data could not be loaded:\n${failures.join("\n")}`
-        );
       }
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
+    });
+
+    if (failures.length) {
+      setError(
+        `Some vehicle-management data could not be loaded:\n${failures.join("\n")}`
+      );
     }
-  };
+
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
-  const handleChange = (event) => {
+  function handleChange(event) {
     const { name, value } = event.target;
 
     setForm((previous) => ({
@@ -238,29 +187,32 @@ function VehicleManagement() {
       [name]: value,
       ...(name === "vendor" ? { currentDriver: "" } : {}),
     }));
-  };
+  }
 
-  const openForm = () => {
+  function openForm() {
     setForm(EMPTY_FORM);
     setError("");
     setSuccess("");
     setShowForm(true);
-  };
+  }
 
-  const closeForm = () => {
+  function closeForm() {
     if (saving) return;
-
     setShowForm(false);
     setForm(EMPTY_FORM);
-  };
+  }
 
-  const handleSubmit = async (event) => {
+  async function handleSubmit(event) {
     event.preventDefault();
-
     setError("");
     setSuccess("");
 
-    if (!form.vehicleNumber.trim()) {
+    const vehicleNumber = form.vehicleNumber
+      .trim()
+      .replace(/\s+/g, "")
+      .toUpperCase();
+
+    if (!vehicleNumber) {
       setError("Vehicle number is required.");
       return;
     }
@@ -277,6 +229,7 @@ function VehicleManagement() {
 
     if (
       !form.seatingCapacity ||
+      !Number.isFinite(Number(form.seatingCapacity)) ||
       Number(form.seatingCapacity) < 1
     ) {
       setError("Enter a valid seating capacity.");
@@ -286,7 +239,7 @@ function VehicleManagement() {
     if (
       form.currentDriver &&
       !availableDrivers.some(
-        (driver) => getId(driver._id) === form.currentDriver
+        (driver) => getId(driver) === form.currentDriver
       )
     ) {
       setError(
@@ -295,66 +248,61 @@ function VehicleManagement() {
       return;
     }
 
-    setSaving(true);
+    if (
+      form.manufactureYear &&
+      (
+        !Number.isInteger(Number(form.manufactureYear)) ||
+        Number(form.manufactureYear) < 1980 ||
+        Number(form.manufactureYear) > new Date().getFullYear() + 1
+      )
+    ) {
+      setError("Enter a valid manufacture year.");
+      return;
+    }
 
     const payload = {
-      vehicleNumber: form.vehicleNumber.trim().toUpperCase(),
+      vehicleNumber,
       vehicleType: form.vehicleType,
       seatingCapacity: Number(form.seatingCapacity),
       vendor: form.vendor,
       event: form.event,
+      ...(form.currentDriver ? { currentDriver: form.currentDriver } : {}),
+      ...(form.brand.trim() ? { brand: form.brand.trim() } : {}),
+      ...(form.model.trim() ? { model: form.model.trim() } : {}),
+      ...(form.manufactureYear
+        ? { manufactureYear: Number(form.manufactureYear) }
+        : {}),
+      ...(form.fuelType ? { fuelType: form.fuelType } : {}),
     };
 
-    if (form.currentDriver) {
-      payload.currentDriver = form.currentDriver;
-    }
-
-    if (form.brand.trim()) {
-      payload.brand = form.brand.trim();
-    }
-
-    if (form.model.trim()) {
-      payload.model = form.model.trim();
-    }
-
-    if (form.manufactureYear) {
-      payload.manufactureYear = Number(form.manufactureYear);
-    }
-
-    if (form.fuelType) {
-      payload.fuelType = form.fuelType;
-    }
+    setSaving(true);
 
     try {
       await createVehicle(payload);
-
       setShowForm(false);
       setForm(EMPTY_FORM);
       setSuccess("Vehicle registered successfully.");
-
       await loadData();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
-  };
+  }
 
   return (
     <div className="vehicle-page">
       <div className="vehicle-page__header">
         <div>
           <h1>Vehicles</h1>
-          <p>
-            Register vehicles and manage your event fleet.
-          </p>
+          <p>Register vehicles and manage your event fleet.</p>
         </div>
 
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: 12,
             flexWrap: "wrap",
           }}
         >
@@ -383,7 +331,10 @@ function VehicleManagement() {
       )}
 
       {success && (
-        <div className="vehicle-alert vehicle-alert--success">
+        <div
+          className="vehicle-alert vehicle-alert--success"
+          role="status"
+        >
           {success}
         </div>
       )}
@@ -408,9 +359,7 @@ function VehicleManagement() {
 
       <div className="vehicle-table-card">
         {loading ? (
-          <div className="vehicle-loading">
-            Loading vehicles...
-          </div>
+          <div className="vehicle-loading">Loading vehicles...</div>
         ) : filteredVehicles.length === 0 ? (
           <div className="vehicle-empty">
             <h3>No vehicles found</h3>
@@ -433,13 +382,10 @@ function VehicleManagement() {
                   <th>Events</th>
                 </tr>
               </thead>
-
               <tbody>
                 {filteredVehicles.map((vehicle) => (
                   <tr key={vehicle._id}>
-                    <td>
-                      <strong>{vehicle.vehicleNumber}</strong>
-                    </td>
+                    <td><strong>{vehicle.vehicleNumber}</strong></td>
                     <td>{vehicle.vehicleType}</td>
                     <td>{getVendorName(vehicle)}</td>
                     <td>{getDriverName(vehicle)}</td>
@@ -455,14 +401,16 @@ function VehicleManagement() {
 
       {showForm && (
         <div className="vehicle-modal-backdrop">
-          <div className="vehicle-modal">
+          <div
+            className="vehicle-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="vehicle-registration-title"
+          >
             <div className="vehicle-modal__header">
               <div>
-                <h2>Register Vehicle</h2>
-                <p>
-                  Enter vehicle details and select the event
-                  it will be registered for.
-                </p>
+                <h2 id="vehicle-registration-title">Register Vehicle</h2>
+                <p>Enter the vehicle details and select its event.</p>
               </div>
 
               <button
@@ -470,6 +418,7 @@ function VehicleManagement() {
                 className="vehicle-modal__close"
                 onClick={closeForm}
                 disabled={saving}
+                aria-label="Close registration form"
               >
                 ×
               </button>
@@ -484,6 +433,7 @@ function VehicleManagement() {
                     value={form.vehicleNumber}
                     onChange={handleChange}
                     placeholder="MH12AB1234"
+                    autoCapitalize="characters"
                     required
                   />
                 </label>
@@ -510,6 +460,7 @@ function VehicleManagement() {
                     type="number"
                     name="seatingCapacity"
                     min="1"
+                    step="1"
                     value={form.seatingCapacity}
                     onChange={handleChange}
                     required
@@ -527,7 +478,7 @@ function VehicleManagement() {
                     <option value="">Select Vendor</option>
                     {vendors.map((vendor) => (
                       <option key={vendor._id} value={vendor._id}>
-                        {vendor.companyName}
+                        {vendor.companyName || vendor.name || "Unnamed vendor"}
                       </option>
                     ))}
                   </select>
@@ -542,9 +493,9 @@ function VehicleManagement() {
                     required
                   >
                     <option value="">Select Event</option>
-                    {availableEvents.map((event) => (
-                      <option key={event._id} value={event._id}>
-                        {event.name} ({event.eventCode})
+                    {availableEvents.map((eventItem) => (
+                      <option key={eventItem._id} value={eventItem._id}>
+                        {eventItem.name} ({eventItem.eventCode})
                       </option>
                     ))}
                   </select>
@@ -561,36 +512,30 @@ function VehicleManagement() {
                     <option value="">No driver</option>
                     {availableDrivers.map((driver) => (
                       <option key={driver._id} value={driver._id}>
-                        {[driver.firstName, driver.lastName]
-                          .filter(Boolean)
-                          .join(" ") || driver.phone || "Unnamed Driver"}
+                        {[
+                          driver.firstName,
+                          driver.lastName,
+                        ].filter(Boolean).join(" ") ||
+                          driver.phone ||
+                          "Unnamed Driver"}
                       </option>
                     ))}
                   </select>
                   {form.vendor && availableDrivers.length === 0 && (
                     <small>
-                      No active, unassigned drivers are available
-                      for this vendor.
+                      No active, unassigned drivers are available for this vendor.
                     </small>
                   )}
                 </label>
 
                 <label>
                   Brand
-                  <input
-                    name="brand"
-                    value={form.brand}
-                    onChange={handleChange}
-                  />
+                  <input name="brand" value={form.brand} onChange={handleChange} />
                 </label>
 
                 <label>
                   Model
-                  <input
-                    name="model"
-                    value={form.model}
-                    onChange={handleChange}
-                  />
+                  <input name="model" value={form.model} onChange={handleChange} />
                 </label>
 
                 <label>
@@ -600,6 +545,7 @@ function VehicleManagement() {
                     name="manufactureYear"
                     min="1980"
                     max={new Date().getFullYear() + 1}
+                    step="1"
                     value={form.manufactureYear}
                     onChange={handleChange}
                   />
@@ -613,19 +559,14 @@ function VehicleManagement() {
                     onChange={handleChange}
                   >
                     {FUEL_TYPES.map((fuel) => (
-                      <option key={fuel} value={fuel}>
-                        {fuel}
-                      </option>
+                      <option key={fuel} value={fuel}>{fuel}</option>
                     ))}
                   </select>
                 </label>
               </div>
 
               {availableEvents.length === 0 && (
-                <p>
-                  No eligible events are available. Create an event
-                  before registering a vehicle.
-                </p>
+                <p>No eligible events are available. Create an event first.</p>
               )}
 
               <div className="vehicle-form-actions">
@@ -657,5 +598,3 @@ function VehicleManagement() {
     </div>
   );
 }
-
-export default VehicleManagement;
