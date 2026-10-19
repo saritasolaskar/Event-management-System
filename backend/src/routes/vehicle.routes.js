@@ -4,7 +4,6 @@ const path = require("path");
 const multer = require("multer");
 
 const vehicleController = require("../controllers/vehicle.controller");
-
 const protect = require("../middleware/auth.middleware");
 const authorize = require("../middleware/authorize.middleware");
 const validate = require("../middleware/validate");
@@ -20,10 +19,18 @@ const {
 
 const router = express.Router();
 
-const ALLOWED_EXCEL_EXTENSIONS = new Set([
-  ".xlsx",
-  ".xls",
-]);
+const ADMIN_VEHICLE_ROLES = [
+  ROLES.SUPER_ADMIN,
+  ROLES.ADMIN,
+  ROLES.OPERATIONS_MANAGER,
+];
+
+const VEHICLE_READ_ROLES = [
+  ...ADMIN_VEHICLE_ROLES,
+  ROLES.DISPATCHER,
+];
+
+const ALLOWED_EXCEL_EXTENSIONS = new Set([".xlsx", ".xls"]);
 
 const ALLOWED_EXCEL_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -33,31 +40,23 @@ const ALLOWED_EXCEL_MIME_TYPES = new Set([
 
 const upload = multer({
   storage: multer.memoryStorage(),
-
   limits: {
     fileSize: 5 * 1024 * 1024,
     files: 1,
   },
-
   fileFilter: (req, file, callback) => {
     const extension = path
       .extname(file.originalname || "")
       .toLowerCase();
 
-    const mimeType = String(file.mimetype || "")
-      .toLowerCase();
+    const mimeType = String(file.mimetype || "").toLowerCase();
 
-    const validExtension =
-      ALLOWED_EXCEL_EXTENSIONS.has(extension);
-
-    const validMimeType =
-      ALLOWED_EXCEL_MIME_TYPES.has(mimeType);
-
-    if (!validExtension || !validMimeType) {
+    if (
+      !ALLOWED_EXCEL_EXTENSIONS.has(extension) ||
+      !ALLOWED_EXCEL_MIME_TYPES.has(mimeType)
+    ) {
       return callback(
-        new Error(
-          "Please upload a valid .xlsx or .xls Excel file."
-        )
+        new Error("Please upload a valid .xlsx or .xls Excel file.")
       );
     }
 
@@ -65,113 +64,76 @@ const upload = multer({
   },
 });
 
-/**
- * Create Vehicle
- */
+// Create a vehicle or register it for an event.
 router.post(
   "/",
   protect,
-  authorize(ROLES.ADMIN, ROLES.OPERATIONS_MANAGER),
+  authorize(...ADMIN_VEHICLE_ROLES),
   createVehicleValidator,
   validate,
   vehicleController.createVehicle
 );
 
-/**
- * Get All Vehicles
- */
+// Get all active vehicles.
 router.get(
   "/",
   protect,
-  authorize(
-    ROLES.ADMIN,
-    ROLES.OPERATIONS_MANAGER,
-    ROLES.DISPATCHER
-  ),
+  authorize(...VEHICLE_READ_ROLES),
   vehicleController.getAllVehicles
 );
 
-/**
- * Get Vehicles By Event
- */
+// Get vehicles registered for a particular event.
 router.get(
   "/event/:eventId",
   protect,
-  authorize(
-    ROLES.ADMIN,
-    ROLES.OPERATIONS_MANAGER,
-    ROLES.DISPATCHER
-  ),
+  authorize(...VEHICLE_READ_ROLES),
   vehicleController.getVehiclesByEvent
 );
 
-/**
- * Import Event Vehicles From Excel
- */
+// Import vehicles for an event from Excel.
 router.post(
   "/import",
   protect,
-  authorize(
-    ROLES.ADMIN,
-    ROLES.OPERATIONS_MANAGER
-  ),
+  authorize(...ADMIN_VEHICLE_ROLES),
   upload.single("file"),
   vehicleController.importVehiclesFromExcel
 );
 
-/**
- * Get Vehicle By ID
- */
+// Get one vehicle.
 router.get(
   "/:id",
   protect,
-  authorize(
-    ROLES.ADMIN,
-    ROLES.OPERATIONS_MANAGER,
-    ROLES.DISPATCHER
-  ),
+  authorize(...VEHICLE_READ_ROLES),
   vehicleIdValidator,
   validate,
   vehicleController.getVehicleById
 );
 
-/**
- * Update Vehicle
- */
+// Update vehicle details.
 router.put(
   "/:id",
   protect,
-  authorize(
-    ROLES.ADMIN,
-    ROLES.OPERATIONS_MANAGER
-  ),
+  authorize(...ADMIN_VEHICLE_ROLES),
   updateVehicleValidator,
   validate,
   vehicleController.updateVehicle
 );
 
-/**
- * Delete Vehicle
- */
+// Delete a vehicle.
 router.delete(
   "/:id",
   protect,
-  authorize(ROLES.ADMIN),
+  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN),
   vehicleIdValidator,
   validate,
   vehicleController.deleteVehicle
 );
 
-/**
- * Update Vehicle Status
- */
+// Update vehicle status.
 router.patch(
   "/:id/status",
   protect,
-  authorize(
-    ROLES.ADMIN,
-    ROLES.OPERATIONS_MANAGER
-  ),
+  authorize(...ADMIN_VEHICLE_ROLES),
   vehicleStatusValidator,
   validate,
   vehicleController.updateVehicleStatus
