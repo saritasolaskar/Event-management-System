@@ -1134,6 +1134,7 @@ const deleteVehicleAssignment = async (
  * Update Assignment Status
  */
 
+
 const updateVehicleAssignmentStatus = async (
     id,
     status,
@@ -1146,23 +1147,8 @@ const updateVehicleAssignmentStatus = async (
         );
     }
 
-    // Preserve the existing restriction on cancelling duties
-    // that still have guest assignments.
-    const guestAssignments =
-        await guestAssignmentRepository.findByVehicleAssignment(id);
-
-    if (guestAssignments.length > 0) {
-        throw new AppError(
-            "Vehicle Assignment cannot be cancelled because guests are assigned to it.",
-            409
-        );
-    }
-
     const session = await mongoose.startSession();
-
     let updatedAssignment;
-    let driverId;
-    let vehicleId;
 
     try {
         await session.withTransaction(async () => {
@@ -1179,7 +1165,9 @@ const updateVehicleAssignmentStatus = async (
                 );
             }
 
-            if (assignment.status === "ON_DUTY") {
+            if (
+                assignment.status === "ON_DUTY"
+            ) {
                 throw new AppError(
                     "Vehicle Assignment cannot be cancelled after duty has started.",
                     400
@@ -1196,20 +1184,28 @@ const updateVehicleAssignmentStatus = async (
                 );
             }
 
-            driverId = getId(assignment.driver);
-            vehicleId = getId(assignment.vehicle);
+            const guestAssignments =
+                await guestAssignmentRepository
+                    .findByVehicleAssignment(id);
 
-            // Cancel only if the assignment still has its expected status.
-            updatedAssignment =
-                await vehicleAssignmentRepository.updateByIdAndStatus(
-                    id,
-                    assignment.status,
-                    {
-                        status: "CANCELLED",
-                        updatedBy: userId,
-                    },
-                    session
+            if (guestAssignments.length > 0) {
+                throw new AppError(
+                    "Vehicle Assignment cannot be cancelled because guests are assigned to it.",
+                    409
                 );
+            }
+
+            updatedAssignment =
+                await vehicleAssignmentRepository
+                    .updateByIdAndStatus(
+                        id,
+                        assignment.status,
+                        {
+                            status: "CANCELLED",
+                            updatedBy: userId,
+                        },
+                        session
+                    );
 
             if (!updatedAssignment) {
                 throw new AppError(
@@ -1218,57 +1214,14 @@ const updateVehicleAssignmentStatus = async (
                 );
             }
 
-            // Release the driver's vehicle link only if it still
-            // points to the vehicle from this assignment.
-            if (driverId && vehicleId) {
-                const driver =
-                    await driverRepository.findById(
-                        driverId,
-                        session
-                    );
-
-                if (
-                    driver &&
-                    getId(driver.currentVehicle) === vehicleId
-                ) {
-                    await driverRepository.updateById(
-                        driverId,
-                        {
-                            currentVehicle: null,
-                            updatedBy: userId,
-                        },
-                        session
-                    );
-                }
-
-                // Release the vehicle only if it still points to
-                // this assignment's driver.
-                const vehicle =
-                    await vehicleRepository.findById(
-                        vehicleId,
-                        session
-                    );
-
-                if (
-                    vehicle &&
-                    getId(vehicle.currentDriver) === driverId
-                ) {
-                    await vehicleRepository.updateById(
-                        vehicleId,
-                        {
-                            currentDriver: null,
-                            status: VEHICLE_STATUS.AVAILABLE,
-                            updatedBy: userId,
-                        },
-                        session
-                    );
-                }
-            }
+            // Keep the driver's vehicle link intact.
+            // Cancelling a duty does not mean the driver
+            // has stopped using their assigned vehicle.
         });
     } catch (error) {
         if (error.code === 11000) {
             throw new AppError(
-                "The assignment or its relationships changed. Refresh and try again.",
+                "The assignment changed during cancellation. Refresh and try again.",
                 409
             );
         }
@@ -1297,6 +1250,7 @@ const updateVehicleAssignmentStatus = async (
 
     return updatedAssignment;
 };
+
 
 
 
