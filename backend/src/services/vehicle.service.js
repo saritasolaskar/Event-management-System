@@ -78,6 +78,28 @@ const normalizeVehicleNumber = (value) =>
         .replace(/\s+/g, "")
         .toUpperCase();
 
+const normalizeFuelType = (value) => {
+    const fuel = String(value || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+
+    if (!fuel) {
+        return undefined;
+    }
+
+    const aliases = {
+        PETROL: "PETROL",
+        DIESEL: "DIESEL",
+        CNG: "CNG",
+        ELECTRIC: "ELECTRIC",
+        EV: "ELECTRIC",
+        HYBRID: "HYBRID",
+    };
+
+    return aliases[fuel] || fuel;
+};
+
 const pickFields = (data, fields) => {
     const result = {};
 
@@ -241,6 +263,11 @@ const createVehicle = async (
                         data.vehicleNumber
                     );
 
+                if (data.fuelType !== undefined) {
+                    data.fuelType =
+                        normalizeFuelType(data.fuelType);
+                }
+
                 const event =
                     await validateEventForVehicle(
                         data.event,
@@ -323,14 +350,6 @@ const createVehicle = async (
                             "This vehicle is linked to a different driver. Update the vehicle's driver first.",
                             409
                         );
-                    }
-
-                    if (
-                        !data.currentDriver &&
-                        existingVehicle.currentDriver
-                    ) {
-                        // No driver was selected in the form.
-                        // Preserve the existing vehicle-driver link.
                     }
 
                     const registration =
@@ -521,6 +540,11 @@ const updateVehicle = async (
                         normalizeVehicleNumber(
                             data.vehicleNumber
                         );
+                }
+
+                if (data.fuelType !== undefined) {
+                    data.fuelType =
+                        normalizeFuelType(data.fuelType);
                 }
 
                 if (Object.keys(data).length === 0) {
@@ -1277,10 +1301,14 @@ const importVehiclesFromExcel = async (
                         "year",
                         "modelyear",
                     ]),
-                    fuelType: optionalValue([
-                        "fueltype",
-                        "fuel",
-                    ]),
+                    fuelType: normalizeFuelType(
+                        optionalValue([
+                            "fueltype",
+                            "fuel",
+                            "fuelsource",
+                            "typeof fuel",
+                        ])
+                    ),
                     event: eventId,
                 },
                 userId
