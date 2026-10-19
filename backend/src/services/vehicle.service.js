@@ -812,6 +812,7 @@ const deleteVehicle = async (
     }
 };
 
+
 const updateVehicleStatus = async (
     vehicleId,
     status,
@@ -821,6 +822,7 @@ const updateVehicleStatus = async (
 
     try {
         let vehicle;
+        let previousStatus = null;
 
         await session.withTransaction(async () => {
             const existingVehicle =
@@ -837,9 +839,7 @@ const updateVehicleStatus = async (
             }
 
             if (
-                !Object.values(VEHICLE_STATUS).includes(
-                    status
-                )
+                !Object.values(VEHICLE_STATUS).includes(status)
             ) {
                 throw new AppError(
                     "Invalid vehicle status.",
@@ -847,7 +847,9 @@ const updateVehicleStatus = async (
                 );
             }
 
-            if (existingVehicle.status === status) {
+            previousStatus = existingVehicle.status;
+
+            if (previousStatus === status) {
                 vehicle = existingVehicle;
                 return;
             }
@@ -873,8 +875,7 @@ const updateVehicleStatus = async (
             }
 
             if (
-                existingVehicle.status ===
-                    VEHICLE_STATUS.ON_DUTY &&
+                previousStatus === VEHICLE_STATUS.ON_DUTY &&
                 status !== VEHICLE_STATUS.ON_DUTY
             ) {
                 throw new AppError(
@@ -890,9 +891,7 @@ const updateVehicleStatus = async (
             ];
 
             if (
-                statusesThatRequireNoActiveAssignment.includes(
-                    status
-                )
+                statusesThatRequireNoActiveAssignment.includes(status)
             ) {
                 const activeAssignments =
                     await vehicleAssignmentRepository.findByVehicle(
@@ -923,15 +922,17 @@ const updateVehicleStatus = async (
             }
         });
 
-        if (vehicle && existingStatusChanged(vehicle, status)) {
+        if (vehicle && previousStatus !== status) {
             await createLog({
                 user: userId,
                 action: "STATUS_UPDATE",
                 module: "VEHICLE",
                 referenceId: vehicleId,
-                description:
-                    `Vehicle status changed to ${status}.`,
-                metadata: { status },
+                description: `Vehicle status changed from ${previousStatus} to ${status}.`,
+                metadata: {
+                    previousStatus,
+                    status,
+                },
             });
         }
 
@@ -940,6 +941,7 @@ const updateVehicleStatus = async (
         await session.endSession();
     }
 };
+
 
 const getVehiclesByEvent = async (eventId) => {
     if (!mongoose.isValidObjectId(eventId)) {
