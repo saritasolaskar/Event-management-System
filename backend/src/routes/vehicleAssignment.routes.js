@@ -1,3 +1,4 @@
+
 const express = require("express");
 
 const router = express.Router();
@@ -17,73 +18,62 @@ const {
     updateVehicleAssignmentStatusValidator,
 } = require("../validators/vehicleAssignment.validator");
 
-/**
- * Create Assignment
- */
+const ASSIGNMENT_MANAGE_ROLES = [
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER,
+];
+
+const ASSIGNMENT_READ_ROLES = [
+    ...ASSIGNMENT_MANAGE_ROLES,
+    ROLES.DISPATCHER,
+];
+
+// Create a vehicle duty assignment.
 router.post(
     "/",
     protect,
-    authorize(
-        ROLES.ADMIN,
-        ROLES.OPERATIONS_MANAGER
-    ),
+    authorize(...ASSIGNMENT_MANAGE_ROLES),
     createVehicleAssignmentValidator,
     validate,
     vehicleAssignmentController.createVehicleAssignment
 );
 
-/**
- * Get All Assignments
- */
+// Get all vehicle duty assignments.
 router.get(
     "/",
     protect,
-    authorize(
-        ROLES.ADMIN,
-        ROLES.OPERATIONS_MANAGER,
-        ROLES.DISPATCHER
-    ),
+    authorize(...ASSIGNMENT_READ_ROLES),
     vehicleAssignmentController.getAllVehicleAssignments
 );
 
-/**
- * Get Assignment By ID
- */
+// Get one vehicle duty assignment.
 router.get(
     "/:id",
     protect,
-    authorize(
-        ROLES.ADMIN,
-        ROLES.OPERATIONS_MANAGER,
-        ROLES.DISPATCHER
-    ),
+    authorize(...ASSIGNMENT_READ_ROLES),
     vehicleAssignmentIdValidator,
     validate,
     vehicleAssignmentController.getVehicleAssignmentById
 );
 
-/**
- * Update Assignment
- */
+// Update an assignment before duty starts.
 router.put(
     "/:id",
     protect,
-    authorize(
-        ROLES.ADMIN,
-        ROLES.OPERATIONS_MANAGER
-    ),
+    authorize(...ASSIGNMENT_MANAGE_ROLES),
     updateVehicleAssignmentValidator,
     validate,
     vehicleAssignmentController.updateVehicleAssignment
 );
 
-/**
- * Delete Assignment
- */
+// Delete an assignment.
+// Keep deletion restricted to administrators.
 router.delete(
     "/:id",
     protect,
     authorize(
+        ROLES.SUPER_ADMIN,
         ROLES.ADMIN
     ),
     vehicleAssignmentIdValidator,
@@ -91,16 +81,11 @@ router.delete(
     vehicleAssignmentController.deleteVehicleAssignment
 );
 
-/**
- * Update Assignment Status
- */
+// Cancel an assignment.
 router.patch(
     "/:id/status",
     protect,
-    authorize(
-        ROLES.ADMIN,
-        ROLES.OPERATIONS_MANAGER
-    ),
+    authorize(...ASSIGNMENT_MANAGE_ROLES),
     updateVehicleAssignmentStatusValidator,
     validate,
     vehicleAssignmentController.updateVehicleAssignmentStatus
