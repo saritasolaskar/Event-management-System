@@ -134,6 +134,30 @@ const updateByIdIfPending = async (
 };
 
 
+/**
+ * Soft Delete Guest Assignment
+ */
+const softDelete = async (
+    id,
+    session = null
+) => {
+    return GuestAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        {
+            isDeleted: true,
+        },
+        {
+            new: true,
+            runValidators: true,
+            ...(session ? { session } : {}),
+        }
+    );
+};
+
+
 
 const softDeleteIfPending = async (
     id,
@@ -156,6 +180,7 @@ const softDeleteIfPending = async (
         }
     );
 };
+
 
 
 
