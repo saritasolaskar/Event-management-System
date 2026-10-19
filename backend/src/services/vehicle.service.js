@@ -72,6 +72,12 @@ const UPDATE_FIELDS = [
     "remarks",
 ];
 
+const normalizeVehicleNumber = (value) =>
+    String(value || "")
+        .trim()
+        .replace(/\s+/g, "")
+        .toUpperCase();
+
 const pickFields = (data, fields) => {
     const result = {};
 
@@ -111,6 +117,13 @@ const validateEventForVehicle = async (
     if (!eventId) {
         throw new AppError(
             "Event is required when adding a vehicle.",
+            400
+        );
+    }
+
+    if (!mongoose.isValidObjectId(eventId)) {
+        throw new AppError(
+            "Invalid event ID.",
             400
         );
     }
@@ -157,14 +170,7 @@ const validateDriver = async (
             session
         );
 
-    if (!driver) {
-        throw new AppError(
-            "Driver not found.",
-            404
-        );
-    }
-
-    if (driver.isDeleted) {
+    if (!driver || driver.isDeleted) {
         throw new AppError(
             "Driver not found.",
             404
@@ -202,6 +208,16 @@ const validateDriver = async (
     return driver;
 };
 
+/**
+ * Create a vehicle or register an existing vehicle for an event.
+ *
+ * A vehicle is a global record. Its event registration is tracked
+ * separately through eventsUsedFor.
+ *
+ * Repeated registration for the same event is treated as an
+ * idempotent request instead of throwing a duplicate-registration
+ * error.
+ */
 const createVehicle = async (
     vehicleData,
     userId
@@ -211,13 +227,18 @@ const createVehicle = async (
 
     try {
         let vehicle;
+        let vehicleAction = "CREATED";
 
         await session.withTransaction(
             async () => {
-                const data =
-                    pickFields(
-                        vehicleData,
-                        CREATE_FIELDS
+                const data = pickFields(
+                    vehicleData,
+                    CREATE_FIELDS
+                );
+
+                data.vehicleNumber =
+                    normalizeVehicleNumber(
+                        data.vehicleNumber
                     );
 
                 const event =
@@ -233,40 +254,62 @@ const createVehicle = async (
                     );
                 }
 
+                if (!data.vendor) {
+                    throw new AppError(
+                        "Vendor is required.",
+                        400
+                    );
+                }
+
+                const vendor =
+                    await vendorRepository.findById(
+                        data.vendor,
+                        session
+                    );
+
+                if (!vendor || vendor.isDeleted) {
+                    throw new AppError(
+                        "Vendor not found.",
+                        404
+                    );
+                }
+
                 const existingVehicle =
                     await vehicleRepository.findByVehicleNumber(
                         data.vehicleNumber,
                         session
                     );
 
-                /*
-                 * FIX:
-                 * Reuse an existing vehicle for another event
-                 * only when its vendor and driver relationships
-                 * remain consistent.
-                 */
                 if (existingVehicle) {
-                    const alreadyUsed =
-                        existingVehicle.eventsUsedFor?.some(
-                            (eventId) =>
-                                getId(eventId) ===
+                    const alreadyRegistered =
+                        Array.isArray(
+                            existingVehicle.eventsUsedFor
+                        ) &&
+                        existingVehicle.eventsUsedFor.some(
+                            (registeredEventId) =>
+                                getId(registeredEventId) ===
                                 getId(event._id)
                         );
 
-                    if (alreadyUsed) {
-                        throw new AppError(
-                            "This vehicle is already registered for this event.",
-                            409
-                        );
+                    if (alreadyRegistered) {
+                        vehicleAction =
+                            "ALREADY_REGISTERED";
+
+                        vehicle =
+                            await vehicleRepository.findById(
+                                existingVehicle._id,
+                                session
+                            );
+
+                        return;
                     }
 
                     if (
-                        !data.vendor ||
                         getId(existingVehicle.vendor) !==
-                            getId(data.vendor)
+                        getId(data.vendor)
                     ) {
                         throw new AppError(
-                            "This vehicle is already registered under a different vendor.",
+                            "This vehicle number already belongs to a different vendor.",
                             409
                         );
                     }
@@ -282,11 +325,29 @@ const createVehicle = async (
                         );
                     }
 
-                    await vehicleRepository.addEventUsage(
-                        existingVehicle._id,
-                        event._id,
-                        session
-                    );
+                    if (
+                        !data.currentDriver &&
+                        existingVehicle.currentDriver
+                    ) {
+                        // No driver was selected in the form.
+                        // Preserve the existing vehicle-driver link.
+                    }
+
+                    const registration =
+                        await vehicleRepository.addEventUsage(
+                            existingVehicle._id,
+                            event._id,
+                            session
+                        );
+
+                    if (!registration) {
+                        throw new AppError(
+                            "The existing vehicle could not be registered for this event.",
+                            500
+                        );
+                    }
+
+                    vehicleAction = "REUSED";
 
                     vehicle =
                         await vehicleRepository.findById(
@@ -295,33 +356,6 @@ const createVehicle = async (
                         );
 
                     return;
-                }
-
-                if (!data.vendor) {
-                    throw new AppError(
-                        "Vendor is required.",
-                        400
-                    );
-                }
-
-                const vendor =
-                    await vendorRepository.findById(
-                        data.vendor,
-                        session
-                    );
-
-                if (!vendor) {
-                    throw new AppError(
-                        "Vendor not found.",
-                        404
-                    );
-                }
-
-                if (vendor.isDeleted) {
-                    throw new AppError(
-                        "Vendor not found.",
-                        404
-                    );
                 }
 
                 if (data.currentDriver) {
@@ -333,10 +367,9 @@ const createVehicle = async (
                     );
                 }
 
-                data.status =
-                    data.currentDriver
-                        ? VEHICLE_STATUS.ASSIGNED
-                        : VEHICLE_STATUS.AVAILABLE;
+                data.status = data.currentDriver
+                    ? VEHICLE_STATUS.ASSIGNED
+                    : VEHICLE_STATUS.AVAILABLE;
 
                 data.createdBy = userId;
                 data.updatedBy = userId;
@@ -348,11 +381,19 @@ const createVehicle = async (
                         session
                     );
 
-                await vehicleRepository.addEventUsage(
-                    vehicle._id,
-                    event._id,
-                    session
-                );
+                const registration =
+                    await vehicleRepository.addEventUsage(
+                        vehicle._id,
+                        event._id,
+                        session
+                    );
+
+                if (!registration) {
+                    throw new AppError(
+                        "Vehicle was created but event registration failed. Please retry.",
+                        500
+                    );
+                }
 
                 if (data.currentDriver) {
                     await driverRepository.updateById(
@@ -363,30 +404,57 @@ const createVehicle = async (
                         session
                     );
                 }
+
+                vehicle =
+                    await vehicleRepository.findById(
+                        vehicle._id,
+                        session
+                    );
             }
         );
 
-        await createLog({
-            user: userId,
-            action: "CREATE",
-            module: "VEHICLE",
-            referenceId: vehicle._id,
-            description:
-                `Vehicle ${vehicle.vehicleNumber} was created.`,
-            metadata: {
-                vehicleNumber: vehicle.vehicleNumber,
-            },
-        });
+        if (!vehicle) {
+            throw new AppError(
+                "Vehicle registration did not return a vehicle.",
+                500
+            );
+        }
 
-        await createNotification({
-            recipientUser: userId,
-            title: "Vehicle Created",
-            message:
-                `Vehicle ${vehicle.vehicleNumber} was created.`,
-            type: "SYSTEM",
-            referenceType: "VEHICLE",
-            referenceId: vehicle._id,
-        });
+        if (vehicleAction !== "ALREADY_REGISTERED") {
+            const isNewVehicle =
+                vehicleAction === "CREATED";
+
+            await createLog({
+                user: userId,
+                action: isNewVehicle
+                    ? "CREATE"
+                    : "REGISTER",
+                module: "VEHICLE",
+                referenceId: vehicle._id,
+                description: isNewVehicle
+                    ? `Vehicle ${vehicle.vehicleNumber} was created.`
+                    : `Vehicle ${vehicle.vehicleNumber} was registered for another event.`,
+                metadata: {
+                    vehicleNumber:
+                        vehicle.vehicleNumber,
+                    event: getId(vehicleData.event),
+                    action: vehicleAction,
+                },
+            });
+
+            await createNotification({
+                recipientUser: userId,
+                title: isNewVehicle
+                    ? "Vehicle Created"
+                    : "Vehicle Registered For Event",
+                message: isNewVehicle
+                    ? `Vehicle ${vehicle.vehicleNumber} was created.`
+                    : `Vehicle ${vehicle.vehicleNumber} was registered for another event.`,
+                type: "SYSTEM",
+                referenceType: "VEHICLE",
+                referenceId: vehicle._id,
+            });
+        }
 
         return vehicle;
     } finally {
@@ -438,11 +506,22 @@ const updateVehicle = async (
                     );
                 }
 
-                const data =
-                    pickFields(
-                        vehicleData,
-                        UPDATE_FIELDS
-                    );
+                const data = pickFields(
+                    vehicleData,
+                    UPDATE_FIELDS
+                );
+
+                if (
+                    Object.prototype.hasOwnProperty.call(
+                        data,
+                        "vehicleNumber"
+                    )
+                ) {
+                    data.vehicleNumber =
+                        normalizeVehicleNumber(
+                            data.vehicleNumber
+                        );
+                }
 
                 if (Object.keys(data).length === 0) {
                     throw new AppError(
@@ -466,14 +545,7 @@ const updateVehicle = async (
                             session
                         );
 
-                    if (!vendor) {
-                        throw new AppError(
-                            "Vendor not found.",
-                            404
-                        );
-                    }
-
-                    if (vendor.isDeleted) {
+                    if (!vendor || vendor.isDeleted) {
                         throw new AppError(
                             "Vendor not found.",
                             404
@@ -483,7 +555,10 @@ const updateVehicle = async (
 
                 if (
                     data.vehicleNumber &&
-                    data.vehicleNumber !== vehicle.vehicleNumber
+                    data.vehicleNumber !==
+                        normalizeVehicleNumber(
+                            vehicle.vehicleNumber
+                        )
                 ) {
                     const existingVehicle =
                         await vehicleRepository.findByVehicleNumber(
@@ -497,7 +572,7 @@ const updateVehicle = async (
                             getId(vehicleId)
                     ) {
                         throw new AppError(
-                            "Vehicle with this vehicle number already exists.",
+                            "Vehicle with this registration number already exists.",
                             409
                         );
                     }
@@ -518,16 +593,17 @@ const updateVehicle = async (
                         : oldDriverId;
 
                 if (
-    (driverWasUpdated || data.vendor !== undefined) &&
-    newDriverId
-) {
-    await validateDriver(
-        newDriverId,
-        newVendorId,
-        vehicleId,
-        session
-    );
-}
+                    (driverWasUpdated ||
+                        data.vendor !== undefined) &&
+                    newDriverId
+                ) {
+                    await validateDriver(
+                        newDriverId,
+                        newVendorId,
+                        vehicleId,
+                        session
+                    );
+                }
 
                 if (
                     driverWasUpdated &&
@@ -553,10 +629,9 @@ const updateVehicle = async (
                         );
                     }
 
-                    data.status =
-                        newDriverId
-                            ? VEHICLE_STATUS.ASSIGNED
-                            : VEHICLE_STATUS.AVAILABLE;
+                    data.status = newDriverId
+                        ? VEHICLE_STATUS.ASSIGNED
+                        : VEHICLE_STATUS.AVAILABLE;
                 }
 
                 data.updatedBy = userId;
@@ -740,7 +815,9 @@ const updateVehicleStatus = async (
                 }
 
                 if (
-                    !Object.values(VEHICLE_STATUS).includes(status)
+                    !Object.values(
+                        VEHICLE_STATUS
+                    ).includes(status)
                 ) {
                     throw new AppError(
                         "Invalid vehicle status.",
@@ -749,7 +826,8 @@ const updateVehicleStatus = async (
                 }
 
                 if (
-                    status === VEHICLE_STATUS.AVAILABLE &&
+                    status ===
+                        VEHICLE_STATUS.AVAILABLE &&
                     existingVehicle.currentDriver
                 ) {
                     throw new AppError(
@@ -759,7 +837,8 @@ const updateVehicleStatus = async (
                 }
 
                 if (
-                    status === VEHICLE_STATUS.ASSIGNED &&
+                    status ===
+                        VEHICLE_STATUS.ASSIGNED &&
                     !existingVehicle.currentDriver
                 ) {
                     throw new AppError(
@@ -769,8 +848,10 @@ const updateVehicleStatus = async (
                 }
 
                 if (
-                    existingVehicle.status === VEHICLE_STATUS.ON_DUTY &&
-                    status !== VEHICLE_STATUS.ON_DUTY
+                    existingVehicle.status ===
+                        VEHICLE_STATUS.ON_DUTY &&
+                    status !==
+                        VEHICLE_STATUS.ON_DUTY
                 ) {
                     throw new AppError(
                         "Vehicle status cannot be changed while the vehicle is on duty.",
@@ -814,6 +895,13 @@ const updateVehicleStatus = async (
 };
 
 const getVehiclesByEvent = async (eventId) => {
+    if (!mongoose.isValidObjectId(eventId)) {
+        throw new AppError(
+            "Invalid event ID.",
+            400
+        );
+    }
+
     const event =
         await eventRepository.findById(eventId);
 
@@ -827,10 +915,10 @@ const getVehiclesByEvent = async (eventId) => {
     return vehicleRepository.findByEvent(eventId);
 };
 
-/*
+/**
  * Normalize Excel headings so variations such as:
- * "Vehicle Number", "Vehicle Number *", "Vehicle No"
- * can be mapped to the same supported field.
+ * "Vehicle Number", "Vehicle Number *", and "Vehicle No"
+ * map to supported field names.
  */
 const normalizeExcelHeader = (header) =>
     String(header || "")
@@ -857,11 +945,40 @@ const firstExcelValue = (row, aliases) => {
 const normalizeExcelRow = (rawRow) => {
     const normalized = {};
 
-    for (const [header, value] of Object.entries(rawRow || {})) {
-        normalized[normalizeExcelHeader(header)] = value;
+    for (
+        const [header, value]
+        of Object.entries(rawRow || {})
+    ) {
+        normalized[normalizeExcelHeader(header)] =
+            value;
     }
 
     return normalized;
+};
+
+const normalizeVehicleType = (value) => {
+    const type = String(value || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+
+    const aliases = {
+        CAR: "SEDAN",
+        HATCH: "HATCHBACK",
+        HATCHBACK: "HATCHBACK",
+        SEDAN: "SEDAN",
+        SUV: "SUV",
+        MUV: "MUV",
+        MPV: "MUV",
+        TEMPO: "TEMPO_TRAVELLER",
+        TEMPO_TRAVELLER: "TEMPO_TRAVELLER",
+        TEMPO_TRAVELER: "TEMPO_TRAVELLER",
+        MINI_BUS: "MINI_BUS",
+        MINIBUS: "MINI_BUS",
+        BUS: "BUS",
+    };
+
+    return aliases[type] || type;
 };
 
 const importVehiclesFromExcel = async (
@@ -890,7 +1007,8 @@ const importVehiclesFromExcel = async (
         );
     }
 
-    const worksheet = workbook.Sheets[sheetName];
+    const worksheet =
+        workbook.Sheets[sheetName];
 
     const rows = XLSX.utils.sheet_to_json(
         worksheet,
@@ -913,31 +1031,43 @@ const importVehiclesFromExcel = async (
     const skipped = [];
     const failed = [];
 
-    for (let index = 0; index < rows.length; index++) {
-        const row = normalizeExcelRow(rows[index]);
+    for (
+        let index = 0;
+        index < rows.length;
+        index++
+    ) {
+        const row =
+            normalizeExcelRow(rows[index]);
+
         const rowNumber = index + 2;
 
-        const vehicleNumber = String(
-            firstExcelValue(row, [
-                "vehiclenumber",
-                "vehicleno",
-                "registrationnumber",
-                "registrationno",
-                "vehicleregistration",
-                "numberplate",
-                "registration",
-                "plate",
-            ])
-        ).trim().toUpperCase();
+        const vehicleNumber =
+            normalizeVehicleNumber(
+                firstExcelValue(row, [
+                    "vehiclenumber",
+                    "vehicleno",
+                    "vehiclenum",
+                    "registrationnumber",
+                    "registrationno",
+                    "vehicleregistration",
+                    "numberplate",
+                    "registration",
+                    "plate",
+                    "regno",
+                    "regnumber",
+                ])
+            );
 
         try {
-            const vehicleType = String(
-                firstExcelValue(row, [
-                    "vehicletype",
-                    "type",
-                    "category",
-                ])
-            ).trim().toUpperCase();
+            const vehicleType =
+                normalizeVehicleType(
+                    firstExcelValue(row, [
+                        "vehicletype",
+                        "type",
+                        "category",
+                        "vehiclecategory",
+                    ])
+                );
 
             const vendorName = String(
                 firstExcelValue(row, [
@@ -954,6 +1084,7 @@ const importVehiclesFromExcel = async (
                     "capacity",
                     "seats",
                     "numberofseats",
+                    "seating",
                 ]) || 0
             );
 
@@ -971,13 +1102,23 @@ const importVehiclesFromExcel = async (
 
             if (!vehicleNumber) {
                 throw new Error(
-                    "Vehicle Number is required. Check the column heading."
+                    "Vehicle Number is missing. Check the Excel column heading and row."
                 );
             }
 
-            if (!vehicleType) {
+            if (
+                ![
+                    "HATCHBACK",
+                    "SEDAN",
+                    "SUV",
+                    "MUV",
+                    "TEMPO_TRAVELLER",
+                    "MINI_BUS",
+                    "BUS",
+                ].includes(vehicleType)
+            ) {
                 throw new Error(
-                    "Vehicle Type is required. Check the column heading."
+                    `Invalid vehicle type "${vehicleType}". Use HATCHBACK, SEDAN, SUV, MUV, TEMPO_TRAVELLER, MINI_BUS, or BUS.`
                 );
             }
 
@@ -1003,15 +1144,12 @@ const importVehiclesFromExcel = async (
 
             if (!vendor || vendor.isDeleted) {
                 throw new Error(
-                    'Vendor "' +
-                    vendorName +
-                    '" not found or unavailable. Create the vendor first or check the company name.'
+                    `Vendor "${vendorName}" was not found or is unavailable. Check the vendor name or create the vendor first.`
                 );
             }
 
             let driverId = null;
 
-            // Driver Phone is optional.
             if (driverPhone) {
                 const driver =
                     await driverRepository.findByPhone(
@@ -1020,17 +1158,13 @@ const importVehiclesFromExcel = async (
 
                 if (!driver || driver.isDeleted) {
                     throw new Error(
-                        "Driver with phone " +
-                        driverPhone +
-                        " not found or unavailable. Check the number or leave the driver column blank."
+                        `Driver with phone ${driverPhone} was not found or is unavailable. Leave the driver column blank if the driver has not been registered yet.`
                     );
                 }
 
                 if (driver.status !== "ACTIVE") {
                     throw new Error(
-                        "Driver with phone " +
-                        driverPhone +
-                        " is not active."
+                        `Driver with phone ${driverPhone} is not active.`
                     );
                 }
 
@@ -1039,11 +1173,7 @@ const importVehiclesFromExcel = async (
                     getId(vendor._id)
                 ) {
                     throw new Error(
-                        'Driver with phone ' +
-                        driverPhone +
-                        ' does not belong to vendor "' +
-                        vendorName +
-                        '".'
+                        `Driver with phone ${driverPhone} does not belong to vendor "${vendorName}".`
                     );
                 }
 
@@ -1057,9 +1187,13 @@ const importVehiclesFromExcel = async (
 
             if (existingVehicle) {
                 const alreadyRegistered =
-                    existingVehicle.eventsUsedFor?.some(
-                        (id) =>
-                            getId(id) === getId(event._id)
+                    Array.isArray(
+                        existingVehicle.eventsUsedFor
+                    ) &&
+                    existingVehicle.eventsUsedFor.some(
+                        (registeredEventId) =>
+                            getId(registeredEventId) ===
+                            getId(event._id)
                     );
 
                 if (alreadyRegistered) {
@@ -1067,44 +1201,42 @@ const importVehiclesFromExcel = async (
                         row: rowNumber,
                         vehicleNumber,
                         reason:
-                            "Already registered for this event.",
+                            "Vehicle is already registered for this event.",
                     });
 
                     continue;
                 }
 
-                // Do not reuse a vehicle under a different vendor.
                 if (
                     getId(existingVehicle.vendor) !==
                     getId(vendor._id)
                 ) {
                     throw new Error(
-                        "Vehicle " +
-                        vehicleNumber +
-                        " is already registered under a different vendor. The existing vehicle was not added to this event."
+                        `Vehicle ${vehicleNumber} already belongs to a different vendor.`
                     );
                 }
 
-                // If a driver was provided, it must match the
-                // driver's current link to the existing vehicle.
                 if (
                     driverId &&
                     getId(existingVehicle.currentDriver) !==
-                    getId(driverId)
+                        getId(driverId)
                 ) {
                     throw new Error(
-                        "Vehicle " +
-                        vehicleNumber +
-                        " is not currently linked to the driver with phone " +
-                        driverPhone +
-                        ". Update the vehicle's driver first, then import again."
+                        `Vehicle ${vehicleNumber} is not linked to the selected driver. Update its driver first, or leave the driver column blank.`
                     );
                 }
 
-                await vehicleRepository.addEventUsage(
-                    existingVehicle._id,
-                    event._id
-                );
+                const registration =
+                    await vehicleRepository.addEventUsage(
+                        existingVehicle._id,
+                        event._id
+                    );
+
+                if (!registration) {
+                    throw new Error(
+                        "The existing vehicle could not be registered for this event."
+                    );
+                }
 
                 imported.push({
                     row: rowNumber,
@@ -1119,7 +1251,9 @@ const importVehiclesFromExcel = async (
                 const value =
                     firstExcelValue(row, aliases);
 
-                return value === "" ? undefined : value;
+                return value === ""
+                    ? undefined
+                    : value;
             };
 
             await createVehicle(
@@ -1128,7 +1262,9 @@ const importVehiclesFromExcel = async (
                     vehicleType,
                     seatingCapacity,
                     vendor: vendor._id,
-                    currentDriver: driverId,
+                    ...(driverId
+                        ? { currentDriver: driverId }
+                        : {}),
                     brand: optionalValue([
                         "brand",
                         "make",
