@@ -7,102 +7,64 @@ const vendorRepository = require("../repositories/vendor.repository");
 const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.repository");
 const eventRepository = require("../repositories/event.repository");
 const AppError = require("../utils/AppError");
-const { VEHICLE_STATUS, EVENT_STATUS } = require("../constants/status");
+const { STATUS, VEHICLE_STATUS, EVENT_STATUS } = require("../constants/status");
 const { createLog } = require("./auditLog.service");
-const { createNotification } = require("./notification.service");
 
 const normalizeVehicleNumber = (value) =>
-  String(value || "").trim().toUpperCase().replace(/\s+/g, " ");
+  String(value ?? "").trim().replace(/\s+/g, "").toUpperCase();
 
 const getId = (value) => {
   if (!value) return null;
-  return String(value._id || value.id || value);
+  if (typeof value === "object" && value._id) return String(value._id);
+  if (typeof value === "object" && value.id) return String(value.id);
+  return String(value);
 };
 
-const isDeleted = (document) =>
-  !document || document.isDeleted === true;
-
-const assertExists = (document, message) => {
+const assertFound = (document, message) => {
   if (!document || document.isDeleted === true) {
     throw new AppError(message, 404);
   }
   return document;
 };
 
-const runInTransaction = async (callback) => {
-  const session = await mongoose.startSession();
-
-  try {
-    let result;
-
-    await session.withTransaction(async () => {
-      result = await callback(session);
-    });
-
-    return result;
-  } finally {
-    await session.endSession();
-  }
-};
-
 const logAction = async (details) => {
   try {
-    await createLog(details);
+    if (details.user) await createLog(details);
   } catch (error) {
     console.error("Vehicle audit log failed:", error.message);
   }
 };
 
-const notify = async (details) => {
-  try {
-    await createNotification(details);
-  } catch (error) {
-    console.error("Vehicle notification failed:", error.message);
+const validateVendor = async (vendorId) => {
+  if (!vendorId || !mongoose.isValidObjectId(getId(vendorId))) {
+    throw new AppError("A valid vendor is required.", 400);
   }
-};
 
-const getVehicleByNumber = async (vehicleNumber, session = null) => {
-  const normalizedNumber = normalizeVehicleNumber(vehicleNumber);
-
-  if (!normalizedNumber) return null;
-
-  return vehicleRepository.findByVehicleNumber(
-    normalizedNumber,
-    session
+  const vendor = assertFound(
+    await vendorRepository.findById(getId(vendorId)),
+    "Vendor not found."
   );
-};
 
-const validateVendor = async (vendorId, session = null) => {
-  if (!vendorId) {
-    throw new AppError("Vendor is required for vehicle registration.", 400);
-  }
-
-  const vendor = await vendorRepository.findById(vendorId, session);
-
-  assertExists(vendor, "Vendor not found.");
-
-  if (vendor.status && vendor.status !== "ACTIVE") {
+  if (vendor.status && vendor.status !== STATUS.ACTIVE) {
     throw new AppError("Selected vendor is not active.", 400);
   }
 
   return vendor;
 };
 
-const validateEvent = async (eventId, session = null) => {
-  if (!eventId) {
-    throw new AppError("Event is required for vehicle registration.", 400);
+const validateEvent = async (eventId, { allowClosed = false } = {}) => {
+  if (!eventId || !mongoose.isValidObjectId(getId(eventId))) {
+    throw new AppError("A valid event is required for vehicle registration.", 400);
   }
 
-  const event = await eventRepository.findById(eventId, session);
-
-  assertExists(event, "Event not found.");
+  const event = assertFound(
+    await eventRepository.findById(getId(eventId)),
+    "Event not found."
+  );
 
   if (
-    event.status &&
-    [
-      EVENT_STATUS.CANCELLED,
-      EVENT_STATUS.COMPLETED,
-    ].includes(event.status)
+    !allowClosed &&
+    [EVENT_STATUS.CANCELLED, EVENT_STATUS.COMPLETED].includes(event.status)
   ) {
     throw new AppError(
       "Vehicles cannot be registered for a cancelled or completed event.",
@@ -113,36 +75,32 @@ const validateEvent = async (eventId, session = null) => {
   return event;
 };
 
-const validateDriver = async ({
-  driverId,
-  vendorId,
-  vehicleId = null,
-  session = null,
-}) => {
+const validateDriver = async (driverId, vendorId, vehicleId = null) => {
   if (!driverId) return null;
 
-  const driver = await driverRepository.findById(driverId, session);
+  if (!mongoose.isValidObjectId(getId(driverId))) {
+    throw new AppError("Invalid driver ID.", 400);
+  }
 
-  assertExists(driver, "Driver not found.");
+  const driver = assertFound(
+    await driverRepository.findById(getId(driverId)),
+    "Driver not found."
+  );
 
-  if (driver.status && driver.status !== "ACTIVE") {
+  if (driver.status !== STATUS.ACTIVE) {
     throw new AppError("Selected driver is not active.", 400);
   }
 
-  if (
-    driver.vendor &&
-    getId(driver.vendor) !== getId(vendorId)
-  ) {
+  if (getId(driver.vendor) !== getId(vendorId)) {
     throw new AppError(
       "Selected driver does not belong to the selected vendor.",
       400
     );
   }
 
-  if (
-    driver.currentVehicle &&
-    getId(driver.currentVehicle) !== getId(vehicleId)
-  ) {
+  const currentVehicleId = getId(driver.currentVehicle);
+
+  if (currentVehicleId && currentVehicleId !== getId(vehicleId)) {
     throw new AppError(
       "Selected driver is already assigned to another vehicle.",
       409
@@ -152,16 +110,10 @@ const validateDriver = async ({
   return driver;
 };
 
-const validateNoActiveAssignment = async (
-  vehicleId,
-  session = null
-) => {
-  const assignments = await vehicleAssignmentRepository.findByVehicle(
-    vehicleId,
-    session
-  );
+const ensureNoActiveAssignments = async (vehicleId) => {
+  const assignments = await vehicleAssignmentRepository.findByVehicle(vehicleId);
 
-  if (assignments && assignments.length > 0) {
+  if (assignments?.length) {
     throw new AppError(
       "This vehicle has an active assignment and cannot be changed or deleted.",
       409
@@ -169,119 +121,169 @@ const validateNoActiveAssignment = async (
   }
 };
 
-const createVehicle = async (vehicleData, options = {}) => {
-  const {
-    vehicleNumber,
-    registrationNumber,
-    vendor,
-    vendorId,
-    event,
-    eventId,
-    driver,
-    driverId,
-    createdBy,
-    ...otherData
-  } = vehicleData || {};
-
+/**
+ * Create a vehicle or register an existing vehicle for an event.
+ * Signature matches the controller/importer:
+ * createVehicle(vehicleData, createdByUserId).
+ */
+const createVehicle = async (vehicleData = {}, createdBy = null) => {
   const normalizedNumber = normalizeVehicleNumber(
-    vehicleNumber || registrationNumber
+    vehicleData.vehicleNumber || vehicleData.registrationNumber
   );
 
   if (!normalizedNumber) {
-    throw new AppError("Vehicle registration number is required.", 400);
+    throw new AppError("Vehicle number is required.", 400);
   }
 
-  const selectedVendorId = vendorId || vendor;
-  const selectedEventId = eventId || event;
-  const selectedDriverId = driverId || driver;
+  const vendorId = vehicleData.vendor || vehicleData.vendorId;
+  const eventId = vehicleData.event || vehicleData.eventId;
+  const driverId = vehicleData.currentDriver || vehicleData.driverId || null;
 
-  const result = await runInTransaction(async (session) => {
-    const selectedVendor = await validateVendor(
-      selectedVendorId,
-      session
-    );
+  const vendor = await validateVendor(vendorId);
+  await validateEvent(eventId);
 
-    await validateEvent(selectedEventId, session);
+  const existingVehicle =
+    await vehicleRepository.findByVehicleNumber(normalizedNumber);
 
-    const existingVehicle = await getVehicleByNumber(
-      normalizedNumber,
-      session
-    );
+  let vehicle;
 
-    let vehicle = existingVehicle;
+  if (existingVehicle) {
+    if (getId(existingVehicle.vendor) !== getId(vendor._id)) {
+      throw new AppError(
+        `Vehicle ${normalizedNumber} is already registered under a different vendor.`,
+        409
+      );
+    }
 
-    if (vehicle) {
-      assertExists(vehicle, "Vehicle not found.");
+    const registeredEvents = Array.isArray(existingVehicle.eventsUsedFor)
+      ? existingVehicle.eventsUsedFor
+      : [];
 
-      if (getId(vehicle.vendor) !== getId(selectedVendor._id)) {
+    if (registeredEvents.some((id) => getId(id) === getId(eventId))) {
+      throw new AppError(
+        "This vehicle is already registered for this event.",
+        409
+      );
+    }
+
+    if (driverId) {
+      const selectedDriver = await validateDriver(
+        driverId,
+        vendor._id,
+        existingVehicle._id
+      );
+
+      const existingDriverId = getId(existingVehicle.currentDriver);
+
+      if (
+        existingDriverId &&
+        existingDriverId !== getId(selectedDriver._id)
+      ) {
         throw new AppError(
-          "This vehicle registration number is already registered under another vendor.",
+          "This vehicle is already linked to a different driver.",
           409
         );
       }
 
-      const existingEvents = (vehicle.events || []).map(getId);
+      if (!existingDriverId) {
+        await vehicleRepository.updateById(existingVehicle._id, {
+          currentDriver: selectedDriver._id,
+          updatedBy: createdBy || undefined,
+        });
 
-      if (existingEvents.includes(getId(selectedEventId))) {
-        throw new AppError(
-          "This vehicle is already registered for this event.",
-          409
-        );
+        await driverRepository.updateById(selectedDriver._id, {
+          currentVehicle: existingVehicle._id,
+          updatedBy: createdBy || undefined,
+        });
       }
+    }
 
-      vehicle = await vehicleRepository.addEventUsage(
-        vehicle._id,
-        selectedEventId,
-        session
-      );
-    } else {
-      vehicle = await vehicleRepository.create(
-        {
-          ...otherData,
-          vehicleNumber: normalizedNumber,
-          registrationNumber: normalizedNumber,
-          vendor: selectedVendor._id,
-          driver: selectedDriverId || undefined,
-          events: [selectedEventId],
-          status: vehicleData.status || VEHICLE_STATUS.AVAILABLE,
-          isDeleted: false,
-          createdBy: createdBy || undefined,
-        },
-        session
+    vehicle = await vehicleRepository.addEventUsage(
+      existingVehicle._id,
+      eventId
+    );
+
+    if (!vehicle) {
+      throw new AppError(
+        "Could not register the existing vehicle for this event.",
+        500
       );
     }
 
-    if (selectedDriverId) {
-      const selectedDriver = await validateDriver({
-        driverId: selectedDriverId,
-        vendorId: selectedVendor._id,
-        vehicleId: vehicle._id,
-        session,
-      });
-
-      if (selectedDriver) {
-        selectedDriver.currentVehicle = vehicle._id;
-        await selectedDriver.save({ session });
-      }
-    }
+    await logAction({
+      user: createdBy,
+      action: "UPDATE",
+      module: "VEHICLE",
+      referenceId: vehicle._id,
+      description: `Vehicle ${normalizedNumber} registered for event ${getId(eventId)}.`,
+      metadata: {
+        vehicleNumber: normalizedNumber,
+        eventId: getId(eventId),
+      },
+    });
 
     return vehicle;
+  }
+
+  const selectedDriver = driverId
+    ? await validateDriver(driverId, vendor._id)
+    : null;
+
+  const allowedFields = [
+    "vehicleType",
+    "brand",
+    "model",
+    "manufactureYear",
+    "fuelType",
+    "seatingCapacity",
+    "rcExpiry",
+    "insuranceExpiry",
+    "permitExpiry",
+    "fitnessExpiry",
+    "pucExpiry",
+    "gpsEnabled",
+  ];
+
+  const vehicleFields = {};
+
+  for (const field of allowedFields) {
+    if (vehicleData[field] !== undefined && vehicleData[field] !== "") {
+      vehicleFields[field] = vehicleData[field];
+    }
+  }
+
+  vehicle = await vehicleRepository.create({
+    ...vehicleFields,
+    vehicleNumber: normalizedNumber,
+    vendor: vendor._id,
+    currentDriver: selectedDriver?._id || null,
+    eventsUsedFor: [eventId],
+    status: vehicleData.status || VEHICLE_STATUS.AVAILABLE,
+    isDeleted: false,
+    ...(createdBy ? { createdBy } : {}),
   });
+
+  if (selectedDriver) {
+    await driverRepository.updateById(selectedDriver._id, {
+      currentVehicle: vehicle._id,
+      ...(createdBy ? { updatedBy: createdBy } : {}),
+    });
+  }
 
   await logAction({
     user: createdBy,
     action: "CREATE",
     module: "VEHICLE",
-    referenceId: result._id,
-    description: `Vehicle ${normalizedNumber} registered.`,
+    referenceId: vehicle._id,
+    description: `Vehicle ${normalizedNumber} created and registered for an event.`,
     metadata: {
       vehicleNumber: normalizedNumber,
-      eventId: getId(selectedEventId),
-      vendorId: getId(selectedVendorId),
+      eventId: getId(eventId),
+      vendorId: getId(vendor._id),
     },
   });
 
-  return result;
+  return vehicle;
 };
 
 const getAllVehicles = async (filters = {}) => {
@@ -296,176 +298,185 @@ const getVehicleById = async (vehicleId) => {
     throw new AppError("Invalid vehicle ID.", 400);
   }
 
-  const vehicle = await vehicleRepository.findById(vehicleId);
-
-  return assertExists(vehicle, "Vehicle not found.");
+  return assertFound(
+    await vehicleRepository.findById(vehicleId),
+    "Vehicle not found."
+  );
 };
 
-const updateVehicle = async (vehicleId, updateData, updatedBy) => {
+const updateVehicle = async (
+  vehicleId,
+  updateData = {},
+  updatedBy = null
+) => {
   if (!mongoose.isValidObjectId(vehicleId)) {
     throw new AppError("Invalid vehicle ID.", 400);
   }
 
-  const updatedVehicle = await runInTransaction(async (session) => {
-    const vehicle = await vehicleRepository.findById(
-      vehicleId,
-      session
+  const vehicle = assertFound(
+    await vehicleRepository.findById(vehicleId),
+    "Vehicle not found."
+  );
+
+  const changes = { ...updateData };
+
+  delete changes._id;
+  delete changes.id;
+  delete changes.createdBy;
+  delete changes.isDeleted;
+  delete changes.eventsUsedFor;
+  delete changes.event;
+  delete changes.eventId;
+
+  if (changes.vehicleNumber !== undefined) {
+    changes.vehicleNumber = normalizeVehicleNumber(changes.vehicleNumber);
+
+    if (!changes.vehicleNumber) {
+      throw new AppError("Vehicle number cannot be empty.", 400);
+    }
+
+    const duplicate = await vehicleRepository.findByVehicleNumber(
+      changes.vehicleNumber
     );
 
-    assertExists(vehicle, "Vehicle not found.");
-
-    const changes = { ...(updateData || {}) };
-
-    delete changes._id;
-    delete changes.id;
-    delete changes.createdBy;
-    delete changes.isDeleted;
-
-    const requestedNumber =
-      changes.vehicleNumber || changes.registrationNumber;
-
-    if (requestedNumber) {
-      const normalizedNumber = normalizeVehicleNumber(requestedNumber);
-      const existing = await getVehicleByNumber(
-        normalizedNumber,
-        session
+    if (duplicate && getId(duplicate._id) !== getId(vehicle._id)) {
+      throw new AppError(
+        "A vehicle with this registration number already exists.",
+        409
       );
-
-      if (existing && getId(existing) !== getId(vehicle)) {
-        throw new AppError(
-          "A vehicle with this registration number already exists.",
-          409
-        );
-      }
-
-      changes.vehicleNumber = normalizedNumber;
-      changes.registrationNumber = normalizedNumber;
     }
+  }
 
-    const newVendorId = changes.vendorId || changes.vendor;
-    const newDriverId = changes.driverId || changes.driver;
+  const vendorId = changes.vendor || vehicle.vendor;
 
-    const vendorChanged =
-      newVendorId &&
-      getId(newVendorId) !== getId(vehicle.vendor);
+  const driverWasProvided = Object.prototype.hasOwnProperty.call(
+    changes,
+    "currentDriver"
+  );
 
-    const driverChanged =
-      newDriverId !== undefined &&
-      getId(newDriverId) !== getId(vehicle.driver);
+  const requestedDriverId = driverWasProvided
+    ? changes.currentDriver
+    : vehicle.currentDriver;
 
-    if (vendorChanged || driverChanged) {
-      await validateNoActiveAssignment(vehicle._id, session);
-    }
+  const vendorChanged = getId(vendorId) !== getId(vehicle.vendor);
 
-    if (newVendorId) {
-      await validateVendor(newVendorId, session);
-      changes.vendor = newVendorId;
-      delete changes.vendorId;
-    }
+  const driverChanged =
+    driverWasProvided &&
+    getId(requestedDriverId) !== getId(vehicle.currentDriver);
 
-    if (newDriverId) {
-      const effectiveVendorId = newVendorId || vehicle.vendor;
+  if (vendorChanged || driverChanged) {
+    await ensureNoActiveAssignments(vehicle._id);
+  }
 
-      await validateDriver({
-        driverId: newDriverId,
-        vendorId: effectiveVendorId,
-        vehicleId: vehicle._id,
-        session,
+  if (vendorChanged) {
+    await validateVendor(vendorId);
+  }
+
+  const selectedDriver = requestedDriverId
+    ? await validateDriver(requestedDriverId, vendorId, vehicle._id)
+    : null;
+
+  if (vendorChanged) {
+    changes.vendor = vendorId;
+  }
+
+  if (driverWasProvided) {
+    changes.currentDriver = selectedDriver?._id || null;
+  }
+
+  if (updatedBy) {
+    changes.updatedBy = updatedBy;
+  }
+
+  const oldDriverId = getId(vehicle.currentDriver);
+
+  const savedVehicle = await vehicleRepository.updateById(
+    vehicleId,
+    changes
+  );
+
+  if (!savedVehicle) {
+    throw new AppError(
+      "Vehicle not found or could not be updated.",
+      404
+    );
+  }
+
+  if (driverChanged && oldDriverId) {
+    const oldDriver = await driverRepository.findById(oldDriverId);
+
+    if (
+      oldDriver &&
+      getId(oldDriver.currentVehicle) === getId(vehicle._id)
+    ) {
+      await driverRepository.updateById(oldDriverId, {
+        currentVehicle: null,
+        ...(updatedBy ? { updatedBy } : {}),
       });
-
-      changes.driver = newDriverId;
-      delete changes.driverId;
     }
+  }
 
-    const oldDriverId = getId(vehicle.driver);
-
-    const savedVehicle = await vehicleRepository.update(
-      vehicleId,
-      changes,
-      session
-    );
-
-    if (driverChanged && oldDriverId) {
-      const oldDriver = await driverRepository.findById(
-        oldDriverId,
-        session
-      );
-
-      if (
-        oldDriver &&
-        getId(oldDriver.currentVehicle) === getId(vehicle._id)
-      ) {
-        oldDriver.currentVehicle = null;
-        await oldDriver.save({ session });
-      }
-    }
-
-    if (driverChanged && newDriverId) {
-      const newDriver = await driverRepository.findById(
-        newDriverId,
-        session
-      );
-
-      if (newDriver) {
-        newDriver.currentVehicle = vehicle._id;
-        await newDriver.save({ session });
-      }
-    }
-
-    return savedVehicle;
-  });
+  if (driverChanged && selectedDriver) {
+    await driverRepository.updateById(selectedDriver._id, {
+      currentVehicle: vehicle._id,
+      ...(updatedBy ? { updatedBy } : {}),
+    });
+  }
 
   await logAction({
     user: updatedBy,
     action: "UPDATE",
     module: "VEHICLE",
-    referenceId: updatedVehicle._id,
-    description: `Vehicle ${updatedVehicle.vehicleNumber} updated.`,
+    referenceId: savedVehicle._id,
+    description: `Vehicle ${savedVehicle.vehicleNumber} updated.`,
     metadata: { changes: updateData },
   });
 
-  return updatedVehicle;
+  return savedVehicle;
 };
 
-const deleteVehicle = async (vehicleId, deletedBy) => {
+const deleteVehicle = async (vehicleId, deletedBy = null) => {
   if (!mongoose.isValidObjectId(vehicleId)) {
     throw new AppError("Invalid vehicle ID.", 400);
   }
 
-  const deletedVehicle = await runInTransaction(async (session) => {
-    const vehicle = await vehicleRepository.findById(
-      vehicleId,
-      session
-    );
+  const vehicle = assertFound(
+    await vehicleRepository.findById(vehicleId),
+    "Vehicle not found."
+  );
 
-    assertExists(vehicle, "Vehicle not found.");
+  await ensureNoActiveAssignments(vehicle._id);
 
-    await validateNoActiveAssignment(vehicle._id, session);
+  if (vehicle.currentDriver) {
+    const driverId = getId(vehicle.currentDriver);
+    const driver = await driverRepository.findById(driverId);
 
-    if (vehicle.driver) {
-      const driver = await driverRepository.findById(
-        getId(vehicle.driver),
-        session
-      );
-
-      if (
-        driver &&
-        getId(driver.currentVehicle) === getId(vehicle._id)
-      ) {
-        driver.currentVehicle = null;
-        await driver.save({ session });
-      }
+    if (
+      driver &&
+      getId(driver.currentVehicle) === getId(vehicle._id)
+    ) {
+      await driverRepository.updateById(driverId, {
+        currentVehicle: null,
+        ...(deletedBy ? { updatedBy: deletedBy } : {}),
+      });
     }
+  }
 
-    return vehicleRepository.softDelete(vehicleId, session);
-  });
+  const deletedVehicle = await vehicleRepository.softDelete(vehicleId);
+
+  if (!deletedVehicle) {
+    throw new AppError(
+      "Vehicle not found or already deleted.",
+      404
+    );
+  }
 
   await logAction({
     user: deletedBy,
     action: "DELETE",
     module: "VEHICLE",
     referenceId: vehicleId,
-    description: `Vehicle ${deletedVehicle.vehicleNumber} deleted.`,
+    description: `Vehicle ${vehicle.vehicleNumber} deleted.`,
   });
 
   return deletedVehicle;
@@ -474,43 +485,55 @@ const deleteVehicle = async (vehicleId, deletedBy) => {
 const updateVehicleStatus = async (
   vehicleId,
   status,
-  updatedBy
+  updatedBy = null
 ) => {
   if (!mongoose.isValidObjectId(vehicleId)) {
     throw new AppError("Invalid vehicle ID.", 400);
   }
 
-  const allowedStatuses = Object.values(VEHICLE_STATUS);
-
-  if (!allowedStatuses.includes(status)) {
+  if (!Object.values(VEHICLE_STATUS).includes(status)) {
     throw new AppError("Invalid vehicle status.", 400);
   }
 
-  const updatedVehicle = await runInTransaction(async (session) => {
-    const vehicle = await vehicleRepository.findById(
-      vehicleId,
-      session
+  const vehicle = assertFound(
+    await vehicleRepository.findById(vehicleId),
+    "Vehicle not found."
+  );
+
+  if (
+    [VEHICLE_STATUS.ASSIGNED, VEHICLE_STATUS.ON_DUTY].includes(status)
+  ) {
+    throw new AppError(
+      "Use the vehicle assignment workflow to assign a vehicle or mark it on duty.",
+      400
     );
+  }
 
-    assertExists(vehicle, "Vehicle not found.");
-
-    if (
-      [VEHICLE_STATUS.ASSIGNED, VEHICLE_STATUS.ON_DUTY].includes(
-        status
-      )
-    ) {
-      throw new AppError(
-        "Use the vehicle assignment workflow to assign a vehicle or mark it on duty.",
-        400
-      );
-    }
-
-    return vehicleRepository.update(
-      vehicleId,
-      { status },
-      session
+  if (status === VEHICLE_STATUS.AVAILABLE && vehicle.currentDriver) {
+    throw new AppError(
+      "Remove the vehicle's current driver through the vehicle update workflow before marking it available.",
+      409
     );
-  });
+  }
+
+  if (
+    [VEHICLE_STATUS.MAINTENANCE, VEHICLE_STATUS.INACTIVE].includes(status)
+  ) {
+    await ensureNoActiveAssignments(vehicleId);
+  }
+
+  const updatedVehicle = await vehicleRepository.updateStatus(
+    vehicleId,
+    status,
+    updatedBy
+  );
+
+  if (!updatedVehicle) {
+    throw new AppError(
+      "Vehicle not found or could not be updated.",
+      404
+    );
+  }
 
   await logAction({
     user: updatedBy,
@@ -523,39 +546,27 @@ const updateVehicleStatus = async (
   return updatedVehicle;
 };
 
-const getVehiclesByEvent = async (eventId, filters = {}) => {
+const getVehiclesByEvent = async (eventId) => {
   if (!mongoose.isValidObjectId(eventId)) {
     throw new AppError("Invalid event ID.", 400);
   }
 
-  await validateEvent(eventId);
+  await validateEvent(eventId, { allowClosed: true });
 
-  return vehicleRepository.findByEvent(eventId, {
-    ...filters,
-    isDeleted: false,
-  });
+  return vehicleRepository.findByEvent(eventId);
 };
 
 const importVehiclesFromExcel = async (
-  file,
+  fileBuffer,
   eventId,
-  importedBy
+  userId
 ) => {
-  const excelImportService = require("./vehicleExcelImport.service");
+  const importer = require("./vehicleExcelImport.service");
 
-  if (
-    typeof excelImportService.importVehiclesFromExcel !== "function"
-  ) {
-    throw new AppError(
-      "Vehicle Excel import service is not configured correctly.",
-      500
-    );
-  }
-
-  return excelImportService.importVehiclesFromExcel(
-    file,
+  return importer.importVehiclesFromExcel(
+    fileBuffer,
     eventId,
-    importedBy
+    userId
   );
 };
 
