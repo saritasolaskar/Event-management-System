@@ -297,8 +297,18 @@ const findByGuest = async (guestId) => {
  * Populating the guest's location references ensures the duty-sheet
  * PDF can display actual pickup and drop location names.
  */
-const findByVehicleAssignment = async (vehicleAssignmentId) => {
-    return GuestAssignment.find({
+/**
+ * Find Guest Assignments By Vehicle Assignment.
+ *
+ * Supports an optional MongoDB session so callers can check
+ * guest assignments inside an existing database transaction.
+ * Populating guest locations keeps duty-sheet details available.
+ */
+const findByVehicleAssignment = async (
+    vehicleAssignmentId,
+    session = null
+) => {
+    let query = GuestAssignment.find({
         vehicleAssignment: vehicleAssignmentId,
         isDeleted: false,
     })
@@ -307,6 +317,12 @@ const findByVehicleAssignment = async (vehicleAssignmentId) => {
             pickupSequence: 1,
             dropSequence: 1,
         });
+
+    if (session) {
+        query = query.session(session);
+    }
+
+    return query;
 };
 
 /**

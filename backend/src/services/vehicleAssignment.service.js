@@ -1089,9 +1089,8 @@ const deleteVehicleAssignment = async (
      * while guests are still assigned to it.
      */
     const guestAssignments =
-        await guestAssignmentRepository.findByVehicleAssignment(
-            id
-        );
+    await guestAssignmentRepository
+        .findByVehicleAssignment(id, session);
 
     if (
         guestAssignments.length > 0
