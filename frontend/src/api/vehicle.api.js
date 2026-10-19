@@ -12,12 +12,42 @@ export const getVehicleById = async (id) => {
 };
 
 export const createVehicle = async (vehicleData) => {
-  const response = await api.post("/vehicles", vehicleData);
+  const payload = {
+    ...vehicleData,
+    vehicleNumber: String(
+      vehicleData?.vehicleNumber || ""
+    )
+      .trim()
+      .replace(/\s+/g, "")
+      .toUpperCase(),
+  };
+
+  const response = await api.post("/vehicles", payload);
   return response.data;
 };
 
 export const updateVehicle = async (id, vehicleData) => {
-  const response = await api.put(`/vehicles/${id}`, vehicleData);
+  const payload = { ...vehicleData };
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      payload,
+      "vehicleNumber"
+    )
+  ) {
+    payload.vehicleNumber = String(
+      payload.vehicleNumber || ""
+    )
+      .trim()
+      .replace(/\s+/g, "")
+      .toUpperCase();
+  }
+
+  const response = await api.put(
+    `/vehicles/${id}`,
+    payload
+  );
+
   return response.data;
 };
 
@@ -27,26 +57,35 @@ export const deleteVehicle = async (id) => {
 };
 
 export const updateVehicleStatus = async (id, status) => {
-  const response = await api.patch(`/vehicles/${id}/status`, {
-    status,
-  });
+  const response = await api.patch(
+    `/vehicles/${id}/status`,
+    { status }
+  );
+
   return response.data;
 };
 
 export const getVehiclesByEvent = async (eventId) => {
-  const response = await api.get(`/vehicles/event/${eventId}`);
+  const response = await api.get(
+    `/vehicles/event/${eventId}`
+  );
+
   return response.data;
 };
 
-export const importEventVehicles = async (eventId, file) => {
+export const importEventVehicles = async (
+  eventId,
+  file
+) => {
   const formData = new FormData();
 
   formData.append("eventId", eventId);
   formData.append("file", file);
 
-  // Let Axios and the browser set multipart/form-data
-  // with the correct boundary automatically.
-  const response = await api.post("/vehicles/import", formData);
+  const response = await api.post(
+    "/vehicles/import",
+    formData
+  );
 
   return response.data;
 };

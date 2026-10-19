@@ -3,7 +3,7 @@ const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.r
 const guestAssignmentRepository = require("../repositories/guestAssignment.repository");
 const dutyRepository = require("../repositories/duty.repository");
 const AppError = require("../utils/AppError");
-
+const mongoose = require("mongoose");
 const {
     PICKUP_STATUS,
     RETURN_STATUS,
@@ -289,6 +289,72 @@ const markGuestDropped = async (id, driverId) => {
 
     return updatedAssignment;
 };
+
+
+
+const transitionGuestAssignment = async (
+    id,
+    driverId,
+    expectedState,
+    updateData
+) => {
+    // Verify ownership and that duty is active.
+    const assignment = await getDriverGuestAssignment(
+        id,
+        driverId
+    );
+
+    const vehicleAssignmentId =
+        assignment.vehicleAssignment._id ||
+        assignment.vehicleAssignment;
+
+    const session = await mongoose.startSession();
+    let updatedAssignment;
+
+    try {
+        await session.withTransaction(async () => {
+            // Write to the parent assignment so duty completion
+            // and guest transitions cannot silently race each other.
+            const lockedParent =
+                await vehicleAssignmentRepository.updateByIdAndStatus(
+                    vehicleAssignmentId,
+                    VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
+                    { updatedAt: new Date() },
+                    session
+                );
+
+            if (!lockedParent) {
+                throw new AppError(
+                    "Duty is no longer active. Refresh and try again.",
+                    409
+                );
+            }
+
+            updatedAssignment =
+                await guestAssignmentRepository.updateByIdIfState(
+                    id,
+                    {
+                        ...expectedState,
+                        vehicleAssignment: vehicleAssignmentId,
+                    },
+                    updateData,
+                    session
+                );
+
+            if (!updatedAssignment) {
+                throw new AppError(
+                    "Guest status changed or the action is no longer valid. Refresh and try again.",
+                    409
+                );
+            }
+        });
+    } finally {
+        await session.endSession();
+    }
+
+    return updatedAssignment;
+};
+
 
 module.exports = {
     getDriverDashboard,

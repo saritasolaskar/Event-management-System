@@ -1,11 +1,25 @@
+
 const Vehicle = require("../models/vehicle.model");
+
+const normalizeVehicleNumber = (vehicleNumber) =>
+    String(vehicleNumber || "")
+        .trim()
+        .replace(/\s+/g, "")
+        .toUpperCase();
 
 /**
  * Create Vehicle
  */
 const create = async (vehicleData, session = null) => {
+    const normalizedData = {
+        ...vehicleData,
+        vehicleNumber: normalizeVehicleNumber(
+            vehicleData.vehicleNumber
+        ),
+    };
+
     const [vehicle] = await Vehicle.create(
-        [vehicleData],
+        [normalizedData],
         session ? { session } : {}
     );
 
@@ -31,14 +45,22 @@ const findById = async (id, session = null) => {
 };
 
 /**
- * Find Vehicle By Number
+ * Find Vehicle By Registration Number.
+ * Always normalize the registration number before lookup.
  */
 const findByVehicleNumber = async (
     vehicleNumber,
     session = null
 ) => {
+    const normalizedNumber =
+        normalizeVehicleNumber(vehicleNumber);
+
+    if (!normalizedNumber) {
+        return null;
+    }
+
     const query = Vehicle.findOne({
-        vehicleNumber,
+        vehicleNumber: normalizedNumber,
         isDeleted: false,
     });
 
@@ -72,23 +94,34 @@ const updateById = async (
     updateData,
     session = null
 ) => {
+    const normalizedData = { ...updateData };
+
+    if (
+        Object.prototype.hasOwnProperty.call(
+            normalizedData,
+            "vehicleNumber"
+        )
+    ) {
+        normalizedData.vehicleNumber =
+            normalizeVehicleNumber(
+                normalizedData.vehicleNumber
+            );
+    }
+
     const query = Vehicle.findOneAndUpdate(
         {
             _id: id,
             isDeleted: false,
         },
-        updateData,
+        normalizedData,
         {
             new: true,
             runValidators: true,
+            ...(session ? { session } : {}),
         }
     )
         .populate("vendor", "companyName")
         .populate("currentDriver", "firstName lastName phone");
-
-    if (session) {
-        query.session(session);
-    }
 
     return query;
 };
@@ -111,12 +144,9 @@ const softDelete = async (
         {
             new: true,
             runValidators: true,
+            ...(session ? { session } : {}),
         }
     );
-
-    if (session) {
-        query.session(session);
-    }
 
     return query;
 };
@@ -142,14 +172,11 @@ const updateStatus = async (
         {
             new: true,
             runValidators: true,
+            ...(session ? { session } : {}),
         }
     )
         .populate("vendor", "companyName")
         .populate("currentDriver", "firstName lastName phone");
-
-    if (session) {
-        query.session(session);
-    }
 
     return query;
 };
@@ -192,48 +219,46 @@ const findByVendor = async (
     return query;
 };
 
-
+/**
+ * Register an existing vehicle for an event.
+ * $addToSet prevents the same event ID being added twice.
+ */
 const addEventUsage = async (
     vehicleId,
     eventId,
     session = null
 ) => {
-    const query =
-        Vehicle.findOneAndUpdate(
-            {
-                _id: vehicleId,
-                isDeleted: false,
-                eventsUsedFor: {
-                    $ne: eventId,
-                },
+    const query = Vehicle.findOneAndUpdate(
+        {
+            _id: vehicleId,
+            isDeleted: false,
+        },
+        {
+            $addToSet: {
+                eventsUsedFor: eventId,
             },
-            {
-                $addToSet: {
-                    eventsUsedFor: eventId,
-                },
-            },
-            {
-                new: true,
-            }
-        );
-
-    if (session) {
-        query.session(session);
-    }
+        },
+        {
+            new: true,
+            runValidators: true,
+            ...(session ? { session } : {}),
+        }
+    );
 
     return query;
 };
 
-
+/**
+ * Find Vehicles Registered For An Event
+ */
 const findByEvent = async (
     eventId,
     session = null
 ) => {
-    const query =
-        Vehicle.find({
-            eventsUsedFor: eventId,
-            isDeleted: false,
-        })
+    const query = Vehicle.find({
+        eventsUsedFor: eventId,
+        isDeleted: false,
+    })
         .populate("vendor", "companyName")
         .populate(
             "currentDriver",
@@ -249,7 +274,6 @@ const findByEvent = async (
 
     return query;
 };
-
 
 module.exports = {
     create,
