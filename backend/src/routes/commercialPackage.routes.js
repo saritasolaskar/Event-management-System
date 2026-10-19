@@ -1,66 +1,80 @@
+
 const express = require("express");
 
 const router = express.Router();
 
-const protect =
-    require("../middleware/auth.middleware");
+const protect = require("../middleware/auth.middleware");
+const authorize = require("../middleware/authorize.middleware");
+const validate = require("../middleware/validate");
 
-const controller =
-    require("../controllers/commercialPackage.controller");
+const { ROLES } = require("../constants/roles");
 
-const authorize =
-    require("../middleware/authorize.middleware");
+const controller = require("../controllers/commercialPackage.controller");
 
-const validate =
-    require("../middleware/validate");
 const {
     commercialPackageIdValidator,
     createCommercialPackageValidator,
     updateCommercialPackageValidator,
-} =
-    require("../validators/commercialPackage.validator");
+} = require("../validators/commercialPackage.validator");
+
+const PACKAGE_MANAGE_ROLES = [
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES.ACCOUNTS,
+];
+
+const PACKAGE_READ_ROLES = [
+    ...PACKAGE_MANAGE_ROLES,
+    ROLES.OPERATIONS_MANAGER,
+];
 
 router.use(protect);
 
+// Create a commercial package.
 router.post(
     "/",
-    authorize("ADMIN", "ACCOUNTS"),
+    authorize(...PACKAGE_MANAGE_ROLES),
     createCommercialPackageValidator,
     validate,
     controller.createCommercialPackage
 );
 
+// Get all commercial packages.
 router.get(
     "/",
-    authorize("ADMIN", "ACCOUNTS"),
+    authorize(...PACKAGE_READ_ROLES),
     controller.getAllCommercialPackages
 );
 
+// Get active packages for vehicle assignments.
 router.get(
     "/active",
-    authorize("ADMIN", "ACCOUNTS", "OPERATIONS_MANAGER"),
+    authorize(...PACKAGE_READ_ROLES),
     controller.getActiveCommercialPackages
 );
 
+// Get one commercial package.
 router.get(
     "/:id",
-    authorize("ADMIN", "ACCOUNTS"),
+    authorize(...PACKAGE_READ_ROLES),
     commercialPackageIdValidator,
     validate,
     controller.getCommercialPackageById
 );
 
+// Update a commercial package.
 router.patch(
     "/:id",
-    authorize("ADMIN", "ACCOUNTS"),
+    authorize(...PACKAGE_MANAGE_ROLES),
     updateCommercialPackageValidator,
     validate,
     controller.updateCommercialPackage
 );
 
+// Delete a commercial package.
 router.delete(
     "/:id",
-    authorize("ADMIN", "ACCOUNTS"),
+    authorize(...PACKAGE_MANAGE_ROLES),
     commercialPackageIdValidator,
     validate,
     controller.deleteCommercialPackage
