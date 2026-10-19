@@ -817,100 +817,123 @@ const updateVehicleStatus = async (
     status,
     userId
 ) => {
-    const session =
-        await mongoose.startSession();
+    const session = await mongoose.startSession();
 
     try {
         let vehicle;
 
-        await session.withTransaction(
-            async () => {
-                const existingVehicle =
-                    await vehicleRepository.findById(
+        await session.withTransaction(async () => {
+            const existingVehicle =
+                await vehicleRepository.findById(
+                    vehicleId,
+                    session
+                );
+
+            if (!existingVehicle) {
+                throw new AppError(
+                    "Vehicle not found.",
+                    404
+                );
+            }
+
+            if (
+                !Object.values(VEHICLE_STATUS).includes(
+                    status
+                )
+            ) {
+                throw new AppError(
+                    "Invalid vehicle status.",
+                    400
+                );
+            }
+
+            if (existingVehicle.status === status) {
+                vehicle = existingVehicle;
+                return;
+            }
+
+            if (
+                status === VEHICLE_STATUS.AVAILABLE &&
+                existingVehicle.currentDriver
+            ) {
+                throw new AppError(
+                    "Vehicle with an assigned driver cannot be marked AVAILABLE.",
+                    400
+                );
+            }
+
+            if (
+                status === VEHICLE_STATUS.ASSIGNED &&
+                !existingVehicle.currentDriver
+            ) {
+                throw new AppError(
+                    "Vehicle must have an assigned driver before it can be marked ASSIGNED.",
+                    400
+                );
+            }
+
+            if (
+                existingVehicle.status ===
+                    VEHICLE_STATUS.ON_DUTY &&
+                status !== VEHICLE_STATUS.ON_DUTY
+            ) {
+                throw new AppError(
+                    "Vehicle status cannot be changed while the vehicle is on duty.",
+                    400
+                );
+            }
+
+            const statusesThatRequireNoActiveAssignment = [
+                VEHICLE_STATUS.AVAILABLE,
+                VEHICLE_STATUS.MAINTENANCE,
+                VEHICLE_STATUS.INACTIVE,
+            ];
+
+            if (
+                statusesThatRequireNoActiveAssignment.includes(
+                    status
+                )
+            ) {
+                const activeAssignments =
+                    await vehicleAssignmentRepository.findByVehicle(
                         vehicleId,
                         session
                     );
 
-                if (!existingVehicle) {
+                if (activeAssignments.length > 0) {
                     throw new AppError(
-                        "Vehicle not found.",
-                        404
-                    );
-                }
-
-                if (
-                    !Object.values(
-                        VEHICLE_STATUS
-                    ).includes(status)
-                ) {
-                    throw new AppError(
-                        "Invalid vehicle status.",
-                        400
-                    );
-                }
-
-                if (
-                    status ===
-                        VEHICLE_STATUS.AVAILABLE &&
-                    existingVehicle.currentDriver
-                ) {
-                    throw new AppError(
-                        "Vehicle with an assigned driver cannot be marked AVAILABLE.",
-                        400
-                    );
-                }
-
-                if (
-                    status ===
-                        VEHICLE_STATUS.ASSIGNED &&
-                    !existingVehicle.currentDriver
-                ) {
-                    throw new AppError(
-                        "Vehicle must have an assigned driver before it can be marked ASSIGNED.",
-                        400
-                    );
-                }
-
-                if (
-                    existingVehicle.status ===
-                        VEHICLE_STATUS.ON_DUTY &&
-                    status !==
-                        VEHICLE_STATUS.ON_DUTY
-                ) {
-                    throw new AppError(
-                        "Vehicle status cannot be changed while the vehicle is on duty.",
-                        400
-                    );
-                }
-
-                vehicle =
-                    await vehicleRepository.updateStatus(
-                        vehicleId,
-                        status,
-                        userId,
-                        session
-                    );
-
-                if (!vehicle) {
-                    throw new AppError(
-                        "Vehicle could not be updated.",
-                        500
+                        "Vehicle status cannot be changed because it has an active duty assignment. Cancel or complete the assignment first.",
+                        409
                     );
                 }
             }
-        );
 
-        await createLog({
-            user: userId,
-            action: "STATUS_UPDATE",
-            module: "VEHICLE",
-            referenceId: vehicleId,
-            description:
-                `Vehicle status changed to ${status}.`,
-            metadata: {
+            vehicle = await vehicleRepository.updateStatus(
+                vehicleId,
                 status,
-            },
+                userId,
+                session
+            );
+
+            if (!vehicle) {
+                throw new AppError(
+                    "Vehicle could not be updated.",
+                    500
+                );
+            }
         });
+
+        if (vehicle && existingStatusChanged(vehicle, status)) {
+            await createLog({
+                user: userId,
+                action: "STATUS_UPDATE",
+                module: "VEHICLE",
+                referenceId: vehicleId,
+                description:
+                    `Vehicle status changed to ${status}.`,
+                metadata: { status },
+            });
+        }
 
         return vehicle;
     } finally {
