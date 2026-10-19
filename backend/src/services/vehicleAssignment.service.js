@@ -1090,7 +1090,7 @@ const deleteVehicleAssignment = async (
      */
     const guestAssignments =
     await guestAssignmentRepository
-        .findByVehicleAssignment(id, session);
+        .findByVehicleAssignment(id);
 
     if (
         guestAssignments.length > 0
@@ -1184,8 +1184,8 @@ const updateVehicleAssignmentStatus = async (
             }
 
             const guestAssignments =
-                await guestAssignmentRepository
-                    .findByVehicleAssignment(id);
+    await guestAssignmentRepository
+        .findByVehicleAssignment(id, session);
 
             if (guestAssignments.length > 0) {
                 throw new AppError(
