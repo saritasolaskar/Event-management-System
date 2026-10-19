@@ -378,25 +378,58 @@ const importVehiclesFromExcel = async (
           );
         }
 
-        if (
-          driverId &&
-          getId(existingVehicle.currentDriver) !== getId(driverId)
-        ) {
-          throw new Error(
-            `Vehicle ${vehicleNumber} is linked to a different driver. Update the vehicle first or leave the driver column blank.`
-          );
-        }
-
-        const registration = await vehicleRepository.addEventUsage(
-          existingVehicle._id,
-          event._id
+        const fuelType = normalizeFuelType(
+          getValue(row, [
+            "fuel type",
+            "fuel",
+            "fuel source",
+            "type of fuel",
+            "typeofuel",
+          ])
         );
 
-        if (!registration) {
+        if (fuelType && !allowedFuelTypes.has(fuelType)) {
           throw new Error(
-            "The existing vehicle could not be registered for this event."
+            `Invalid fuel type "${fuelType}". Use PETROL, DIESEL, CNG, ELECTRIC, or HYBRID.`
           );
         }
+
+        const manufactureYear = toOptionalYear(
+          getValue(row, [
+            "manufacture year",
+            "manufacturing year",
+            "year",
+            "model year",
+          ])
+        );
+
+        const brand = toOptionalString(
+          getValue(row, ["brand", "make"])
+        );
+
+        const model = toOptionalString(
+          getValue(row, ["model", "vehicle model"])
+        );
+
+        // Use the central service so existing-vehicle registration
+        // also performs driver assignment and vehicle-status sync.
+        await vehicleService.createVehicle(
+          {
+            vehicleNumber,
+            vehicleType,
+            seatingCapacity,
+            vendor: vendor._id,
+            event: eventId,
+            ...(driverId ? { currentDriver: driverId } : {}),
+            ...(brand ? { brand } : {}),
+            ...(model ? { model } : {}),
+            ...(manufactureYear !== undefined
+              ? { manufactureYear }
+              : {}),
+            ...(fuelType ? { fuelType } : {}),
+          },
+          userId
+        );
 
         imported.push({
           row: rowNumber,
