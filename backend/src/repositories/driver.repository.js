@@ -1,12 +1,16 @@
+
 const Driver = require("../models/driver.model");
+
+const normalizePhoneDigits = (phone) =>
+    String(phone ?? "").replace(/\D/g, "");
+
+const escapeRegex = (value) =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * Create Driver
  */
-const create = async (
-    driverData,
-    session = null
-) => {
+const create = async (driverData, session = null) => {
     const [driver] = await Driver.create(
         [driverData],
         session ? { session } : {}
@@ -18,10 +22,7 @@ const create = async (
 /**
  * Find Driver By ID
  */
-const findById = async (
-    id,
-    session = null
-) => {
+const findById = async (id, session = null) => {
     const query = Driver.findOne({
         _id: id,
         isDeleted: false,
@@ -43,22 +44,69 @@ const findById = async (
 };
 
 /**
- * Find Driver By Phone
+ * Find Driver By Phone.
+ *
+ * Supports phone numbers entered with spaces, hyphens,
+ * country codes, or other formatting differences.
  */
-const findByPhone = async (
-    phone,
-    session = null
-) => {
-    const query = Driver.findOne({
-        phone,
+const findByPhone = async (phone, session = null) => {
+    const originalPhone = String(phone ?? "").trim();
+
+    if (!originalPhone) {
+        return null;
+    }
+
+    const exactQuery = Driver.findOne({
+        phone: originalPhone,
         isDeleted: false,
     });
 
     if (session) {
-        query.session(session);
+        exactQuery.session(session);
     }
 
-    return query;
+    const exactMatch = await exactQuery;
+
+    if (exactMatch) {
+        return exactMatch;
+    }
+
+    const digits = normalizePhoneDigits(originalPhone);
+
+    if (digits.length < 10) {
+        return null;
+    }
+
+    // Indian mobile numbers may be stored with a country
+    // code or a leading zero. Match the final 10 digits.
+    const lastTenDigits = digits.slice(-10);
+
+    if (!/^[6-9]\d{9}$/.test(lastTenDigits)) {
+        return null;
+    }
+
+    // Allow separators between digits and an optional
+    // Indian country code or leading zero.
+    const digitPattern = lastTenDigits
+        .split("")
+        .map(escapeRegex)
+        .join("\\D*");
+
+    const phonePattern =
+        `^(?:(?:\\+?91|0)\\D*)?${digitPattern}$`;
+
+    const formattedQuery = Driver.findOne({
+        phone: {
+            $regex: phonePattern,
+        },
+        isDeleted: false,
+    });
+
+    if (session) {
+        formattedQuery.session(session);
+    }
+
+    return formattedQuery;
 };
 
 /**
