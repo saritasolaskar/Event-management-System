@@ -62,12 +62,12 @@ function unwrapResponse(response) {
 }
 
 function getId(value) {
-  if (!value) {
+  if (value === null || value === undefined || value === "") {
     return "";
   }
 
   if (typeof value === "object") {
-    return value._id || value.id || "";
+    return String(value._id ?? value.id ?? "");
   }
 
   return String(value);
@@ -142,7 +142,6 @@ function EventVehicleManagement() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [importResult, setImportResult] = useState(null);
 
-  
   const loadData = async () => {
     setLoading(true);
     setError("");
@@ -164,13 +163,9 @@ function EventVehicleManagement() {
 
       const errors = [];
 
-      // Events are required to identify the current event.
       if (eventResult.status === "fulfilled") {
         const eventData = unwrapResponse(eventResult.value);
-
-        const events = Array.isArray(eventData)
-          ? eventData
-          : [];
+        const events = Array.isArray(eventData) ? eventData : [];
 
         const selectedEvent = events.find(
           (item) => getId(item._id) === getId(eventId)
@@ -190,7 +185,6 @@ function EventVehicleManagement() {
         );
       }
 
-      // Vehicles are loaded independently of vendors and drivers.
       if (vehicleResult.status === "fulfilled") {
         const vehicleData = unwrapResponse(vehicleResult.value);
 
@@ -206,7 +200,6 @@ function EventVehicleManagement() {
         );
       }
 
-      // Vendor failure should not prevent the vehicle list from loading.
       if (vendorResult.status === "fulfilled") {
         const vendorData = unwrapResponse(vendorResult.value);
 
@@ -222,7 +215,6 @@ function EventVehicleManagement() {
         );
       }
 
-      // Driver failure should not prevent the vehicle list from loading.
       if (driverResult.status === "fulfilled") {
         const driverData = unwrapResponse(driverResult.value);
 
@@ -247,7 +239,6 @@ function EventVehicleManagement() {
       setLoading(false);
     }
   };
-
 
   useEffect(() => {
     if (eventId) {
@@ -282,20 +273,29 @@ function EventVehicleManagement() {
     );
   }, [vehicles, search]);
 
-  // Only show drivers belonging to the selected vendor.
+  // Only show active, unassigned drivers for the selected vendor.
   const filteredDrivers = useMemo(() => {
     if (!form.vendor) {
       return [];
     }
 
-    return drivers.filter(
-      (driver) =>
-        getId(driver.vendor) === getId(form.vendor)
-    );
+    return drivers.filter((driver) => {
+      const belongsToVendor =
+        getId(driver.vendor) === getId(form.vendor);
+
+      const isActive =
+        String(driver.status || "").toUpperCase() === "ACTIVE";
+
+      const isUnassigned =
+        !driver.currentVehicle ||
+        getId(driver.currentVehicle) === "";
+
+      return belongsToVendor && isActive && isUnassigned;
+    });
   }, [drivers, form.vendor]);
 
   const resetForm = () => {
-    setForm(emptyForm);
+    setForm({ ...emptyForm });
   };
 
   const handleFormChange = (event) => {
@@ -304,9 +304,7 @@ function EventVehicleManagement() {
     setForm((previous) => ({
       ...previous,
       [name]: value,
-      ...(name === "vendor"
-        ? { currentDriver: "" }
-        : {}),
+      ...(name === "vendor" ? { currentDriver: "" } : {}),
     }));
   };
 
@@ -328,6 +326,7 @@ function EventVehicleManagement() {
 
     if (
       !form.seatingCapacity ||
+      !Number.isFinite(Number(form.seatingCapacity)) ||
       Number(form.seatingCapacity) <= 0
     ) {
       setError("Enter a valid seating capacity.");
@@ -347,7 +346,7 @@ function EventVehicleManagement() {
       )
     ) {
       setError(
-        "The selected driver does not belong to the selected vendor. Please select the driver again."
+        "The selected driver is no longer available for this vendor. Please select another driver."
       );
       return;
     }
@@ -358,16 +357,11 @@ function EventVehicleManagement() {
       const payload = {
         vehicleNumber: form.vehicleNumber
           .trim()
+          .replace(/\s+/g, "")
           .toUpperCase(),
-
         vehicleType: form.vehicleType,
-
-        seatingCapacity: Number(
-          form.seatingCapacity
-        ),
-
+        seatingCapacity: Number(form.seatingCapacity),
         vendor: form.vendor,
-
         event: eventId,
       };
 
@@ -428,9 +422,7 @@ function EventVehicleManagement() {
       !fileName.endsWith(".xlsx") &&
       !fileName.endsWith(".xls")
     ) {
-      setError(
-        "Only .xlsx and .xls files are allowed."
-      );
+      setError("Only .xlsx and .xls files are allowed.");
       return;
     }
 
@@ -480,9 +472,7 @@ function EventVehicleManagement() {
   };
 
   const handleFileChange = (event) => {
-    setSelectedFile(
-      event.target.files?.[0] || null
-    );
+    setSelectedFile(event.target.files?.[0] || null);
   };
 
   if (loading) {
@@ -580,8 +570,6 @@ function EventVehicleManagement() {
         </div>
       )}
 
-      {/* EXCEL IMPORT RESULTS */}
-
       {importResult && (
         <section
           className="vehicle-table-card"
@@ -634,22 +622,13 @@ function EventVehicleManagement() {
                   </thead>
 
                   <tbody>
-                    {importResult.failed.map(
-                      (item, index) => (
-                        <tr
-                          key={`${item.row}-${index}`}
-                        >
-                          <td>{item.row ?? "—"}</td>
-                          <td>
-                            {item.vehicleNumber || "—"}
-                          </td>
-                          <td>
-                            {item.reason ||
-                              "Unknown error"}
-                          </td>
-                        </tr>
-                      )
-                    )}
+                    {importResult.failed.map((item, index) => (
+                      <tr key={`${item.row}-${index}`}>
+                        <td>{item.row ?? "—"}</td>
+                        <td>{item.vehicleNumber || "—"}</td>
+                        <td>{item.reason || "Unknown error"}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -673,22 +652,16 @@ function EventVehicleManagement() {
                   </thead>
 
                   <tbody>
-                    {importResult.skipped.map(
-                      (item, index) => (
-                        <tr
-                          key={`${item.row}-${index}`}
-                        >
-                          <td>{item.row ?? "—"}</td>
-                          <td>
-                            {item.vehicleNumber || "—"}
-                          </td>
-                          <td>
-                            {item.reason ||
-                              "Already registered or skipped."}
-                          </td>
-                        </tr>
-                      )
-                    )}
+                    {importResult.skipped.map((item, index) => (
+                      <tr key={`${item.row}-${index}`}>
+                        <td>{item.row ?? "—"}</td>
+                        <td>{item.vehicleNumber || "—"}</td>
+                        <td>
+                          {item.reason ||
+                            "Already registered or skipped."}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -697,14 +670,10 @@ function EventVehicleManagement() {
 
           {importResult.failed.length === 0 &&
             importResult.skipped.length === 0 && (
-              <p>
-                All rows were imported successfully.
-              </p>
+              <p>All rows were imported successfully.</p>
             )}
         </section>
       )}
-
-      {/* VEHICLE STATISTICS */}
 
       <div className="vehicle-stats">
         <div className="vehicle-stat-card">
@@ -717,8 +686,7 @@ function EventVehicleManagement() {
           <strong>
             {
               vehicles.filter(
-                (vehicle) =>
-                  vehicle.status === "AVAILABLE"
+                (vehicle) => vehicle.status === "AVAILABLE"
               ).length
             }
           </strong>
@@ -729,8 +697,7 @@ function EventVehicleManagement() {
           <strong>
             {
               vehicles.filter(
-                (vehicle) =>
-                  vehicle.status === "ASSIGNED"
+                (vehicle) => vehicle.status === "ASSIGNED"
               ).length
             }
           </strong>
@@ -741,24 +708,19 @@ function EventVehicleManagement() {
           <strong>
             {
               vehicles.filter(
-                (vehicle) =>
-                  vehicle.status === "ON_DUTY"
+                (vehicle) => vehicle.status === "ON_DUTY"
               ).length
             }
           </strong>
         </div>
       </div>
 
-      {/* SEARCH AND REFRESH */}
-
       <div className="vehicle-toolbar">
         <input
           type="search"
           placeholder="Search vehicle, vendor or driver..."
           value={search}
-          onChange={(event) =>
-            setSearch(event.target.value)
-          }
+          onChange={(event) => setSearch(event.target.value)}
         />
 
         <button
@@ -770,8 +732,6 @@ function EventVehicleManagement() {
           Refresh
         </button>
       </div>
-
-      {/* VEHICLE TABLE */}
 
       <div className="vehicle-table-card">
         {filteredVehicles.length === 0 ? (
@@ -801,16 +761,12 @@ function EventVehicleManagement() {
                 {filteredVehicles.map((vehicle) => (
                   <tr key={vehicle._id}>
                     <td>
-                      <strong>
-                        {vehicle.vehicleNumber}
-                      </strong>
+                      <strong>{vehicle.vehicleNumber}</strong>
                     </td>
 
                     <td>{vehicle.vehicleType}</td>
 
-                    <td>
-                      {vehicle.seatingCapacity || "-"}
-                    </td>
+                    <td>{vehicle.seatingCapacity || "-"}</td>
 
                     <td>{getVendorName(vehicle)}</td>
 
@@ -834,8 +790,6 @@ function EventVehicleManagement() {
           </div>
         )}
       </div>
-
-      {/* ADD VEHICLE MODAL */}
 
       {showForm && (
         <div className="vehicle-modal-backdrop">
@@ -911,9 +865,7 @@ function EventVehicleManagement() {
                     onChange={handleFormChange}
                     required
                   >
-                    <option value="">
-                      Select Vendor
-                    </option>
+                    <option value="">Select Vendor</option>
 
                     {vendors.map((vendor) => (
                       <option
@@ -934,9 +886,7 @@ function EventVehicleManagement() {
                     onChange={handleFormChange}
                     disabled={!form.vendor}
                   >
-                    <option value="">
-                      No driver
-                    </option>
+                    <option value="">No driver</option>
 
                     {filteredDrivers.map((driver) => (
                       <option
@@ -957,7 +907,7 @@ function EventVehicleManagement() {
 
                   {form.vendor && filteredDrivers.length === 0 && (
                     <small>
-                      No drivers found for this vendor.
+                      No active, unassigned drivers found for this vendor.
                     </small>
                   )}
                 </label>
@@ -1030,8 +980,6 @@ function EventVehicleManagement() {
           </div>
         </div>
       )}
-
-      {/* EXCEL IMPORT MODAL */}
 
       {showImport && (
         <div className="vehicle-modal-backdrop">
