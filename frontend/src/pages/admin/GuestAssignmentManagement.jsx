@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getEvents } from "../../api/event.api";
@@ -74,18 +75,21 @@ function getEventName(event) {
   if (!event) return "Unknown event";
   if (typeof event === "string") return event;
 
-  return [event.eventCode, event.name].filter(Boolean).join(" · ") ||
-    "Event";
+  return (
+    [event.eventCode, event.name].filter(Boolean).join(" · ") || "Event"
+  );
 }
 
 function getGuestName(guest) {
   if (!guest) return "Unknown guest";
   if (typeof guest === "string") return guest;
 
-  return [guest.firstName, guest.lastName].filter(Boolean).join(" ") ||
+  return (
+    [guest.firstName, guest.lastName].filter(Boolean).join(" ") ||
     guest.guestCode ||
     guest.email ||
-    "Guest";
+    "Guest"
+  );
 }
 
 function getVehicleName(assignment) {
@@ -94,25 +98,31 @@ function getVehicleName(assignment) {
   const vehicle = assignment.vehicle;
   const driver = assignment.driver;
 
-  const vehicleLabel = vehicle && typeof vehicle === "object"
-    ? [vehicle.vehicleNumber, vehicle.vehicleType].filter(Boolean).join(" · ")
-    : getId(vehicle);
+  const vehicleLabel =
+    vehicle && typeof vehicle === "object"
+      ? [vehicle.vehicleNumber, vehicle.vehicleType].filter(Boolean).join(" · ")
+      : getId(vehicle);
 
-  const driverLabel = driver && typeof driver === "object"
-    ? [driver.firstName, driver.lastName].filter(Boolean).join(" ")
-    : "";
+  const driverLabel =
+    driver && typeof driver === "object"
+      ? [driver.firstName, driver.lastName].filter(Boolean).join(" ")
+      : "";
 
   return [
     assignment.assignmentCode,
     vehicleLabel,
     driverLabel ? `Driver: ${driverLabel}` : "",
-  ].filter(Boolean).join(" — ");
+  ]
+    .filter(Boolean)
+    .join(" — ");
 }
 
 function getErrorMessage(error) {
-  return error?.response?.data?.message ||
+  return (
+    error?.response?.data?.message ||
     error?.message ||
-    "Something went wrong. Please try again.";
+    "Something went wrong. Please try again."
+  );
 }
 
 function formatDate(value) {
@@ -133,13 +143,14 @@ function formatDate(value) {
 function StatusPill({ value }) {
   const status = String(value || "UNKNOWN").toUpperCase();
 
-  const color = status === "DROPPED"
-    ? { background: "#dcfae6", color: "#067647" }
-    : status === "DROPPED_AT_VENUE" || status === "RETURN_PICKUP"
-      ? { background: "#e0eaff", color: "#3538cd" }
-      : status === "CANCELLED"
-        ? { background: "#fee4e2", color: "#b42318" }
-        : { background: "#f2f4f7", color: "#344054" };
+  const color =
+    status === "DROPPED"
+      ? { background: "#dcfae6", color: "#067647" }
+      : status === "DROPPED_AT_VENUE" || status === "RETURN_PICKUP"
+        ? { background: "#e0eaff", color: "#3538cd" }
+        : status === "CANCELLED"
+          ? { background: "#fee4e2", color: "#b42318" }
+          : { background: "#f2f4f7", color: "#344054" };
 
   return (
     <span
@@ -160,7 +171,12 @@ function StatusPill({ value }) {
 
 export default function GuestAssignmentManagement() {
   const { user } = useAuth();
-  const canManage = ["SUPER_ADMIN", "ADMIN", "OPERATIONS_MANAGER"].includes(user?.role);
+
+  const canManage = [
+    "SUPER_ADMIN",
+    "ADMIN",
+    "OPERATIONS_MANAGER",
+  ].includes(user?.role);
 
   const [events, setEvents] = useState([]);
   const [guests, setGuests] = useState([]);
@@ -178,7 +194,6 @@ export default function GuestAssignmentManagement() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  
   const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -230,18 +245,16 @@ export default function GuestAssignmentManagement() {
     }
   }, []);
 
-
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const eventVehicleAssignments = useMemo(() => {
-    return vehicleAssignments.filter((assignment) => {
-      return (
+    return vehicleAssignments.filter(
+      (assignment) =>
         getId(assignment.event) === eventId &&
         assignment.status === "ASSIGNED"
-      );
-    });
+    );
   }, [vehicleAssignments, eventId]);
 
   const eventGuests = useMemo(() => {
@@ -251,13 +264,16 @@ export default function GuestAssignmentManagement() {
       const belongsToEvent = getId(guest.event) === eventId;
       const isEligible = guest.status !== "CANCELLED";
 
-      const fullName = getGuestName(guest);
-      const matchesSearch = !query || [
-        fullName,
-        guest.guestCode,
-        guest.phone,
-        guest.email,
-      ].some((value) => String(value || "").toLowerCase().includes(query));
+      const matchesSearch =
+        !query ||
+        [
+          getGuestName(guest),
+          guest.guestCode,
+          guest.phone,
+          guest.email,
+        ].some((value) =>
+          String(value || "").toLowerCase().includes(query)
+        );
 
       return belongsToEvent && isEligible && matchesSearch;
     });
@@ -267,8 +283,7 @@ export default function GuestAssignmentManagement() {
     const ids = new Set();
 
     guestAssignments.forEach((assignment) => {
-      const duty = assignment.vehicleAssignment;
-      const dutyStatus = duty?.status;
+      const dutyStatus = assignment.vehicleAssignment?.status;
 
       if (
         !assignment.isDeleted &&
@@ -281,15 +296,21 @@ export default function GuestAssignmentManagement() {
     return ids;
   }, [guestAssignments]);
 
-  const unassignedGuests = useMemo(() => {
-    return eventGuests.filter((guest) => !assignedGuestIds.has(getId(guest)));
-  }, [eventGuests, assignedGuestIds]);
+  const unassignedGuests = useMemo(
+    () =>
+      eventGuests.filter(
+        (guest) => !assignedGuestIds.has(getId(guest))
+      ),
+    [eventGuests, assignedGuestIds]
+  );
 
-  const selectedDuty = useMemo(() => {
-    return eventVehicleAssignments.find(
-      (assignment) => getId(assignment) === vehicleAssignmentId
-    );
-  }, [eventVehicleAssignments, vehicleAssignmentId]);
+  const selectedDuty = useMemo(
+    () =>
+      eventVehicleAssignments.find(
+        (assignment) => getId(assignment) === vehicleAssignmentId
+      ),
+    [eventVehicleAssignments, vehicleAssignmentId]
+  );
 
   const visibleGuestAssignments = useMemo(() => {
     return guestAssignments.filter((assignment) => {
@@ -299,16 +320,20 @@ export default function GuestAssignmentManagement() {
       const matchesEvent = getId(duty?.event) === eventId;
       const query = search.trim().toLowerCase();
 
-      const matchesSearch = !query || [
-        getGuestName(guest),
-        guest?.guestCode,
-        duty?.assignmentCode,
-        duty?.vehicle?.vehicleNumber,
-        duty?.driver?.firstName,
-        duty?.driver?.lastName,
-        assignment.pickupStatus,
-        assignment.returnStatus,
-      ].some((value) => String(value || "").toLowerCase().includes(query));
+      const matchesSearch =
+        !query ||
+        [
+          getGuestName(guest),
+          guest?.guestCode,
+          duty?.assignmentCode,
+          duty?.vehicle?.vehicleNumber,
+          duty?.driver?.firstName,
+          duty?.driver?.lastName,
+          assignment.pickupStatus,
+          assignment.returnStatus,
+        ].some((value) =>
+          String(value || "").toLowerCase().includes(query)
+        );
 
       return matchesEvent && matchesSearch;
     });
@@ -324,16 +349,15 @@ export default function GuestAssignmentManagement() {
   }
 
   function toggleGuest(guestId) {
-    setSelectedGuests((current) => (
+    setSelectedGuests((current) =>
       current.includes(guestId)
         ? current.filter((id) => id !== guestId)
         : [...current, guestId]
-    ));
+    );
   }
 
   function selectAllUnassigned() {
-    const ids = unassignedGuests.map((guest) => getId(guest));
-    setSelectedGuests(ids);
+    setSelectedGuests(unassignedGuests.map((guest) => getId(guest)));
   }
 
   function clearSelection() {
@@ -344,6 +368,11 @@ export default function GuestAssignmentManagement() {
     event.preventDefault();
     setError("");
     setNotice("");
+
+    if (!canManage) {
+      setError("Your role cannot assign guests.");
+      return;
+    }
 
     if (!eventId) {
       setError("Select an event first.");
@@ -387,7 +416,9 @@ export default function GuestAssignmentManagement() {
     const returnStatus = assignment.returnStatus || "NOT_STARTED";
 
     if (pickupStatus !== "PENDING" || returnStatus !== "NOT_STARTED") {
-      setError("This guest's trip has started. It cannot be removed from this page.");
+      setError(
+        "This guest's trip has started. It cannot be removed from this page."
+      );
       return;
     }
 
@@ -413,7 +444,13 @@ export default function GuestAssignmentManagement() {
   }
 
   return (
-    <div style={{ display: "grid", gap: 20, color: "var(--text-primary, #172033)" }}>
+    <div
+      style={{
+        display: "grid",
+        gap: 20,
+        color: "var(--text-primary, #172033)",
+      }}
+    >
       <header
         style={{
           display: "flex",
@@ -424,9 +461,12 @@ export default function GuestAssignmentManagement() {
         }}
       >
         <div>
-          <h1 style={{ margin: "0 0 8px", fontSize: 28 }}>Guest Assignments</h1>
+          <h1 style={{ margin: "0 0 8px", fontSize: 28 }}>
+            Guest Assignments
+          </h1>
           <p style={{ margin: 0, color: "#667085" }}>
-            Assign guests to event vehicle duties and monitor pickup and return progress.
+            Assign guests to event vehicle duties and monitor pickup and
+            return progress.
           </p>
         </div>
 
@@ -461,28 +501,44 @@ export default function GuestAssignmentManagement() {
       <section style={panel}>
         <h2 style={{ marginTop: 0 }}>Assign guests to a vehicle duty</h2>
 
-        {loading ? (
+        {!canManage ? (
+          <p role="status" style={{ color: "#667085", marginBottom: 0 }}>
+            You have read-only access to guest assignments. Contact an
+            administrator or operations manager if you need to assign guests.
+          </p>
+        ) : loading ? (
           <p>Loading events, guests and vehicle duties…</p>
         ) : (
-          <form onSubmit={handleAssign} style={{ display: "grid", gap: 16 }}>
+          <form
+            onSubmit={handleAssign}
+            style={{ display: "grid", gap: 16 }}
+          >
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(220px, 1fr))",
                 gap: 16,
               }}
             >
               <label style={{ display: "grid", gap: 7 }}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>Event *</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>
+                  Event *
+                </span>
                 <select
                   required
                   style={inputStyle}
                   value={eventId}
-                  onChange={(e) => handleEventChange(e.target.value)}
+                  onChange={(event) =>
+                    handleEventChange(event.target.value)
+                  }
                 >
                   <option value="">Select event</option>
                   {events
-                    .filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status))
+                    .filter(
+                      (item) =>
+                        !["COMPLETED", "CANCELLED"].includes(item.status)
+                    )
                     .map((item) => (
                       <option key={item._id} value={item._id}>
                         {getEventName(item)}
@@ -492,12 +548,16 @@ export default function GuestAssignmentManagement() {
               </label>
 
               <label style={{ display: "grid", gap: 7 }}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>Vehicle duty *</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>
+                  Vehicle duty *
+                </span>
                 <select
                   required
                   style={inputStyle}
                   value={vehicleAssignmentId}
-                  onChange={(e) => setVehicleAssignmentId(e.target.value)}
+                  onChange={(event) =>
+                    setVehicleAssignmentId(event.target.value)
+                  }
                   disabled={!eventId}
                 >
                   <option value="">Select vehicle duty</option>
@@ -512,8 +572,9 @@ export default function GuestAssignmentManagement() {
 
             {eventId && eventVehicleAssignments.length === 0 && (
               <p style={{ color: "#b54708", margin: 0 }}>
-                No vehicle duties with ASSIGNED status are available for this event.
-                Create a vehicle duty first, or check whether its duty has already started.
+                No vehicle duties with ASSIGNED status are available for this
+                event. Create a vehicle duty first, or check whether its duty
+                has already started.
               </p>
             )}
 
@@ -530,7 +591,13 @@ export default function GuestAssignmentManagement() {
                 >
                   <div>
                     <strong>Available guests</strong>
-                    <div style={{ fontSize: 13, color: "#667085", marginTop: 4 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: "#667085",
+                        marginTop: 4,
+                      }}
+                    >
                       {unassignedGuests.length} unassigned guest(s)
                       {selectedGuests.length > 0
                         ? ` · ${selectedGuests.length} selected`
@@ -563,7 +630,7 @@ export default function GuestAssignmentManagement() {
                   style={inputStyle}
                   placeholder="Search guest name, code, phone or email…"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(event) => setSearch(event.target.value)}
                 />
 
                 {unassignedGuests.length === 0 ? (
@@ -600,14 +667,21 @@ export default function GuestAssignmentManagement() {
                               guest.phone,
                               guest.email,
                             ].some((value) =>
-                              String(value || "").toLowerCase().includes(query)
+                              String(value || "")
+                                .toLowerCase()
+                                .includes(query)
                             );
                           })
                           .map((guest) => {
                             const id = getId(guest);
 
                             return (
-                              <tr key={id} style={{ borderBottom: "1px solid #eaecf0" }}>
+                              <tr
+                                key={id}
+                                style={{
+                                  borderBottom: "1px solid #eaecf0",
+                                }}
+                              >
                                 <td style={{ padding: 10 }}>
                                   <input
                                     type="checkbox"
@@ -618,11 +692,18 @@ export default function GuestAssignmentManagement() {
                                 </td>
                                 <td style={{ padding: 10 }}>
                                   <strong>{getGuestName(guest)}</strong>
-                                  <div style={{ color: "#667085", fontSize: 12 }}>
+                                  <div
+                                    style={{
+                                      color: "#667085",
+                                      fontSize: 12,
+                                    }}
+                                  >
                                     {guest.phone || guest.email || ""}
                                   </div>
                                 </td>
-                                <td style={{ padding: 10 }}>{guest.guestCode || "—"}</td>
+                                <td style={{ padding: 10 }}>
+                                  {guest.guestCode || "—"}
+                                </td>
                                 <td style={{ padding: 10 }}>
                                   {guest.pickupLocation?.name || "—"}
                                 </td>
@@ -644,7 +725,6 @@ export default function GuestAssignmentManagement() {
                 type="submit"
                 style={primaryButton}
                 disabled={
-                  !canManage ||
                   saving ||
                   loading ||
                   !eventId ||
@@ -657,12 +737,6 @@ export default function GuestAssignmentManagement() {
                   : `Assign ${selectedGuests.length || ""} guest(s)`}
               </button>
             </div>
-
-            {!canManage && (
-              <p style={{ color: "#b54708", margin: 0 }}>
-                Your role can view assignments but cannot create or remove them.
-              </p>
-            )}
           </form>
         )}
       </section>
@@ -754,7 +828,10 @@ export default function GuestAssignmentManagement() {
                     duty?.status === "ASSIGNED";
 
                   return (
-                    <tr key={assignment._id} style={{ borderBottom: "1px solid #eaecf0" }}>
+                    <tr
+                      key={assignment._id}
+                      style={{ borderBottom: "1px solid #eaecf0" }}
+                    >
                       <td style={{ padding: "13px 10px" }}>
                         <strong>{getGuestName(guest)}</strong>
                         <div style={{ color: "#667085", fontSize: 12 }}>
@@ -776,20 +853,32 @@ export default function GuestAssignmentManagement() {
                       <td style={{ padding: "13px 10px" }}>
                         <StatusPill value={assignment.returnStatus} />
                       </td>
-                      <td style={{ padding: "13px 10px", whiteSpace: "nowrap" }}>
+                      <td
+                        style={{
+                          padding: "13px 10px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {formatDate(assignment.createdAt)}
                       </td>
                       <td style={{ padding: "13px 10px" }}>
                         {canRemove ? (
                           <button
                             type="button"
-                            style={{ ...secondaryButton, color: "#b42318" }}
+                            style={{
+                              ...secondaryButton,
+                              color: "#b42318",
+                            }}
                             disabled={Boolean(busyId)}
                             onClick={() => handleRemove(assignment)}
                           >
-                            {busyId === assignment._id ? "Removing…" : "Remove"}
+                            {busyId === assignment._id
+                              ? "Removing…"
+                              : "Remove"}
                           </button>
-                        ) : "—"}
+                        ) : (
+                          "—"
+                        )}
                       </td>
                     </tr>
                   );
