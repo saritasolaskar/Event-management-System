@@ -1,44 +1,184 @@
-const vendorBillRepository = require("../../repositories/vendorBill.repository");
-const pdfGenerator = require("./pdfGenerator");
 
-const AppError = require("../../utils/appError");
+const vendorBillRepository =
+    require("../../repositories/vendorBill.repository");
 
-const COMPANY = {
-    name: "Transit Fleets",
-    address: process.env.COMPANY_ADDRESS || "Your Company Address",
-    phone: process.env.COMPANY_PHONE || "Your Phone",
-    email: process.env.COMPANY_EMAIL || "info@transitfleets.com",
-};
+const pdfGenerator =
+    require("../pdfGenerator");
 
-const generateVendorBillPdf = async (billId) => {
+const config =
+    require("../../config/env");
 
-    const bill = await vendorBillRepository.findById(billId);
+const AppError =
+    require("../../utils/AppError");
+
+
+const generateVendorBillPdf = async (
+    billId
+) => {
+
+    const bill =
+        await vendorBillRepository.findById(
+            billId
+        );
 
     if (!bill) {
-        throw new AppError("Vendor Bill not found.", 404);
+        throw new AppError(
+            "Vendor Bill not found.",
+            404
+        );
     }
+
+    if (!bill.vendor) {
+        throw new AppError(
+            "Vendor not found.",
+            404
+        );
+    }
+
+    if (!bill.duty) {
+        throw new AppError(
+            "Duty not found.",
+            404
+        );
+    }
+
+    if (!bill.vehicleAssignment) {
+        throw new AppError(
+            "Vehicle Assignment not found.",
+            404
+        );
+    }
+
+    const driver =
+        bill.vehicleAssignment.driver;
+
+    const driverData =
+        driver
+            ? {
+                ...(
+                    driver.toObject
+                        ? driver.toObject()
+                        : driver
+                ),
+
+                name:
+                    `${driver.firstName || ""} ${
+                        driver.lastName || ""
+                    }`.trim(),
+
+                phone:
+                    driver.phone || "",
+            }
+            : null;
+
+    const duty = {
+
+        ...(
+            bill.duty.toObject
+                ? bill.duty.toObject()
+                : bill.duty
+        ),
+
+        dutyDateFormatted:
+            bill.duty.dutyStartTime
+                ? bill.duty.dutyStartTime.toLocaleDateString()
+                : "",
+    };
+
+    const company = {
+
+        name:
+            config.COMPANY_NAME ||
+            "Transit Fleets",
+
+        address:
+            config.COMPANY_ADDRESS ||
+            "",
+
+        phone:
+            config.COMPANY_PHONE ||
+            "",
+
+        email:
+            config.COMPANY_EMAIL ||
+            "",
+
+        gst:
+            config.COMPANY_GST ||
+            "",
+
+        pan:
+            config.COMPANY_PAN ||
+            "",
+
+        website:
+            config.COMPANY_WEBSITE ||
+            "",
+
+    };
 
     const data = {
 
-        company: COMPANY,
+        company,
 
-        bill,
+        bill: {
 
-        vendor: bill.vendor,
+            ...(
+                bill.toObject
+                    ? bill.toObject()
+                    : bill
+            ),
 
-        duty: bill.duty,
+            billNumber:
+                bill.billNumber ||
+                `VB-${bill._id}`,
 
-        event: bill.duty?.event,
+            billDate:
+                bill.billDate
+                    ? bill.billDate.toLocaleDateString()
+                    : "",
 
-        vehicleAssignment: bill.vehicleAssignment,
-
-        package: {
-            name: bill.packageName,
-            km: bill.packageKm,
-            hours: bill.packageHours,
+            approvedAtFormatted:
+                bill.approvedAt
+                    ? bill.approvedAt.toLocaleString()
+                    : "",
         },
 
-        generatedAt: new Date(),
+        vendor:
+            bill.vendor,
+
+        duty,
+
+        event:
+            bill.duty.vehicleAssignment?.event ||
+            bill.duty.event,
+
+        vehicle:
+            bill.vehicleAssignment.vehicle,
+
+        driver:
+            driverData,
+
+        package: {
+
+            name:
+                bill.packageName ||
+                "",
+
+            km:
+                bill.packageKm ||
+                0,
+
+            hours:
+                bill.packageHours ||
+                0,
+        },
+
+        approvedBy:
+            bill.approvedBy,
+
+        generatedAt:
+            new Date().toLocaleString(),
     };
 
     return pdfGenerator.generatePdf(

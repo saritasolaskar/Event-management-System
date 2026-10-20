@@ -1,109 +1,196 @@
-const Location = require("../models/location.model");
+const Location =
+    require("../models/location.model");
 
-/**
- * Create Location
- */
-const create = async (locationData) => {
-  return Location.create(locationData);
+
+const create = async (
+    locationData,
+    session = null
+) => {
+
+    if (session) {
+        const [location] =
+            await Location.create(
+                [locationData],
+                { session }
+            );
+
+        return location;
+    }
+
+    return Location.create(
+        locationData
+    );
 };
 
-/**
- * Find Location By ID
- */
-const findById = async (id) => {
-  return Location.findOne({
-    _id: id,
-    isDeleted: false,
-  });
+
+const findById = async (
+    id,
+    session = null
+) => {
+
+    const query =
+        Location.findOne({
+            _id: id,
+            isDeleted: false,
+        });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-/**
- * Find Location By Code
- */
-const findByLocationCode = async (locationCode) => {
-  return Location.findOne({
+
+const findByLocationCode = async (
     locationCode,
-    isDeleted: false,
-  });
+    session = null
+) => {
+
+    const query =
+        Location.findOne({
+            locationCode,
+            isDeleted: false,
+        });
+
+    if (session) {
+        query.session(session);
+    }
+
+    return query;
 };
 
-/**
- * Get All Locations
- */
-const findAll = async (filter = {}) => {
-  return Location.find({
-    isDeleted: false,
-    ...filter,
-  }).sort({
-    city: 1,
-    name: 1,
-  });
+
+const findAll = async (
+    filter = {}
+) => {
+
+    return Location.find({
+        isDeleted: false,
+        ...filter,
+    }).sort({
+        city: 1,
+        name: 1,
+    });
 };
 
-/**
- * Find Locations By City
- */
-const findByCity = async (city) => {
-  return Location.find({
-    city,
-    isDeleted: false,
-  }).sort({
-    name: 1,
-  });
+
+const findByCity = async (
+    city
+) => {
+
+    return Location.find({
+        city,
+        isDeleted: false,
+    }).sort({
+        name: 1,
+    });
 };
 
-/**
- * Update Location
- */
-const updateById = async (id, updateData) => {
-  return Location.findByIdAndUpdate(
+
+const count = async (
+    filter = {}
+) => {
+
+    return Location.countDocuments({
+        isDeleted: false,
+        ...filter,
+    });
+};
+
+
+const updateById = async (
     id,
     updateData,
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
+    session = null
+) => {
+
+    return Location.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        updateData,
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
 };
 
-/**
- * Soft Delete Location
- */
-const softDelete = async (id) => {
-  return Location.findByIdAndUpdate(
+
+const softDelete = async (
     id,
-    {
-      isDeleted: true,
-    },
-    {
-      new: true,
-    }
-  );
+    userId,
+    session = null
+) => {
+
+    return Location.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        {
+            isDeleted: true,
+            updatedBy: userId,
+        },
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
 };
 
+
 /**
- * Update Location Status
+ * Atomically update Location Status
+ *
+ * The status is updated only if the location's current
+ * status still matches the status originally read.
  */
-const updateStatus = async (id, status) => {
-  return Location.findByIdAndUpdate(
+const updateStatusIfCurrent = async (
     id,
-    {
-      status,
-    },
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
+    currentStatus,
+    status,
+    userId,
+    session = null
+) => {
+
+    return Location.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            status: currentStatus,
+        },
+        {
+            status,
+            updatedBy: userId,
+        },
+        {
+            new: true,
+            runValidators: true,
+            ...(session
+                ? { session }
+                : {}),
+        }
+    );
 };
+
 
 module.exports = {
-  create,
-  findById,
-  findByLocationCode,
-  findAll,
-  findByCity,
-  updateById,
-  softDelete,
-  updateStatus,
+    create,
+    findById,
+    findByLocationCode,
+    findAll,
+    findByCity,
+    count,
+    updateById,
+    softDelete,
+    updateStatusIfCurrent,
 };

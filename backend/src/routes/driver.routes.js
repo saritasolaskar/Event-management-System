@@ -12,6 +12,7 @@ const {
   createDriverValidator,
   updateDriverValidator,
   driverIdValidator,
+  driverStatusValidator,
 } = require("../validators/driver.validator");
 
 const router = express.Router();
@@ -90,7 +91,7 @@ router.patch(
   "/:id/status",
   protect,
   authorize(ROLES.ADMIN, ROLES.OPERATIONS_MANAGER),
-  driverIdValidator,
+  driverStatusValidator,
   validate,
   driverController.updateDriverStatus
 );

@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 
-const { GUEST_STATUS } = require("../constants/status");
+const {
+    GUEST_STATUS,
+} = require("../constants/status");
 
 const guestSchema = new mongoose.Schema(
     {
@@ -45,7 +47,11 @@ const guestSchema = new mongoose.Schema(
 
         gender: {
             type: String,
-            enum: ["MALE", "FEMALE", "OTHER"],
+            enum: [
+                "MALE",
+                "FEMALE",
+                "OTHER",
+            ],
         },
 
         pickupLocation: {
@@ -94,10 +100,20 @@ const guestSchema = new mongoose.Schema(
             enum: Object.values(GUEST_STATUS),
             default: GUEST_STATUS.PENDING,
         },
-
+        
+        assignmentLockVersion: {
+    type: Number,
+    default: 0,
+    select: false,
+},
         isDeleted: {
             type: Boolean,
             default: false,
+        },
+
+        deletedAt: {
+            type: Date,
+            default: null,
         },
 
         createdBy: {
@@ -116,11 +132,14 @@ const guestSchema = new mongoose.Schema(
 );
 
 // Indexes
-guestSchema.index({ guestCode: 1 });
+
 guestSchema.index({ event: 1 });
 guestSchema.index({ phone: 1 });
 guestSchema.index({ status: 1 });
 guestSchema.index({ pickupLocation: 1 });
 guestSchema.index({ dropLocation: 1 });
 
-module.exports = mongoose.model("Guest", guestSchema);
+module.exports = mongoose.model(
+    "Guest",
+    guestSchema
+);

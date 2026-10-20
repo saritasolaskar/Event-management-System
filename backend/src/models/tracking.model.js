@@ -1,13 +1,9 @@
+
 const mongoose = require("mongoose");
 
-const TRACKING_STAGE = Object.freeze({
-    STARTED: "STARTED",
-    EN_ROUTE_PICKUP: "EN_ROUTE_PICKUP",
-    AT_PICKUP: "AT_PICKUP",
-    EN_ROUTE_DROP: "EN_ROUTE_DROP",
-    AT_DROP: "AT_DROP",
-    COMPLETED: "COMPLETED",
-});
+const {
+    TRIP_STAGE,
+} = require("../constants/status");
 
 const trackingSchema = new mongoose.Schema(
     {
@@ -67,25 +63,20 @@ const trackingSchema = new mongoose.Schema(
 
         stage: {
             type: String,
-            enum: Object.values(TRACKING_STAGE),
-            default: TRACKING_STAGE.STARTED,
+            enum: Object.values(TRIP_STAGE),
+            default: TRIP_STAGE.NOT_STARTED,
         },
 
         recordedAt: {
             type: Date,
             default: Date.now,
+            index: true,
         },
     },
     {
         timestamps: true,
     }
 );
-
-/*
-|--------------------------------------------------------------------------
-| Indexes
-|--------------------------------------------------------------------------
-*/
 
 trackingSchema.index({
     duty: 1,

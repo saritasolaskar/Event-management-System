@@ -3,16 +3,26 @@ const express = require("express");
 const router = express.Router();
 
 const billingController =
-require("../controllers/billing.controller");
+    require("../controllers/billing.controller");
 
 const protect =
-require("../middleware/auth.middleware");
+    require("../middleware/auth.middleware");
 
 const authorize =
-require("../middleware/authorize.middleware");
+    require("../middleware/authorize.middleware");
+const {
+    billingDutyIdValidator,
+} = require("../validators/duty.validator");
+
+const validate =
+    require("../middleware/validate");
 
 const { ROLES } =
-require("../constants/roles");
+    require("../constants/roles");
+
+const {
+    dutyIdValidator,
+} = require("../validators/duty.validator");
 
 router.get(
     "/draft/:dutyId",
@@ -21,7 +31,9 @@ router.get(
         ROLES.ADMIN,
         ROLES.ACCOUNTS
     ),
+    billingDutyIdValidator,
+    validate,
     billingController.generateDraftBill
 );
 
-module.exports=router;
+module.exports = router;

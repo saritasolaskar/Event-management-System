@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const { VEHICLE_STATUS } = require("../constants/status");
@@ -9,7 +10,6 @@ const vehicleSchema = new mongoose.Schema(
       required: true,
       trim: true,
       uppercase: true,
-      unique: true,
     },
 
     vehicleType: {
@@ -69,6 +69,13 @@ const vehicleSchema = new mongoose.Schema(
       default: null,
     },
 
+    eventsUsedFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Event",
+      },
+    ],
+
     rcExpiry: {
       type: Date,
     },
@@ -99,6 +106,7 @@ const vehicleSchema = new mongoose.Schema(
       enum: Object.values(VEHICLE_STATUS),
       default: VEHICLE_STATUS.AVAILABLE,
     },
+
     isDeleted: {
       type: Boolean,
       default: false,
@@ -119,10 +127,32 @@ const vehicleSchema = new mongoose.Schema(
   }
 );
 
-// Indexes
-vehicleSchema.index({ vehicleNumber: 1 });
+// A registration number must be unique among active vehicles.
+// Soft-deleted vehicle records should not block a new registration.
+vehicleSchema.index(
+  { vehicleNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      isDeleted: false,
+    },
+    name: "vehicleNumber_active_unique",
+  }
+);
+
 vehicleSchema.index({ vendor: 1 });
-vehicleSchema.index({ currentDriver: 1 });
+
+vehicleSchema.index(
+  { currentDriver: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      currentDriver: { $type: "objectId" },
+      isDeleted: false,
+    },
+  }
+);
+
 vehicleSchema.index({ status: 1 });
 vehicleSchema.index({ insuranceExpiry: 1 });
 vehicleSchema.index({ fitnessExpiry: 1 });

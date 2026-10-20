@@ -70,7 +70,10 @@ const updateVendor = asyncHandler(async (req, res) => {
  * Delete Vendor
  */
 const deleteVendor = asyncHandler(async (req, res) => {
-  await vendorService.deleteVendor(req.params.id);
+  await vendorService.deleteVendor(
+    req.params.id,
+    req.user._id
+);
 
   return successResponse(
     res,
@@ -84,9 +87,10 @@ const deleteVendor = asyncHandler(async (req, res) => {
  */
 const updateVendorStatus = asyncHandler(async (req, res) => {
   const vendor = await vendorService.updateVendorStatus(
-    req.params.id,
-    req.body.status
-  );
+  req.params.id,
+  req.body.status,
+  req.user._id
+);
 
   return successResponse(
     res,

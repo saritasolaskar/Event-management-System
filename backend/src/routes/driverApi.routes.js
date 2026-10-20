@@ -2,12 +2,24 @@ const express = require("express");
 
 const router = express.Router();
 
-const driverApiController = require("../controllers/driverApi.controller");
+const driverApiController =
+    require("../controllers/driverApi.controller");
 
-const protect = require("../middleware/auth.middleware");
-const authorize = require("../middleware/authorize.middleware");
+const protect =
+    require("../middleware/auth.middleware");
 
-const { ROLES } = require("../constants/roles");
+const authorize =
+    require("../middleware/authorize.middleware");
+
+const validate =
+    require("../middleware/validate");
+
+const { ROLES } =
+    require("../constants/roles");
+
+const {
+    guestAssignmentIdValidator,
+} = require("../validators/guestAssignment.validator");
 
 router.use(
     protect,
@@ -35,6 +47,8 @@ router.get(
  */
 router.patch(
     "/guest/:id/enroute",
+    guestAssignmentIdValidator,
+    validate,
     driverApiController.markDriverEnRoute
 );
 
@@ -43,6 +57,8 @@ router.patch(
  */
 router.patch(
     "/guest/:id/picked",
+    guestAssignmentIdValidator,
+    validate,
     driverApiController.markGuestPicked
 );
 
@@ -51,6 +67,8 @@ router.patch(
  */
 router.patch(
     "/guest/:id/venue",
+    guestAssignmentIdValidator,
+    validate,
     driverApiController.markVenueReached
 );
 
@@ -59,6 +77,8 @@ router.patch(
  */
 router.patch(
     "/guest/:id/return-pickup",
+    guestAssignmentIdValidator,
+    validate,
     driverApiController.markReturnPickup
 );
 
@@ -67,6 +87,8 @@ router.patch(
  */
 router.patch(
     "/guest/:id/dropped",
+    guestAssignmentIdValidator,
+    validate,
     driverApiController.markGuestDropped
 );
 

@@ -1,11 +1,28 @@
+
 const GuestAssignment = require("../models/guestAssignment.model");
+const mongoose = require("mongoose");
 const VehicleAssignment = require("../models/vehicleAssignment.model");
+
+/**
+ * Populate guest details, including pickup and drop locations.
+ * Required by the duty-sheet PDF generator.
+ */
+const guestDetailsPopulate = {
+    path: "guest",
+    populate: [
+        { path: "pickupLocation" },
+        { path: "dropLocation" },
+    ],
+};
 
 /**
  * Create Guest Assignment
  */
-const create = async (data) => {
-    return GuestAssignment.create(data);
+const create = (data, session = null) => {
+    return GuestAssignment.create(
+        [data],
+        session ? { session } : undefined
+    ).then((docs) => docs[0]);
 };
 
 /**
@@ -16,7 +33,7 @@ const findById = async (id) => {
         _id: id,
         isDeleted: false,
     })
-        .populate("guest")
+        .populate(guestDetailsPopulate)
         .populate({
             path: "vehicleAssignment",
             populate: [
@@ -47,7 +64,7 @@ const findAll = async () => {
     return GuestAssignment.find({
         isDeleted: false,
     })
-        .populate("guest")
+        .populate(guestDetailsPopulate)
         .populate({
             path: "vehicleAssignment",
             populate: [
@@ -64,26 +81,109 @@ const findAll = async () => {
  * Update Guest Assignment
  */
 const updateById = async (id, data) => {
-    return GuestAssignment.findByIdAndUpdate(id, data, {
-        new: true,
-        runValidators: true,
-    });
+    return GuestAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
 };
+
+
+const updateByIdIfState = async (
+    id,
+    expectedState,
+    data,
+    session = null
+) => {
+    return GuestAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            ...expectedState,
+        },
+        data,
+        {
+            new: true,
+            runValidators: true,
+            ...(session ? { session } : {}),
+        }
+    );
+};
+
+
+const updateByIdIfPending = async (
+    id,
+    data,
+    session = null
+) => {
+    return updateByIdIfState(
+        id,
+        {
+            pickupStatus: "PENDING",
+            returnStatus: "NOT_STARTED",
+        },
+        data,
+        session
+    );
+};
+
 
 /**
  * Soft Delete Guest Assignment
  */
-const softDelete = async (id) => {
-    return GuestAssignment.findByIdAndUpdate(
-        id,
+const softDelete = async (
+    id,
+    session = null
+) => {
+    return GuestAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+        },
         {
             isDeleted: true,
         },
         {
             new: true,
+            runValidators: true,
+            ...(session ? { session } : {}),
         }
     );
 };
+
+
+
+const softDeleteIfPending = async (
+    id,
+    session = null
+) => {
+    return GuestAssignment.findOneAndUpdate(
+        {
+            _id: id,
+            isDeleted: false,
+            pickupStatus: "PENDING",
+            returnStatus: "NOT_STARTED",
+        },
+        {
+            isDeleted: true,
+        },
+        {
+            new: true,
+            runValidators: true,
+            ...(session ? { session } : {}),
+        }
+    );
+};
+
+
+
+
 
 /**
  * Find Guest Assignments By Event
@@ -104,22 +204,72 @@ const findByEvent = async (eventId) => {
         },
         isDeleted: false,
     })
-        .populate("guest")
+        .populate(guestDetailsPopulate)
         .populate({
             path: "vehicleAssignment",
             populate: [
-                {
-                    path: "vehicle",
-                },
-                {
-                    path: "driver",
-                },
-                {
-                    path: "event",
-                },
+                { path: "vehicle" },
+                { path: "driver" },
+                { path: "event" },
             ],
+        })
+        .sort({
+            pickupSequence: 1,
+            dropSequence: 1,
         });
 };
+
+/**
+ * Find active Guest Assignment By Guest.
+ * Historical assignments belonging to COMPLETED/CANCELLED
+ * vehicle assignments are intentionally ignored.
+ */
+
+const findActiveByGuest = async (
+    guestId,
+    session = null
+) => {
+    const aggregate = GuestAssignment.aggregate([
+        {
+            $match: {
+                guest: new mongoose.Types.ObjectId(
+                    guestId
+                ),
+                isDeleted: false,
+            },
+        },
+        {
+            $lookup: {
+                from: "vehicleassignments",
+                localField: "vehicleAssignment",
+                foreignField: "_id",
+                as: "vehicleAssignment",
+            },
+        },
+        {
+            $unwind: "$vehicleAssignment",
+        },
+        {
+            $match: {
+                "vehicleAssignment.isDeleted": false,
+                "vehicleAssignment.status": {
+                    $in: ["ASSIGNED", "ON_DUTY"],
+                },
+            },
+        },
+        {
+            $limit: 1,
+        },
+    ]);
+
+    if (session) {
+        aggregate.session(session);
+    }
+
+    const assignments = await aggregate;
+    return assignments[0] || null;
+};
+
 
 /**
  * Find Guest Assignment By Guest
@@ -128,33 +278,51 @@ const findByGuest = async (guestId) => {
     return GuestAssignment.findOne({
         guest: guestId,
         isDeleted: false,
-    }).populate({
-        path: "vehicleAssignment",
-        populate: [
-            {
-                path: "driver",
-            },
-            {
-                path: "vehicle",
-            },
-            {
-                path: "vendor",
-            },
-            {
-                path: "event",
-            },
-        ],
-    });
+    })
+        .populate(guestDetailsPopulate)
+        .populate({
+            path: "vehicleAssignment",
+            populate: [
+                { path: "driver" },
+                { path: "vehicle" },
+                { path: "vendor" },
+                { path: "event" },
+            ],
+        });
 };
 
 /**
- * Find Guest Assignments By Vehicle Assignment
+ * Find Guest Assignments By Vehicle Assignment.
+ *
+ * Populating the guest's location references ensures the duty-sheet
+ * PDF can display actual pickup and drop location names.
  */
-const findByVehicleAssignment = async (vehicleAssignmentId) => {
-    return GuestAssignment.find({
+/**
+ * Find Guest Assignments By Vehicle Assignment.
+ *
+ * Supports an optional MongoDB session so callers can check
+ * guest assignments inside an existing database transaction.
+ * Populating guest locations keeps duty-sheet details available.
+ */
+const findByVehicleAssignment = async (
+    vehicleAssignmentId,
+    session = null
+) => {
+    let query = GuestAssignment.find({
         vehicleAssignment: vehicleAssignmentId,
         isDeleted: false,
-    }).populate("guest");
+    })
+        .populate(guestDetailsPopulate)
+        .sort({
+            pickupSequence: 1,
+            dropSequence: 1,
+        });
+
+    if (session) {
+        query = query.session(session);
+    }
+
+    return query;
 };
 
 /**
@@ -171,20 +339,13 @@ const findByDriver = async (driverId) => {
                 isDeleted: false,
             },
             populate: [
-                {
-                    path: "vehicle",
-                },
-                {
-                    path: "event",
-                },
-                {
-                    path: "vendor",
-                },
+                { path: "vehicle" },
+                { path: "event" },
+                { path: "vendor" },
             ],
         })
-        .populate("guest");
+        .populate(guestDetailsPopulate);
 
-    // Remove records where vehicleAssignment didn't match
     return assignments.filter(
         (assignment) => assignment.vehicleAssignment
     );
@@ -195,9 +356,13 @@ module.exports = {
     findById,
     findAll,
     updateById,
+    updateByIdIfPending,
     softDelete,
+    softDeleteIfPending,
     findByEvent,
     findByVehicleAssignment,
+    findActiveByGuest,
     findByGuest,
     findByDriver,
+    updateByIdIfState,
 };

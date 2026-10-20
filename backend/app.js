@@ -4,18 +4,16 @@ const helmet = require("helmet");
 const compression = require("compression");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
-
+const corsOptions = require("./src/config/cors");
 // Main API Routes
 const routes = require("./src/routes");
-const trackingRoutes =require("./src/routes/tracking.routes");
-const notificationRoutes =require("./src/routes/notification.routes");
-const auditLogRoutes =require("./src/routes/auditLog.routes");
+
+// Additional Routes
+const trackingRoutes = require("./src/routes/tracking.routes");
+const auditLogRoutes = require("./src/routes/auditLog.routes");
+
 // PDF Routes
 const dutyPdfRoutes = require("./src/routes/dutyPdf.routes");
-const guestManifestPdfRoutes = require("./src/routes/guestManifestPdf.routes");
-const clientInvoicePdfRoutes = require("./src/routes/clientInvoicePdf.routes");
-const vendorBillPdfRoutes = require("./src/routes/vendorBillPdf.routes");
-
 
 // Middlewares
 const notFound = require("./src/middleware/notFound.middleware");
@@ -33,7 +31,7 @@ const app = express();
 app.use(helmet());
 
 // Enable CORS
-app.use(cors());
+app.use(cors(corsOptions));
 
 // Compress Responses
 app.use(compression());
@@ -59,38 +57,14 @@ app.use(morgan("dev"));
 // Main API Routes
 app.use("/api/v1", routes);
 
-// PDF Routes
+// Duty PDF Routes
 app.use("/api/v1/duty", dutyPdfRoutes);
 
-app.use(
-    "/api/v1/guest-manifest",
-    guestManifestPdfRoutes
-);
+// Tracking Routes
+app.use("/api/v1/tracking", trackingRoutes);
 
-app.use(
-    "/api/v1/client-invoices",
-    clientInvoicePdfRoutes
-);
-
-app.use(
-    "/api/v1/vendor-bills",
-    vendorBillPdfRoutes
-);
-
-app.use(
-    "/api/v1/tracking",
-    trackingRoutes
-);
-
-app.use(
-    "/api/v1/notifications",
-    notificationRoutes
-);
-
-app.use(
-    "/api/v1/audit-logs",
-    auditLogRoutes
-);
+// Audit Log Routes
+app.use("/api/v1/audit-logs", auditLogRoutes);
 
 /*
 |--------------------------------------------------------------------------

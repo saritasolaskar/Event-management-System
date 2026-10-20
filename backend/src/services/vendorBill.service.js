@@ -1,144 +1,141 @@
-const vendorBillRepository = require("../../repositories/vendorBill.repository");
-const pdfGenerator = require("./pdfGenerator");
+const vendorBillRepository =
+    require("../repositories/vendorBill.repository");
 
-const config = require("../../config/env");
-const AppError = require("../../utils/appError");
+const billingService =
+    require("./billing.service");
 
-/**
- * Generate Vendor Bill PDF
- */
-const generateVendorBillPdf = async (billId) => {
+const AppError =
+    require("../utils/AppError");
 
-    const bill =
-        await vendorBillRepository.findById(
-            billId
+const notificationService =
+    require("./notification.service");
+
+const auditLogService =
+    require("./auditLog.service");
+    
+const createVendorBill = async (
+    dutyId,
+    userId
+) => {
+
+    const existingBill =
+        await vendorBillRepository.findByDuty(
+            dutyId
         );
 
-    if (!bill) {
+    if (existingBill) {
         throw new AppError(
-            "Vendor Bill not found.",
+            "Vendor Bill already exists for this duty.",
+            409
+        );
+    }
+
+    const draft =
+        await billingService.generateDraftBill(
+            dutyId
+        );
+
+    if (!draft.assignment.vendor) {
+        throw new AppError(
+            "Vendor not found for this vehicle assignment.",
             404
         );
     }
 
-    if (!bill.vehicleAssignment) {
-        throw new AppError(
-            "Vehicle Assignment not found for this bill.",
-            404
-        );
-    }
+    try {
 
-    if (!bill.vendor) {
-        throw new AppError(
-            "Vendor not found.",
-            404
-        );
-    }
+        return await vendorBillRepository.create({
 
-    if (!bill.duty) {
-        throw new AppError(
-            "Duty not found.",
-            404
-        );
-    }
+            duty:
+                draft.duty._id,
 
-    const vehicleAssignment =
-        bill.vehicleAssignment;
+            vendor:
+                draft.assignment.vendor,
 
-    const data = {
+            vehicleAssignment:
+                draft.assignment._id,
 
-        company: {
+            packageName:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.name,
 
-            name:
-                config.COMPANY_NAME || "Transit Fleets",
+            packageKm:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.vendorIncludedKm,
 
-            address:
-                config.COMPANY_ADDRESS || "",
-
-            phone:
-                config.COMPANY_PHONE || "",
-
-            email:
-                config.COMPANY_EMAIL || "",
-
-            gst:
-                config.COMPANY_GST || "",
-
-        },
-
-        bill: {
-
-            billNumber:
-                bill.billNumber,
+            packageHours:
+                draft.assignment
+                    .commercialPackageSnapshot
+                    ?.vendorIncludedHours,
 
             billDate:
-                bill.createdAt.toLocaleDateString(),
-
-            vendorRate:
-                bill.vendorRate,
+                new Date(),
 
             totalKm:
-                bill.totalKm,
+                draft.totalKm,
 
             totalHours:
-                bill.totalHours,
+                draft.totalHours,
+
+            vendorRate:
+                draft.vendorBill.vendorRate,
 
             extraKm:
-                bill.extraKm,
+                draft.vendorBill.extraKm,
 
             extraHour:
-                bill.extraHour,
+                draft.vendorBill.extraHour,
 
             parkingCharges:
-                bill.parkingCharges,
+                draft.vendorBill.parkingCharges,
 
             tollCharges:
-                bill.tollCharges,
+                draft.vendorBill.tollCharges,
 
             entryCharges:
-                bill.entryCharges,
+                draft.vendorBill.entryCharges,
 
             daCharges:
-                bill.daCharges,
+                draft.vendorBill.daCharges,
 
             totalAmount:
-                bill.totalAmount,
+                draft.vendorBill.amount,
 
             status:
-                bill.status,
+                draft.status,
 
-            approvedAt:
-                bill.approvedAt,
+            createdBy:
+                userId,
 
-        },
+            updatedBy:
+                userId,
 
-        vendor:
-            bill.vendor,
+        });
 
-        event:
-            bill.duty.event,
+    } catch (error) {
 
-        duty:
-            bill.duty,
+        // The database unique index on duty is the final
+        // protection against concurrent duplicate bills.
+        if (
+            error?.code === 11000 &&
+            (
+                error.keyPattern?.duty ||
+                error.keyValue?.duty
+            )
+        ) {
+            throw new AppError(
+                "Vendor Bill already exists for this duty.",
+                409
+            );
+        }
 
-        vehicle:
-            vehicleAssignment.vehicle,
-
-        driver:
-            vehicleAssignment.driver,
-
-        approvedBy:
-            bill.approvedBy,
-
-    };
-
-    return pdfGenerator.generatePdf(
-        "vendorBill",
-        data
-    );
-
+        throw error;
+    }
 };
 
+
 module.exports = {
-    generateVendorBillPdf,
+    createVendorBill,
 };

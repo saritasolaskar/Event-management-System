@@ -1,6 +1,11 @@
-const { body, param } = require("express-validator");
+const {
+    body,
+    param,
+} = require("express-validator");
 
-const { EVENT_STATUS } = require("../constants/status");
+const {
+    EVENT_STATUS,
+} = require("../constants/status");
 
 /**
  * Create Event Validation
@@ -9,49 +14,72 @@ const createEventValidator = [
     body("eventCode")
         .trim()
         .notEmpty()
-        .withMessage("Event code is required."),
+        .withMessage(
+            "Event code is required."
+        )
+        .isLength({ max: 50 })
+        .withMessage(
+            "Event code cannot exceed 50 characters."
+        ),
 
     body("name")
         .trim()
         .notEmpty()
-        .withMessage("Event name is required.")
+        .withMessage(
+            "Event name is required."
+        )
         .isLength({ max: 150 })
-        .withMessage("Event name cannot exceed 150 characters."),
+        .withMessage(
+            "Event name cannot exceed 150 characters."
+        ),
 
     body("client")
         .notEmpty()
-        .withMessage("Client is required.")
+        .withMessage(
+            "Client is required."
+        )
         .isMongoId()
-        .withMessage("Invalid client ID."),
+        .withMessage(
+            "Invalid client ID."
+        ),
 
     body("venue")
         .notEmpty()
-        .withMessage("Venue is required.")
+        .withMessage(
+            "Venue is required."
+        )
         .isMongoId()
-        .withMessage("Invalid venue ID."),
+        .withMessage(
+            "Invalid venue ID."
+        ),
 
     body("startDate")
         .notEmpty()
-        .withMessage("Start date is required.")
+        .withMessage(
+            "Start date is required."
+        )
         .isISO8601()
-        .withMessage("Invalid start date."),
+        .withMessage(
+            "Invalid start date."
+        ),
 
     body("endDate")
         .notEmpty()
-        .withMessage("End date is required.")
+        .withMessage(
+            "End date is required."
+        )
         .isISO8601()
-        .withMessage("Invalid end date."),
+        .withMessage(
+            "Invalid end date."
+        ),
 
     body("description")
         .optional()
         .trim()
         .isLength({ max: 500 })
-        .withMessage("Description cannot exceed 500 characters."),
-
-    body("status")
-        .optional()
-        .isIn(Object.values(EVENT_STATUS))
-        .withMessage("Invalid event status."),
+        .withMessage(
+            "Description cannot exceed 500 characters."
+        ),
 ];
 
 /**
@@ -60,48 +88,91 @@ const createEventValidator = [
 const updateEventValidator = [
     param("id")
         .isMongoId()
-        .withMessage("Invalid event ID."),
+        .withMessage(
+            "Invalid event ID."
+        ),
 
     body("eventCode")
         .optional()
-        .trim(),
+        .trim()
+        .isLength({ max: 50 })
+        .withMessage(
+            "Event code cannot exceed 50 characters."
+        ),
 
     body("name")
         .optional()
         .trim()
         .isLength({ max: 150 })
-        .withMessage("Event name cannot exceed 150 characters."),
+        .withMessage(
+            "Event name cannot exceed 150 characters."
+        ),
 
     body("client")
         .optional()
         .isMongoId()
-        .withMessage("Invalid client ID."),
+        .withMessage(
+            "Invalid client ID."
+        ),
 
     body("venue")
         .optional()
         .isMongoId()
-        .withMessage("Invalid venue ID."),
+        .withMessage(
+            "Invalid venue ID."
+        ),
 
     body("startDate")
         .optional()
         .isISO8601()
-        .withMessage("Invalid start date."),
+        .withMessage(
+            "Invalid start date."
+        ),
 
     body("endDate")
         .optional()
         .isISO8601()
-        .withMessage("Invalid end date."),
+        .withMessage(
+            "Invalid end date."
+        ),
 
     body("description")
         .optional()
         .trim()
         .isLength({ max: 500 })
-        .withMessage("Description cannot exceed 500 characters."),
+        .withMessage(
+            "Description cannot exceed 500 characters."
+        ),
 
     body("status")
-        .optional()
-        .isIn(Object.values(EVENT_STATUS))
-        .withMessage("Invalid event status."),
+        .not()
+        .exists()
+        .withMessage(
+            "Use the event status endpoint to change event status."
+        ),
+];
+
+/**
+ * Event Status Validation
+ */
+const eventStatusValidator = [
+    param("id")
+        .isMongoId()
+        .withMessage(
+            "Invalid event ID."
+        ),
+
+    body("status")
+        .notEmpty()
+        .withMessage(
+            "Event status is required."
+        )
+        .isIn(
+            Object.values(EVENT_STATUS)
+        )
+        .withMessage(
+            "Invalid event status."
+        ),
 ];
 
 /**
@@ -110,11 +181,14 @@ const updateEventValidator = [
 const eventIdValidator = [
     param("id")
         .isMongoId()
-        .withMessage("Invalid event ID."),
+        .withMessage(
+            "Invalid event ID."
+        ),
 ];
 
 module.exports = {
     createEventValidator,
     updateEventValidator,
+    eventStatusValidator,
     eventIdValidator,
 };

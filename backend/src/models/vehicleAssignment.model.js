@@ -22,6 +22,70 @@ const vehicleAssignmentSchema = new mongoose.Schema(
             required: true,
         },
 
+        commercialPackage: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "CommercialPackage",
+            required: true,
+        },
+
+        commercialPackageSnapshot: {
+            name: {
+                type: String,
+                trim: true,
+                maxlength: 150,
+            },
+
+            vendorBaseRate: {
+                type: Number,
+                min: 0,
+            },
+
+            vendorIncludedKm: {
+                type: Number,
+                min: 0,
+            },
+
+            vendorExtraKmRate: {
+                type: Number,
+                min: 0,
+            },
+
+            vendorIncludedHours: {
+                type: Number,
+                min: 0,
+            },
+
+            vendorExtraHourRate: {
+                type: Number,
+                min: 0,
+            },
+
+            clientBaseRate: {
+                type: Number,
+                min: 0,
+            },
+
+            clientIncludedKm: {
+                type: Number,
+                min: 0,
+            },
+
+            clientExtraKmRate: {
+                type: Number,
+                min: 0,
+            },
+
+            clientIncludedHours: {
+                type: Number,
+                min: 0,
+            },
+
+            clientExtraHourRate: {
+                type: Number,
+                min: 0,
+            },
+        },
+
         vehicle: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Vehicle",
@@ -118,9 +182,41 @@ const vehicleAssignmentSchema = new mongoose.Schema(
 
 vehicleAssignmentSchema.index({ event: 1 });
 vehicleAssignmentSchema.index({ vendor: 1 });
-vehicleAssignmentSchema.index({ driver: 1 });
-vehicleAssignmentSchema.index({ vehicle: 1 });
+
 vehicleAssignmentSchema.index({ status: 1 });
+
+vehicleAssignmentSchema.index(
+    { driver: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            isDeleted: false,
+            status: {
+                $in: [
+                    "ASSIGNED",
+                    "ON_DUTY",
+                ],
+            },
+        },
+    }
+);
+
+vehicleAssignmentSchema.index(
+    { vehicle: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            isDeleted: false,
+            status: {
+                $in: [
+                    "ASSIGNED",
+                    "ON_DUTY",
+                ],
+            },
+        },
+    }
+);
+
 
 module.exports = mongoose.model(
     "VehicleAssignment",

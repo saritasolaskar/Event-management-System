@@ -1,11 +1,13 @@
-const clientInvoicePdfService =  require("../services/pdf/clientInvoicePdf.service");
+const clientInvoicePdfService =
+    require("../services/Pdf/clientInvoicePdf.service");
  
 const clientInvoiceService = require("../services/clientInvoice.service");
 
 const asyncHandler = require("../utils/asyncHandler");
 
 const { successResponse,} = require("../utils/response.utils");
-
+const clientInvoiceRepository =
+    require("../repositories/clientInvoice.repository");
 const createClientInvoice =
     asyncHandler(async (req, res) => {
 
@@ -35,28 +37,37 @@ const createClientInvoice =
 
 
 const downloadInvoicePdf =
-asyncHandler(async(req,res)=>{
+    asyncHandler(async (req, res) => {
 
-    const pdf =
-    await clientInvoicePdfService.generateInvoicePdf(
-        req.params.id
+        const pdf =
+    await clientInvoicePdfService.generateClientInvoicePdf(
+        req.params.invoiceId,
+        req.user
     );
 
-    res.set({
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition":
+                `attachment; filename=invoice-${req.params.invoiceId}.pdf`,
+        });
 
-        "Content-Type":"application/pdf",
-
-        "Content-Disposition":
-
-        `attachment; filename=invoice-${req.params.id}.pdf`
-
+        return res.send(pdf);
     });
 
-    return res.send(pdf);
 
+    const getClientInvoices = asyncHandler(async (req, res) => {
+    const invoices = await clientInvoiceRepository.findAll();
+
+    return successResponse(
+        res,
+        200,
+        "Client invoices fetched successfully.",
+        invoices
+    );
 });
 
 module.exports = {
     createClientInvoice,
     downloadInvoicePdf,
+    getClientInvoices,
 };

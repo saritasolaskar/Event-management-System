@@ -2,17 +2,17 @@ module.exports = {
 
     name: "Transit Fleets",
 
-    address: "Your Complete Company Address",
+    address: "",
 
-    phone: "+91-XXXXXXXXXX",
+    phone: "",
 
     email: "info@transitfleets.com",
 
     website: "https://www.transitfleets.com",
 
-    gst: "YOUR GST NUMBER",
+    gst: "",
 
-    pan: "YOUR PAN NUMBER",
+    pan: "",
 
     cin: "",
 

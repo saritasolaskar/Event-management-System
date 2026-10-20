@@ -1,95 +1,121 @@
-const Duty = require("../models/duty.model");
-const VehicleAssignment = require("../models/vehicleAssignment.model");
 
-const {
-    VEHICLE_ASSIGNMENT_STATUS,
-} = require("../constants/status");
+const mongoose = require("mongoose");
 
-/**
- * Create Duty
- */
-const create = async (data) => {
-    return Duty.create(data);
-};
+const dutySchema = new mongoose.Schema(
+    {
+        vehicleAssignment: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "VehicleAssignment",
+            required: true,
+        },
 
-/**
- * Get Duty By ID
- */
-const findById = async (id) => {
-    return Duty.findOne({
-        _id: id,
-        isDeleted: false,
-    }).populate({
-        path: "vehicleAssignment",
-        populate: [
-            {
-                path: "event",
-                populate: [
-                    {
-                        path: "client",
-                    },
-                    {
-                        path: "venue",
-                    },
-                ],
-            },
-            {
-                path: "driver",
-            },
-            {
-                path: "vehicle",
-            },
-            {
-                path: "vendor",
-            },
-        ],
-    });
-};
+        startKm: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
 
-/**
- * Find Duty By Vehicle Assignment
- */
-const findByVehicleAssignment = async (assignmentId) => {
-    return Duty.findOne({
-        vehicleAssignment: assignmentId,
-        isDeleted: false,
-    });
-};
+        startOdometerPhoto: {
+            type: String,
+            trim: true,
+            default: null,
+        },
 
-/**
- * Update Duty
- */
-const updateById = async (id, data) => {
-    return Duty.findByIdAndUpdate(id, data, {
-        new: true,
-        runValidators: true,
-    });
-};
+        endKm: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
 
-/**
- * Find Active Duty By Driver
- */
-const findActiveDutyByDriver = async (driverId) => {
-    const assignment = await VehicleAssignment.findOne({
-        driver: driverId,
-        status: VEHICLE_ASSIGNMENT_STATUS.ON_DUTY,
-        isDeleted: false,
-    });
+        totalKm: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
 
-    if (!assignment) {
-        return null;
+        dutyStartTime: {
+            type: Date,
+        },
+
+        dutyEndTime: {
+            type: Date,
+        },
+
+        status: {
+            type: String,
+            enum: [
+                "STARTED",
+                "COMPLETED",
+                "CANCELLED",
+            ],
+            default: "STARTED",
+        },
+
+        DA: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+
+        toll: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+
+        parking: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+
+        entry: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+
+        remarks: {
+            type: String,
+            trim: true,
+            maxlength: 500,
+        },
+
+        createdBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
+
+        updatedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
+
+        isDeleted: {
+            type: Boolean,
+            default: false,
+        },
+    },
+    {
+        timestamps: true,
     }
+);
 
-    return Duty.findOne({
-        vehicleAssignment: assignment._id,
-        isDeleted: false,
-    });
-};
+dutySchema.index(
+    { vehicleAssignment: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            isDeleted: false,
+        },
+    }
+);
 
-module.exports = {
-    create,
-    findById,
-    findByVehicleAssignment,
-    updateById,
-    findActiveDutyByDriver,
-};
+dutySchema.index({
+    status: 1,
+});
+
+module.exports = mongoose.model(
+    "Duty",
+    dutySchema
+);
