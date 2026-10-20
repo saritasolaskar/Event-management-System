@@ -37,8 +37,18 @@ function Login() {
     try {
       const result = await login(form);
 
-      const requestedPath = location.state?.from?.pathname;
+      const from = location.state?.from;
 
+      // Support both the legacy string format and the
+      // location-object format used by the route guards.
+      const requestedPath =
+        typeof from === "string"
+          ? from
+          : from?.pathname
+            ? `${from.pathname}${from.search || ""}${from.hash || ""}`
+            : null;
+
+      // Avoid redirecting straight back to the login page.
       if (requestedPath && requestedPath !== "/login") {
         navigate(requestedPath, { replace: true });
         return;

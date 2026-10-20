@@ -4,11 +4,7 @@ import { useContext } from "react";
 import AuthContext from "./AuthContext";
 
 const ProtectedRoute = () => {
-  const {
-    isAuthenticated,
-    isLoading
-  } = useContext(AuthContext);
-
+  const { isAuthenticated, isLoading } = useContext(AuthContext);
   const location = useLocation();
 
   if (isLoading) {
@@ -21,7 +17,11 @@ const ProtectedRoute = () => {
         to="/login"
         replace
         state={{
-          from: location.pathname
+          from: {
+            pathname: location.pathname,
+            search: location.search,
+            hash: location.hash,
+          },
         }}
       />
     );

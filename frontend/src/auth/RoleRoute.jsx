@@ -1,20 +1,19 @@
 import {
   Navigate,
   Outlet,
-  useLocation
+  useLocation,
 } from "react-router-dom";
 
 import { useContext } from "react";
 
 import AuthContext from "./AuthContext";
-
 import { hasAnyRole } from "../utils/roles";
 
 const RoleRoute = ({ allowedRoles = [] }) => {
   const {
     user,
     isAuthenticated,
-    isLoading
+    isLoading,
   } = useContext(AuthContext);
 
   const location = useLocation();
@@ -29,7 +28,11 @@ const RoleRoute = ({ allowedRoles = [] }) => {
         to="/login"
         replace
         state={{
-          from: location.pathname
+          from: {
+            pathname: location.pathname,
+            search: location.search,
+            hash: location.hash,
+          },
         }}
       />
     );
