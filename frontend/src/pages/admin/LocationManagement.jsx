@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -51,11 +52,16 @@ function LocationManagement() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const canManage =
-    user?.role === ROLES.ADMIN ||
-    user?.role === ROLES.OPERATIONS_MANAGER;
+  const canManage = [
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+    ROLES.OPERATIONS_MANAGER,
+  ].includes(user?.role);
 
-  const canDelete = user?.role === ROLES.ADMIN;
+  const canDelete = [
+    ROLES.SUPER_ADMIN,
+    ROLES.ADMIN,
+  ].includes(user?.role);
 
   const loadLocations = async () => {
     try {
@@ -63,7 +69,6 @@ function LocationManagement() {
       setError("");
 
       const response = await getLocations();
-
       const data = response?.data ?? response ?? [];
 
       setLocations(Array.isArray(data) ? data : []);
@@ -87,21 +92,11 @@ function LocationManagement() {
     return locations.filter((location) => {
       const matchesSearch =
         !query ||
-        location.locationCode
-          ?.toLowerCase()
-          .includes(query) ||
-        location.name
-          ?.toLowerCase()
-          .includes(query) ||
-        location.city
-          ?.toLowerCase()
-          .includes(query) ||
-        location.state
-          ?.toLowerCase()
-          .includes(query) ||
-        location.address
-          ?.toLowerCase()
-          .includes(query);
+        location.locationCode?.toLowerCase().includes(query) ||
+        location.name?.toLowerCase().includes(query) ||
+        location.city?.toLowerCase().includes(query) ||
+        location.state?.toLowerCase().includes(query) ||
+        location.address?.toLowerCase().includes(query);
 
       const matchesStatus =
         statusFilter === "ALL" ||
@@ -130,13 +125,17 @@ function LocationManagement() {
   }, [locations]);
 
   const openCreate = () => {
-    setForm(EMPTY_FORM);
+    if (!canManage) return;
+
+    setForm({ ...EMPTY_FORM });
     setSelectedLocation(null);
     setError("");
     setModal("form");
   };
 
   const openEdit = (location) => {
+    if (!canManage) return;
+
     setSelectedLocation(location);
 
     setForm({
@@ -174,7 +173,7 @@ function LocationManagement() {
 
     setModal(null);
     setSelectedLocation(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM });
   };
 
   const handleChange = (event) => {
@@ -254,6 +253,11 @@ function LocationManagement() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    if (!canManage) {
+      setError("You do not have permission to manage locations.");
+      return;
+    }
+
     const validationError = validateForm();
 
     if (validationError) {
@@ -269,27 +273,18 @@ function LocationManagement() {
       const payload = buildPayload();
 
       if (selectedLocation) {
-        await updateLocation(
-          selectedLocation._id,
-          payload
-        );
-
-        setSuccess(
-          "Location updated successfully."
-        );
+        await updateLocation(selectedLocation._id, payload);
+        setSuccess("Location updated successfully.");
       } else {
         await createLocation(payload);
-
-        setSuccess(
-          "Location created successfully."
-        );
+        setSuccess("Location created successfully.");
       }
 
       await loadLocations();
 
       setModal(null);
       setSelectedLocation(null);
-      setForm(EMPTY_FORM);
+      setForm({ ...EMPTY_FORM });
     } catch (err) {
       setError(
         err?.response?.data?.message ||
@@ -300,25 +295,17 @@ function LocationManagement() {
     }
   };
 
-  const handleStatusChange = async (
-    location,
-    newStatus
-  ) => {
+  const handleStatusChange = async (location, newStatus) => {
+    if (!canManage) return;
     if (location.status === newStatus) return;
 
     try {
       setError("");
       setSuccess("");
 
-      await updateLocationStatus(
-        location._id,
-        newStatus
-      );
+      await updateLocationStatus(location._id, newStatus);
 
-      setSuccess(
-        `Location status changed to ${newStatus}.`
-      );
-
+      setSuccess(`Location status changed to ${newStatus}.`);
       await loadLocations();
     } catch (err) {
       setError(
@@ -329,6 +316,8 @@ function LocationManagement() {
   };
 
   const handleDelete = async (location) => {
+    if (!canDelete) return;
+
     const confirmed = window.confirm(
       `Delete location "${location.name}"?\n\nThis action can fail if the location is currently being used by an event or guest.`
     );
@@ -341,10 +330,7 @@ function LocationManagement() {
 
       await deleteLocation(location._id);
 
-      setSuccess(
-        "Location deleted successfully."
-      );
-
+      setSuccess("Location deleted successfully.");
       await loadLocations();
     } catch (err) {
       setError(
@@ -433,25 +419,18 @@ function LocationManagement() {
               type="text"
               placeholder="Search by code, name, city or state..."
               value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
-              }
+              onChange={(event) => setSearch(event.target.value)}
             />
           </div>
 
           <select
             value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value)
-            }
+            onChange={(event) => setStatusFilter(event.target.value)}
           >
             <option value="ALL">All Statuses</option>
 
             {STATUS_OPTIONS.map((status) => (
-              <option
-                key={status}
-                value={status}
-              >
+              <option key={status} value={status}>
                 {status}
               </option>
             ))}
@@ -467,8 +446,7 @@ function LocationManagement() {
             <div className="location-empty">
               <strong>No locations found</strong>
               <span>
-                Try changing your search or add a new
-                location.
+                Try changing your search or add a new location.
               </span>
             </div>
           ) : (
@@ -486,135 +464,110 @@ function LocationManagement() {
               </thead>
 
               <tbody>
-                {filteredLocations.map(
-                  (location) => (
-                    <tr key={location._id}>
-                      <td>
-                        <span className="location-code">
-                          {location.locationCode}
+                {filteredLocations.map((location) => (
+                  <tr key={location._id}>
+                    <td>
+                      <span className="location-code">
+                        {location.locationCode}
+                      </span>
+                    </td>
+
+                    <td>
+                      <div className="location-name">
+                        {location.name}
+                      </div>
+
+                      {location.landmark && (
+                        <small>{location.landmark}</small>
+                      )}
+                    </td>
+
+                    <td>{location.city}</td>
+                    <td>{location.state}</td>
+
+                    <td>
+                      <span
+                        className={`location-status location-status--${String(
+                          location.status || ""
+                        ).toLowerCase()}`}
+                      >
+                        {location.status}
+                      </span>
+                    </td>
+
+                    <td>
+                      {location.latitude !== undefined &&
+                      location.latitude !== null &&
+                      location.longitude !== undefined &&
+                      location.longitude !== null ? (
+                        <span className="location-coordinates">
+                          {Number(location.latitude).toFixed(4)},{" "}
+                          {Number(location.longitude).toFixed(4)}
                         </span>
-                      </td>
+                      ) : (
+                        <span className="location-muted">
+                          Not provided
+                        </span>
+                      )}
+                    </td>
 
-                      <td>
-                        <div className="location-name">
-                          {location.name}
-                        </div>
-
-                        {location.landmark && (
-                          <small>
-                            {location.landmark}
-                          </small>
-                        )}
-                      </td>
-
-                      <td>{location.city}</td>
-
-                      <td>{location.state}</td>
-
-                      <td>
-                        <span
-                          className={`location-status location-status--${String(
-                            location.status || ""
-                          ).toLowerCase()}`}
+                    <td>
+                      <div className="location-actions">
+                        <button
+                          type="button"
+                          onClick={() => openView(location)}
                         >
-                          {location.status}
-                        </span>
-                      </td>
+                          View
+                        </button>
 
-                      <td>
-                        {location.latitude !==
-                          undefined &&
-                        location.latitude !== null &&
-                        location.longitude !==
-                          undefined &&
-                        location.longitude !==
-                          null ? (
-                          <span className="location-coordinates">
-                            {Number(
-                              location.latitude
-                            ).toFixed(4)}
-                            ,{" "}
-                            {Number(
-                              location.longitude
-                            ).toFixed(4)}
-                          </span>
-                        ) : (
-                          <span className="location-muted">
-                            Not provided
-                          </span>
-                        )}
-                      </td>
-
-                      <td>
-                        <div className="location-actions">
+                        {canManage && (
                           <button
                             type="button"
-                            onClick={() =>
-                              openView(location)
+                            onClick={() => openEdit(location)}
+                          >
+                            Edit
+                          </button>
+                        )}
+
+                        {canManage && (
+                          <select
+                            aria-label={`Change status for ${location.name}`}
+                            value={location.status || ""}
+                            onChange={(event) =>
+                              handleStatusChange(
+                                location,
+                                event.target.value
+                              )
                             }
                           >
-                            View
+                            {STATUS_OPTIONS.map((status) => (
+                              <option key={status} value={status}>
+                                {status}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+
+                        {canDelete && (
+                          <button
+                            type="button"
+                            className="location-action-delete"
+                            onClick={() => handleDelete(location)}
+                          >
+                            Delete
                           </button>
-
-                          {canManage && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openEdit(location)
-                              }
-                            >
-                              Edit
-                            </button>
-                          )}
-
-                          {canManage && (
-                            <select
-                              value={
-                                location.status || ""
-                              }
-                              onChange={(event) =>
-                                handleStatusChange(
-                                  location,
-                                  event.target.value
-                                )
-                              }
-                            >
-                              {STATUS_OPTIONS.map(
-                                (status) => (
-                                  <option
-                                    key={status}
-                                    value={status}
-                                  >
-                                    {status}
-                                  </option>
-                                )
-                              )}
-                            </select>
-                          )}
-
-                          {canDelete && (
-                            <button
-                              type="button"
-                              className="location-action-delete"
-                              onClick={() =>
-                                handleDelete(location)
-                              }
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                )}
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}
         </div>
       </section>
 
-      {modal === "form" && (
+      {modal === "form" && canManage && (
         <div className="location-modal-backdrop">
           <div className="location-modal">
             <div className="location-modal__header">
@@ -624,9 +577,7 @@ function LocationManagement() {
                 </p>
 
                 <h2>
-                  {selectedLocation
-                    ? "Edit Location"
-                    : "Add Location"}
+                  {selectedLocation ? "Edit Location" : "Add Location"}
                 </h2>
               </div>
 
@@ -634,15 +585,13 @@ function LocationManagement() {
                 type="button"
                 className="location-modal__close"
                 onClick={closeModal}
+                disabled={saving}
               >
                 ×
               </button>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="location-form"
-            >
+            <form onSubmit={handleSubmit} className="location-form">
               {error && (
                 <div className="location-form-error">
                   {error}
@@ -651,11 +600,9 @@ function LocationManagement() {
 
               <div className="location-form-grid">
                 <div className="location-field">
-                  <label>
-                    Location Code *
-                  </label>
-
+                  <label htmlFor="locationCode">Location Code *</label>
                   <input
+                    id="locationCode"
                     name="locationCode"
                     value={form.locationCode}
                     onChange={handleChange}
@@ -665,11 +612,9 @@ function LocationManagement() {
                 </div>
 
                 <div className="location-field">
-                  <label>
-                    Location Name *
-                  </label>
-
+                  <label htmlFor="locationName">Location Name *</label>
                   <input
+                    id="locationName"
                     name="name"
                     value={form.name}
                     onChange={handleChange}
@@ -679,9 +624,9 @@ function LocationManagement() {
                 </div>
 
                 <div className="location-field location-field--full">
-                  <label>Address *</label>
-
+                  <label htmlFor="locationAddress">Address *</label>
                   <textarea
+                    id="locationAddress"
                     name="address"
                     value={form.address}
                     onChange={handleChange}
@@ -692,9 +637,9 @@ function LocationManagement() {
                 </div>
 
                 <div className="location-field">
-                  <label>City *</label>
-
+                  <label htmlFor="locationCity">City *</label>
                   <input
+                    id="locationCity"
                     name="city"
                     value={form.city}
                     onChange={handleChange}
@@ -704,9 +649,9 @@ function LocationManagement() {
                 </div>
 
                 <div className="location-field">
-                  <label>State *</label>
-
+                  <label htmlFor="locationState">State *</label>
                   <input
+                    id="locationState"
                     name="state"
                     value={form.state}
                     onChange={handleChange}
@@ -716,9 +661,9 @@ function LocationManagement() {
                 </div>
 
                 <div className="location-field">
-                  <label>Country</label>
-
+                  <label htmlFor="locationCountry">Country</label>
                   <input
+                    id="locationCountry"
                     name="country"
                     value={form.country}
                     onChange={handleChange}
@@ -727,9 +672,9 @@ function LocationManagement() {
                 </div>
 
                 <div className="location-field">
-                  <label>Pincode</label>
-
+                  <label htmlFor="locationPincode">Pincode</label>
                   <input
+                    id="locationPincode"
                     name="pincode"
                     value={form.pincode}
                     onChange={handleChange}
@@ -738,9 +683,9 @@ function LocationManagement() {
                 </div>
 
                 <div className="location-field">
-                  <label>Latitude</label>
-
+                  <label htmlFor="locationLatitude">Latitude</label>
                   <input
+                    id="locationLatitude"
                     type="number"
                     step="any"
                     name="latitude"
@@ -751,9 +696,9 @@ function LocationManagement() {
                 </div>
 
                 <div className="location-field">
-                  <label>Longitude</label>
-
+                  <label htmlFor="locationLongitude">Longitude</label>
                   <input
+                    id="locationLongitude"
                     type="number"
                     step="any"
                     name="longitude"
@@ -764,9 +709,9 @@ function LocationManagement() {
                 </div>
 
                 <div className="location-field location-field--full">
-                  <label>Landmark</label>
-
+                  <label htmlFor="locationLandmark">Landmark</label>
                   <input
+                    id="locationLandmark"
                     name="landmark"
                     value={form.landmark}
                     onChange={handleChange}
@@ -811,9 +756,7 @@ function LocationManagement() {
                   LOCATION DETAILS
                 </p>
 
-                <h2>
-                  {selectedLocation.name}
-                </h2>
+                <h2>{selectedLocation.name}</h2>
               </div>
 
               <button
@@ -828,76 +771,59 @@ function LocationManagement() {
             <div className="location-details">
               <div className="location-detail">
                 <span>Location Code</span>
-                <strong>
-                  {selectedLocation.locationCode}
-                </strong>
+                <strong>{selectedLocation.locationCode}</strong>
               </div>
 
               <div className="location-detail">
                 <span>Status</span>
-                <strong>
-                  {selectedLocation.status}
-                </strong>
+                <strong>{selectedLocation.status}</strong>
               </div>
 
               <div className="location-detail location-detail--full">
                 <span>Address</span>
-                <strong>
-                  {selectedLocation.address}
-                </strong>
+                <strong>{selectedLocation.address}</strong>
               </div>
 
               <div className="location-detail">
                 <span>City</span>
-                <strong>
-                  {selectedLocation.city}
-                </strong>
+                <strong>{selectedLocation.city}</strong>
               </div>
 
               <div className="location-detail">
                 <span>State</span>
-                <strong>
-                  {selectedLocation.state}
-                </strong>
+                <strong>{selectedLocation.state}</strong>
               </div>
 
               <div className="location-detail">
                 <span>Country</span>
-                <strong>
-                  {selectedLocation.country ||
-                    "India"}
-                </strong>
+                <strong>{selectedLocation.country || "India"}</strong>
               </div>
 
               <div className="location-detail">
                 <span>Pincode</span>
                 <strong>
-                  {selectedLocation.pincode ||
-                    "Not provided"}
+                  {selectedLocation.pincode || "Not provided"}
                 </strong>
               </div>
 
               <div className="location-detail">
                 <span>Landmark</span>
                 <strong>
-                  {selectedLocation.landmark ||
-                    "Not provided"}
+                  {selectedLocation.landmark || "Not provided"}
                 </strong>
               </div>
 
               <div className="location-detail">
                 <span>Latitude</span>
                 <strong>
-                  {selectedLocation.latitude ??
-                    "Not provided"}
+                  {selectedLocation.latitude ?? "Not provided"}
                 </strong>
               </div>
 
               <div className="location-detail">
                 <span>Longitude</span>
                 <strong>
-                  {selectedLocation.longitude ??
-                    "Not provided"}
+                  {selectedLocation.longitude ?? "Not provided"}
                 </strong>
               </div>
             </div>
@@ -915,9 +841,7 @@ function LocationManagement() {
                 <button
                   type="button"
                   className="location-btn location-btn--primary"
-                  onClick={() =>
-                    openEdit(selectedLocation)
-                  }
+                  onClick={() => openEdit(selectedLocation)}
                 >
                   Edit Location
                 </button>

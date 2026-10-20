@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 
 import {
   getVehiclesByEvent,
@@ -120,6 +121,13 @@ function getErrorMessage(error) {
 function EventVehicleManagement() {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const canManage = [
+    "SUPER_ADMIN",
+    "ADMIN",
+    "OPERATIONS_MANAGER",
+  ].includes(user?.role);
 
   const [event, setEvent] = useState(null);
   const [vehicles, setVehicles] = useState([]);
@@ -258,18 +266,10 @@ function EventVehicleManagement() {
 
     return vehicles.filter(
       (vehicle) =>
-        vehicle.vehicleNumber
-          ?.toLowerCase()
-          .includes(query) ||
-        vehicle.vehicleType
-          ?.toLowerCase()
-          .includes(query) ||
-        getVendorName(vehicle)
-          .toLowerCase()
-          .includes(query) ||
-        getDriverName(vehicle)
-          .toLowerCase()
-          .includes(query)
+        vehicle.vehicleNumber?.toLowerCase().includes(query) ||
+        vehicle.vehicleType?.toLowerCase().includes(query) ||
+        getVendorName(vehicle).toLowerCase().includes(query) ||
+        getDriverName(vehicle).toLowerCase().includes(query)
     );
   }, [vehicles, search]);
 
@@ -310,6 +310,11 @@ function EventVehicleManagement() {
 
   const handleCreateVehicle = async (event) => {
     event.preventDefault();
+
+    if (!canManage) {
+      setError("You do not have permission to add vehicles.");
+      return;
+    }
 
     setError("");
     setSuccess("");
@@ -389,9 +394,7 @@ function EventVehicleManagement() {
 
       await createVehicle(payload);
 
-      setSuccess(
-        "Vehicle added to this event successfully."
-      );
+      setSuccess("Vehicle added to this event successfully.");
 
       setShowForm(false);
       resetForm();
@@ -406,6 +409,11 @@ function EventVehicleManagement() {
 
   const handleExcelImport = async (event) => {
     event.preventDefault();
+
+    if (!canManage) {
+      setError("You do not have permission to import vehicles.");
+      return;
+    }
 
     setError("");
     setSuccess("");
@@ -524,38 +532,40 @@ function EventVehicleManagement() {
           </p>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: "10px",
-            flexWrap: "wrap",
-          }}
-        >
-          <button
-            type="button"
-            className="vehicle-btn vehicle-btn--secondary"
-            onClick={() => {
-              setError("");
-              setSuccess("");
-              setShowImport(true);
+        {canManage && (
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              flexWrap: "wrap",
             }}
           >
-            Import Excel
-          </button>
+            <button
+              type="button"
+              className="vehicle-btn vehicle-btn--secondary"
+              onClick={() => {
+                setError("");
+                setSuccess("");
+                setShowImport(true);
+              }}
+            >
+              Import Excel
+            </button>
 
-          <button
-            type="button"
-            className="vehicle-btn vehicle-btn--primary"
-            onClick={() => {
-              resetForm();
-              setError("");
-              setSuccess("");
-              setShowForm(true);
-            }}
-          >
-            + Add Vehicle
-          </button>
-        </div>
+            <button
+              type="button"
+              className="vehicle-btn vehicle-btn--primary"
+              onClick={() => {
+                resetForm();
+                setError("");
+                setSuccess("");
+                setShowForm(true);
+              }}
+            >
+              + Add Vehicle
+            </button>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -765,11 +775,8 @@ function EventVehicleManagement() {
                     </td>
 
                     <td>{vehicle.vehicleType}</td>
-
                     <td>{vehicle.seatingCapacity || "-"}</td>
-
                     <td>{getVendorName(vehicle)}</td>
-
                     <td>{getDriverName(vehicle)}</td>
 
                     <td>
@@ -791,7 +798,7 @@ function EventVehicleManagement() {
         )}
       </div>
 
-      {showForm && (
+      {showForm && canManage && (
         <div className="vehicle-modal-backdrop">
           <div className="vehicle-modal">
             <div className="vehicle-modal__header">
@@ -868,10 +875,7 @@ function EventVehicleManagement() {
                     <option value="">Select Vendor</option>
 
                     {vendors.map((vendor) => (
-                      <option
-                        key={vendor._id}
-                        value={vendor._id}
-                      >
+                      <option key={vendor._id} value={vendor._id}>
                         {vendor.companyName}
                       </option>
                     ))}
@@ -889,10 +893,7 @@ function EventVehicleManagement() {
                     <option value="">No driver</option>
 
                     {filteredDrivers.map((driver) => (
-                      <option
-                        key={driver._id}
-                        value={driver._id}
-                      >
+                      <option key={driver._id} value={driver._id}>
                         {[
                           driver.firstName,
                           driver.lastName,
@@ -981,7 +982,7 @@ function EventVehicleManagement() {
         </div>
       )}
 
-      {showImport && (
+      {showImport && canManage && (
         <div className="vehicle-modal-backdrop">
           <div className="vehicle-modal">
             <div className="vehicle-modal__header">
@@ -989,8 +990,7 @@ function EventVehicleManagement() {
                 <h2>Import Event Vehicles</h2>
 
                 <p>
-                  Upload the vehicle list received from
-                  the vendor.
+                  Upload the vehicle list received from the vendor.
                 </p>
               </div>
 
@@ -1062,8 +1062,7 @@ function EventVehicleManagement() {
                     color: "#374151",
                   }}
                 >
-                  Selected:{" "}
-                  <strong>{selectedFile.name}</strong>
+                  Selected: <strong>{selectedFile.name}</strong>
                 </p>
               )}
 
@@ -1085,9 +1084,7 @@ function EventVehicleManagement() {
                   className="vehicle-btn vehicle-btn--primary"
                   disabled={importing || !selectedFile}
                 >
-                  {importing
-                    ? "Importing..."
-                    : "Import Vehicles"}
+                  {importing ? "Importing..." : "Import Vehicles"}
                 </button>
               </div>
             </form>
