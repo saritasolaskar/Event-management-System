@@ -7,11 +7,18 @@ const vendorRepository = require("../repositories/vendor.repository");
 const vehicleAssignmentRepository = require("../repositories/vehicleAssignment.repository");
 const eventRepository = require("../repositories/event.repository");
 const AppError = require("../utils/AppError");
-const { STATUS, VEHICLE_STATUS, EVENT_STATUS } = require("../constants/status");
+const {
+  STATUS,
+  VEHICLE_STATUS,
+  EVENT_STATUS,
+} = require("../constants/status");
 const { createLog } = require("./auditLog.service");
 
 const normalizeVehicleNumber = (value) =>
-  String(value ?? "").trim().replace(/\s+/g, "").toUpperCase();
+  String(value ?? "")
+    .trim()
+    .replace(/\s+/g, "")
+    .toUpperCase();
 
 const getId = (value) => {
   if (!value) return null;
@@ -24,6 +31,7 @@ const assertFound = (document, message) => {
   if (!document || document.isDeleted === true) {
     throw new AppError(message, 404);
   }
+
   return document;
 };
 
@@ -54,7 +62,10 @@ const validateVendor = async (vendorId) => {
 
 const validateEvent = async (eventId, { allowClosed = false } = {}) => {
   if (!eventId || !mongoose.isValidObjectId(getId(eventId))) {
-    throw new AppError("A valid event is required for vehicle registration.", 400);
+    throw new AppError(
+      "A valid event is required for vehicle registration.",
+      400
+    );
   }
 
   const event = assertFound(
@@ -111,7 +122,9 @@ const validateDriver = async (driverId, vendorId, vehicleId = null) => {
 };
 
 const ensureNoActiveAssignments = async (vehicleId) => {
-  const assignments = await vehicleAssignmentRepository.findByVehicle(vehicleId);
+  const assignments = await vehicleAssignmentRepository.findByVehicle(
+    vehicleId
+  );
 
   if (assignments?.length) {
     throw new AppError(
@@ -123,8 +136,6 @@ const ensureNoActiveAssignments = async (vehicleId) => {
 
 /**
  * Create a vehicle or register an existing vehicle for an event.
- * Signature matches the controller/importer:
- * createVehicle(vehicleData, createdByUserId).
  */
 const createVehicle = async (vehicleData = {}, createdBy = null) => {
   const normalizedNumber = normalizeVehicleNumber(
@@ -137,15 +148,14 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
 
   const vendorId = vehicleData.vendor || vehicleData.vendorId;
   const eventId = vehicleData.event || vehicleData.eventId;
-  const driverId = vehicleData.currentDriver || vehicleData.driverId || null;
+  const driverId =
+    vehicleData.currentDriver || vehicleData.driverId || null;
 
   const vendor = await validateVendor(vendorId);
   await validateEvent(eventId);
 
   const existingVehicle =
     await vehicleRepository.findByVehicleNumber(normalizedNumber);
-
-  let vehicle;
 
   if (existingVehicle) {
     if (getId(existingVehicle.vendor) !== getId(vendor._id)) {
@@ -174,9 +184,10 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
       );
 
       if (
-        [VEHICLE_STATUS.MAINTENANCE, VEHICLE_STATUS.INACTIVE].includes(
-          existingVehicle.status
-        )
+        [
+          VEHICLE_STATUS.MAINTENANCE,
+          VEHICLE_STATUS.INACTIVE,
+        ].includes(existingVehicle.status)
       ) {
         throw new AppError(
           "A vehicle in maintenance or inactive status cannot be linked to a driver.",
@@ -197,15 +208,46 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
       }
 
       if (
-        !existingDriverId ||
-        existingVehicle.status !== VEHICLE_STATUS.ASSIGNED
+        existingVehicle.status === VEHICLE_STATUS.ON_DUTY &&
+        !existingDriverId
       ) {
+        throw new AppError(
+          "This vehicle is marked ON_DUTY but has no linked driver. Correct the vehicle record before continuing.",
+          409
+        );
+      }
+
+      /*
+       * Do not downgrade an active-duty vehicle to ASSIGNED.
+       * Preserve ON_DUTY when the existing driver is unchanged.
+       */
+      const nextStatus =
+        existingVehicle.status === VEHICLE_STATUS.ON_DUTY
+          ? VEHICLE_STATUS.ON_DUTY
+          : VEHICLE_STATUS.ASSIGNED;
+
+      const needsVehicleUpdate =
+        !existingDriverId ||
+        existingDriverId !== getId(selectedDriver._id) ||
+        existingVehicle.status !== nextStatus;
+
+      if (needsVehicleUpdate) {
         await vehicleRepository.updateById(existingVehicle._id, {
           currentDriver: selectedDriver._id,
-          status: VEHICLE_STATUS.ASSIGNED,
+          status: nextStatus,
           ...(createdBy ? { updatedBy: createdBy } : {}),
         });
+      }
 
+      /*
+       * Always synchronize the driver's currentVehicle link.
+       * This repairs a stale driver link even if the vehicle
+       * already had the correct driver and status.
+       */
+      if (
+        getId(selectedDriver.currentVehicle) !==
+        getId(existingVehicle._id)
+      ) {
         await driverRepository.updateById(selectedDriver._id, {
           currentVehicle: existingVehicle._id,
           ...(createdBy ? { updatedBy: createdBy } : {}),
@@ -213,7 +255,7 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
       }
     }
 
-    vehicle = await vehicleRepository.addEventUsage(
+    const vehicle = await vehicleRepository.addEventUsage(
       existingVehicle._id,
       eventId
     );
@@ -244,7 +286,8 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
     ? await validateDriver(driverId, vendor._id)
     : null;
 
-  const requestedStatus = vehicleData.status || VEHICLE_STATUS.AVAILABLE;
+  const requestedStatus =
+    vehicleData.status || VEHICLE_STATUS.AVAILABLE;
 
   if (
     !selectedDriver &&
@@ -258,9 +301,10 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
 
   if (
     selectedDriver &&
-    [VEHICLE_STATUS.MAINTENANCE, VEHICLE_STATUS.INACTIVE].includes(
-      requestedStatus
-    )
+    [
+      VEHICLE_STATUS.MAINTENANCE,
+      VEHICLE_STATUS.INACTIVE,
+    ].includes(requestedStatus)
   ) {
     throw new AppError(
       "A vehicle in maintenance or inactive status cannot be linked to a driver.",
@@ -286,12 +330,15 @@ const createVehicle = async (vehicleData = {}, createdBy = null) => {
   const vehicleFields = {};
 
   for (const field of allowedFields) {
-    if (vehicleData[field] !== undefined && vehicleData[field] !== "") {
+    if (
+      vehicleData[field] !== undefined &&
+      vehicleData[field] !== ""
+    ) {
       vehicleFields[field] = vehicleData[field];
     }
   }
 
-  vehicle = await vehicleRepository.create({
+  const vehicle = await vehicleRepository.create({
     ...vehicleFields,
     vehicleNumber: normalizedNumber,
     vendor: vendor._id,
@@ -380,7 +427,10 @@ const updateVehicle = async (
       changes.vehicleNumber
     );
 
-    if (duplicate && getId(duplicate._id) !== getId(vehicle._id)) {
+    if (
+      duplicate &&
+      getId(duplicate._id) !== getId(vehicle._id)
+    ) {
       throw new AppError(
         "A vehicle with this registration number already exists.",
         409
@@ -399,7 +449,8 @@ const updateVehicle = async (
     ? changes.currentDriver
     : vehicle.currentDriver;
 
-  const vendorChanged = getId(vendorId) !== getId(vehicle.vendor);
+  const vendorChanged =
+    getId(vendorId) !== getId(vehicle.vendor);
 
   const driverChanged =
     driverWasProvided &&
@@ -420,9 +471,10 @@ const updateVehicle = async (
   if (
     driverWasProvided &&
     selectedDriver &&
-    [VEHICLE_STATUS.MAINTENANCE, VEHICLE_STATUS.INACTIVE].includes(
-      vehicle.status
-    )
+    [
+      VEHICLE_STATUS.MAINTENANCE,
+      VEHICLE_STATUS.INACTIVE,
+    ].includes(vehicle.status)
   ) {
     throw new AppError(
       "A vehicle in maintenance or inactive status cannot be linked to a driver.",
@@ -438,11 +490,15 @@ const updateVehicle = async (
     changes.currentDriver = selectedDriver?._id || null;
 
     if (selectedDriver) {
-      changes.status = VEHICLE_STATUS.ASSIGNED;
+      changes.status =
+        vehicle.status === VEHICLE_STATUS.ON_DUTY
+          ? VEHICLE_STATUS.ON_DUTY
+          : VEHICLE_STATUS.ASSIGNED;
     } else if (
-      [VEHICLE_STATUS.ASSIGNED, VEHICLE_STATUS.ON_DUTY].includes(
-        vehicle.status
-      )
+      [
+        VEHICLE_STATUS.ASSIGNED,
+        VEHICLE_STATUS.ON_DUTY,
+      ].includes(vehicle.status)
     ) {
       changes.status = VEHICLE_STATUS.AVAILABLE;
     }
@@ -565,7 +621,10 @@ const updateVehicleStatus = async (
   );
 
   if (
-    [VEHICLE_STATUS.ASSIGNED, VEHICLE_STATUS.ON_DUTY].includes(status)
+    [
+      VEHICLE_STATUS.ASSIGNED,
+      VEHICLE_STATUS.ON_DUTY,
+    ].includes(status)
   ) {
     throw new AppError(
       "Use the vehicle assignment workflow to assign a vehicle or mark it on duty.",
@@ -573,7 +632,10 @@ const updateVehicleStatus = async (
     );
   }
 
-  if (status === VEHICLE_STATUS.AVAILABLE && vehicle.currentDriver) {
+  if (
+    status === VEHICLE_STATUS.AVAILABLE &&
+    vehicle.currentDriver
+  ) {
     throw new AppError(
       "Remove the vehicle's current driver through the vehicle update workflow before marking it available.",
       409
@@ -581,7 +643,10 @@ const updateVehicleStatus = async (
   }
 
   if (
-    [VEHICLE_STATUS.MAINTENANCE, VEHICLE_STATUS.INACTIVE].includes(status)
+    [
+      VEHICLE_STATUS.MAINTENANCE,
+      VEHICLE_STATUS.INACTIVE,
+    ].includes(status)
   ) {
     await ensureNoActiveAssignments(vehicleId);
   }
