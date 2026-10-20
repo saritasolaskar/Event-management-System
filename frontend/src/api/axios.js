@@ -1,9 +1,11 @@
+
 import axios from "axios";
+
 import {
   getAccessToken,
   getRefreshToken,
   setAuthTokens,
-  clearAuthStorage
+  clearAuthStorage,
 } from "../utils/storage";
 
 const API_BASE_URL =
@@ -13,9 +15,9 @@ const API_BASE_URL =
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
   },
-  timeout: 30000
+  timeout: 30000,
 });
 
 let isRefreshing = false;
@@ -31,7 +33,9 @@ const notifyRefreshSubscribers = (token) => {
 };
 
 const rejectRefreshSubscribers = (error) => {
-  refreshSubscribers.forEach((callback) => callback(null, error));
+  refreshSubscribers.forEach((callback) =>
+    callback(null, error)
+  );
   refreshSubscribers = [];
 };
 
@@ -47,6 +51,23 @@ api.interceptors.request.use(
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Let the browser/Axios generate the multipart boundary
+    // when sending files through FormData.
+    if (
+      typeof FormData !== "undefined" &&
+      config.data instanceof FormData
+    ) {
+      if (
+        config.headers &&
+        typeof config.headers.delete === "function"
+      ) {
+        config.headers.delete("Content-Type");
+      } else if (config.headers) {
+        delete config.headers["Content-Type"];
+        delete config.headers["content-type"];
+      }
     }
 
     return config;
@@ -66,16 +87,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (!error.response) {
+    if (!error.response || !originalRequest) {
       return Promise.reject(error);
     }
 
     const status = error.response.status;
-
-    /*
-     * Do not refresh authentication for auth endpoints.
-     */
-    const requestUrl = originalRequest?.url || "";
+    const requestUrl = originalRequest.url || "";
 
     const isAuthRequest =
       requestUrl.includes("/auth/login") ||
@@ -84,7 +101,11 @@ api.interceptors.response.use(
       requestUrl.includes("/auth/logout") ||
       requestUrl.includes("/auth/set-password");
 
-    if (status !== 401 || isAuthRequest || originalRequest?._retry) {
+    if (
+      status !== 401 ||
+      isAuthRequest ||
+      originalRequest._retry
+    ) {
       return Promise.reject(error);
     }
 
@@ -95,10 +116,8 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    /*
-     * Another request may already be refreshing the token.
-     * Wait for it instead of creating multiple refresh requests.
-     */
+    // Wait for an existing refresh request instead of
+    // launching multiple refresh requests simultaneously.
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         subscribeToRefresh((newToken, refreshError) => {
@@ -107,7 +126,11 @@ api.interceptors.response.use(
             return;
           }
 
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          originalRequest.headers =
+            originalRequest.headers || {};
+
+          originalRequest.headers.Authorization =
+            `Bearer ${newToken}`;
 
           resolve(api(originalRequest));
         });
@@ -120,14 +143,12 @@ api.interceptors.response.use(
     try {
       const refreshResponse = await axios.post(
         `${API_BASE_URL}/auth/refresh`,
-        {
-          refreshToken
-        },
+        { refreshToken },
         {
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           },
-          timeout: 30000
+          timeout: 30000,
         }
       );
 
@@ -137,15 +158,20 @@ api.interceptors.response.use(
       const newRefreshToken = responseData?.refreshToken;
 
       if (!newAccessToken || !newRefreshToken) {
-        throw new Error("Invalid token refresh response.");
+        throw new Error(
+          "Invalid token refresh response."
+        );
       }
 
       setAuthTokens({
         accessToken: newAccessToken,
-        refreshToken: newRefreshToken
+        refreshToken: newRefreshToken,
       });
 
       notifyRefreshSubscribers(newAccessToken);
+
+      originalRequest.headers =
+        originalRequest.headers || {};
 
       originalRequest.headers.Authorization =
         `Bearer ${newAccessToken}`;
