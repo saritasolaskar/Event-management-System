@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const dutySchema = new mongoose.Schema(
@@ -12,6 +13,12 @@ const dutySchema = new mongoose.Schema(
             type: Number,
             required: true,
             min: 0,
+        },
+
+        startOdometerPhoto: {
+            type: String,
+            trim: true,
+            default: null,
         },
 
         endKm: {
